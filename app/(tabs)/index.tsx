@@ -25,7 +25,7 @@ export default function StoreScreen() {
     const allTab: StorefrontTab = { id: "fallback-all", title: "الكل", searchPlaceholder: "ابحثي عن منتج أو متجر", isActive: true, sortOrder: 0, slides: firstImage ? [{ id: "fallback-hero", title: "اختيارات تناسبك", subtitle: "تسوّقي أحدث المنتجات", ctaLabel: "تسوّقي الآن", imageUrl: firstImage, storageKey: "", isActive: true, sortOrder: 0 }] : [], circles: categoryNames.map((name, index) => ({ id: `fallback-circle-${index}`, title: name, targetCategory: name, imageUrl: products.find((product) => product.categories.includes(name))?.images[0]?.url || "", storageKey: "", isActive: true, sortOrder: index })) };
     return [allTab, ...categoryNames.map((name, index) => ({ id: `fallback-category-${index}`, title: name, searchPlaceholder: `ابحثي في ${name}`, isActive: true, sortOrder: index + 1, slides: [], circles: [] }))];
   }, [products]);
-  const displayTabs = tabs.length ? tabs : fallbackTabs;
+  const displayTabs = useMemo(() => { const base = tabs.length ? tabs : fallbackTabs; const existing = new Set(base.map(tab => tab.title)); const categories = Array.from(new Set(products.flatMap(product => product.categories))).filter(name => name && !existing.has(name)).slice(0, 12); return [...base, ...categories.map((name, index) => ({ id: `auto-category-${index}-${name}`, title: name, searchPlaceholder: `ابحثي في ${name}`, isActive: true, sortOrder: base.length + index, slides: [], circles: [] }))]; }, [fallbackTabs, products, tabs]);
 
   useEffect(() => {
     if (!activeTabId && displayTabs[0]) setActiveTabId(displayTabs[0].id);
@@ -76,7 +76,7 @@ export default function StoreScreen() {
         data={visibleProducts}
         keyExtractor={(item) => item.id}
         numColumns={2}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
         columnWrapperStyle={visibleProducts.length > 1 ? styles.productRow : undefined}
         contentContainerStyle={styles.listContent}
         refreshing={productsLoading || storefrontLoading}
