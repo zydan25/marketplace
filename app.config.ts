@@ -31,7 +31,7 @@ const config: ExpoConfig = {
   extra: {
     appVariant: variant,
     djangoApiUrl: process.env.EXPO_PUBLIC_DJANGO_API_URL ?? "",
-    eas: { projectId: process.env.EAS_PROJECT_ID ?? "db52bc59-eea0-42e4-b4be-c1155b7b437c" },
+    eas: { projectId: process.env.EAS_PROJECT_ID ?? "230441d9-9642-4102-b94e-21ba73cd6898" },
   },
   ios: {
     supportsTablet: true,
