@@ -143,11 +143,12 @@ class WalletTransactionSerializer(serializers.ModelSerializer):
 
 
 class WalletSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
     transactions = WalletTransactionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Wallet
-        fields = ["id", "balance", "currency", "is_locked", "transactions"]
+        fields = ["id", "user", "balance", "currency", "is_locked", "transactions"]
         read_only_fields = ["id", "balance", "is_locked", "transactions"]
 
 

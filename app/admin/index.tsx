@@ -15,6 +15,7 @@ const sections = [
   { icon: "support-agent", label: "محادثات العملاء", text: "متابعة رسائل تواصل معنا", route: "/admin/support" },
   { icon: "group-add", label: "الدعوات والمكافآت", text: "تفعيل الرابط وتتبع المدعوين", route: "/admin/referrals" },
   { icon: "people-outline", label: "العملاء", text: "الكوبونات والهدايا", route: "/admin/customers" },
+  { icon: "account-balance-wallet", label: "المحافظ وسندات القبض", text: "إضافة رصيد وتسجيل العمليات", route: "/admin/wallets" },
 ];
 
 export default function AdminScreen() {
