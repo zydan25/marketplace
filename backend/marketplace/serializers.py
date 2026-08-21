@@ -3,6 +3,7 @@ import binascii
 
 from django.core.files.base import ContentFile
 from rest_framework import serializers
+from .models_extended import ProductVariant
 
 from .models import (
     Category,
@@ -60,6 +61,19 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug", "image", "parent", "is_active", "sort_order"]
 
 
+class ProductVariantSerializer(serializers.ModelSerializer):
+    available_stock = serializers.IntegerField(read_only=True)
+    effective_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductVariant
+        fields = ["id", "sku", "color", "size", "price_override", "available_stock", "stock", "reserved_stock", "effective_price"]
+        read_only_fields = ["id", "available_stock", "effective_price"]
+
+    def get_effective_price(self, obj):
+        return obj.price_override if obj.price_override is not None else obj.product.effective_price
+
+
 class ProductSerializer(serializers.ModelSerializer):
     vendor = VendorSerializer(read_only=True)
     categories = CategorySerializer(many=True, read_only=True)
@@ -70,10 +84,13 @@ class ProductSerializer(serializers.ModelSerializer):
     gallery = serializers.SerializerMethodField()
     image_data_urls = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
     main_image_data_url = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    keep_image_ids = serializers.ListField(child=serializers.IntegerField(), write_only=True, required=False)
+    delete_image_ids = serializers.ListField(child=serializers.IntegerField(), write_only=True, required=False)
+    variants = ProductVariantSerializer(many=True, required=False)
 
     class Meta:
         model = Product
-        fields = ["id", "vendor", "categories", "category_ids", "sku", "name", "slug", "description", "brand", "material", "shipping_note", "return_policy", "price", "sale_price", "effective_price", "discount_percent", "currency", "stock", "colors", "sizes", "hashtags", "details", "main_image_url", "images", "gallery", "image_data_urls", "main_image_data_url", "rating", "reviews_count", "sold_count", "is_published", "is_trending"]
+        fields = ["id", "vendor", "categories", "category_ids", "sku", "name", "slug", "description", "brand", "material", "shipping_note", "return_policy", "price", "sale_price", "effective_price", "discount_percent", "currency", "stock", "colors", "sizes", "hashtags", "details", "main_image_url", "images", "gallery", "image_data_urls", "main_image_data_url", "keep_image_ids", "delete_image_ids", "variants", "rating", "reviews_count", "sold_count", "is_published", "is_trending"]
         read_only_fields = ["id", "vendor", "effective_price", "discount_percent", "main_image_url", "gallery", "rating", "reviews_count", "sold_count"]
 
     def _absolute(self, value):
@@ -116,14 +133,28 @@ class ProductSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         urls = validated_data.pop("image_data_urls", [])
         main_url = validated_data.pop("main_image_data_url", "")
+        variants_data = validated_data.pop("variants", [])
         product = super().create(validated_data)
+        if variants_data:
+            ProductVariant.objects.bulk_create([ProductVariant(product=product, **row) for row in variants_data])
         self._save_data_images(product, ([main_url] if main_url else []) + urls)
         return product
 
     def update(self, instance, validated_data):
         urls = validated_data.pop("image_data_urls", [])
         main_url = validated_data.pop("main_image_data_url", "")
+        keep_value = validated_data.pop("keep_image_ids", None)
+        keep_ids = set(keep_value or []) if keep_value is not None else None
+        delete_ids = set(validated_data.pop("delete_image_ids", []))
+        variants_data = validated_data.pop("variants", None)
         product = super().update(instance, validated_data)
+        if delete_ids:
+            product.image_items.filter(id__in=delete_ids).delete()
+        if keep_ids is not None:
+            product.image_items.exclude(id__in=keep_ids).delete()
+        if variants_data is not None:
+            product.variants.all().delete()
+            ProductVariant.objects.bulk_create([ProductVariant(product=product, **row) for row in variants_data])
         self._save_data_images(product, ([main_url] if main_url else []) + urls)
         return product
 

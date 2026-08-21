@@ -1,5 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View, Platform } from "react-native";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
@@ -18,7 +18,7 @@ export default function BagScreen() {
 function EmptyBag() { return <View style={styles.empty}><View style={styles.emptyIcon}><MaterialIcons name="shopping-bag" size={42} color="#1B1B1B" /></View><Text style={styles.emptyTitle}>حقيبتك فارغة</Text><Text style={styles.emptySub}>اكتشفي القطع الجديدة وأضيفي ما يعجبك.</Text><TouchableOpacity style={styles.startButton} onPress={() => router.replace("/")}><Text style={styles.startButtonText}>ابدئي التسوق</Text></TouchableOpacity></View>; }
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: "#F9F9F9" },
-  list: { padding: 16, paddingBottom: 140 },
+  list: { padding: 16, paddingBottom: 230 },
   header: { backgroundColor: "#FFF", padding: 16, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#F5F5F5" },
   title: { color: "#111", fontSize: 18, fontWeight: "900" },
   countText: { color: "#777", fontSize: 12 },
@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   quantity: { width: 24, textAlign: "center", color: "#111", fontSize: 13, fontWeight: "800" },
   footerHint: { flexDirection: "row-reverse", gap: 6, alignItems: "center", padding: 16, justifyContent: "center" },
   footerHintText: { color: "#777", fontSize: 11 },
-  bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#FFF", borderTopWidth: 1, borderColor: "#F0F0F0", paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row-reverse", alignItems: "center", gap: 12 },
+  bottomBar: { position: "absolute", bottom: Platform.OS === "web" ? 68 : 78, left: 0, right: 0, zIndex: 20, elevation: 20, backgroundColor: "#FFF", borderTopWidth: 1, borderColor: "#F0F0F0", paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row-reverse", alignItems: "center", gap: 12 },
   selectAll: { alignItems: "center", gap: 4 },
   selectAllText: { color: "#555", fontSize: 10 },
   totalBox: { flex: 1, alignItems: "flex-end" },

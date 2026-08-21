@@ -1,5 +1,6 @@
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View, Dimensions, ScrollView } from "react-native";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { ProductCard } from "@/components/product-card";
@@ -17,18 +18,12 @@ export default function StoreScreen() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [activeCircleId, setActiveCircleId] = useState<string | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [filterMode, setFilterMode] = useState<"for_you" | "new" | "deals" | "bestsellers">("for_you");
   const fallbackTabs = useMemo<StorefrontTab[]>(() => {
     const categoryNames = Array.from(new Set(products.flatMap((product) => product.categories))).filter(Boolean).slice(0, 12);
     const firstImage = products[0]?.images[0]?.url || "";
-    return [{
-      id: "fallback-all",
-      title: "الكل",
-      searchPlaceholder: "ابحثي عن منتج أو متجر",
-      isActive: true,
-      sortOrder: 0,
-      slides: firstImage ? [{ id: "fallback-hero", title: "اختيارات تناسبك", subtitle: "تسوّقي أحدث المنتجات", ctaLabel: "تسوّقي الآن", imageUrl: firstImage, storageKey: "", isActive: true, sortOrder: 0 }] : [],
-      circles: categoryNames.map((name, index) => ({ id: `fallback-circle-${index}`, title: name, targetCategory: name, imageUrl: products.find((product) => product.categories.includes(name))?.images[0]?.url || "", storageKey: "", isActive: true, sortOrder: index })),
-    }];
+    const allTab: StorefrontTab = { id: "fallback-all", title: "الكل", searchPlaceholder: "ابحثي عن منتج أو متجر", isActive: true, sortOrder: 0, slides: firstImage ? [{ id: "fallback-hero", title: "اختيارات تناسبك", subtitle: "تسوّقي أحدث المنتجات", ctaLabel: "تسوّقي الآن", imageUrl: firstImage, storageKey: "", isActive: true, sortOrder: 0 }] : [], circles: categoryNames.map((name, index) => ({ id: `fallback-circle-${index}`, title: name, targetCategory: name, imageUrl: products.find((product) => product.categories.includes(name))?.images[0]?.url || "", storageKey: "", isActive: true, sortOrder: index })) };
+    return [allTab, ...categoryNames.map((name, index) => ({ id: `fallback-category-${index}`, title: name, searchPlaceholder: `ابحثي في ${name}`, isActive: true, sortOrder: index + 1, slides: [], circles: [] }))];
   }, [products]);
   const displayTabs = tabs.length ? tabs : fallbackTabs;
 
@@ -53,10 +48,7 @@ export default function StoreScreen() {
   const activeCircle = activeTab?.circles.find((circle) => circle.id === activeCircleId);
   const currentSlide = slides[slideIndex];
 
-  const visibleProducts = useMemo(() =>
-    products.filter((product) => shouldShowStoreProduct(product, activeTab, activeCircle)),
-    [activeCircle, activeTab, products]
-  );
+  const visibleProducts = useMemo(() => products.filter((product) => { if (!shouldShowStoreProduct(product, activeTab, activeCircle)) return false; if (filterMode === "deals") return product.discountPercent > 0; if (filterMode === "bestsellers") return product.reviews > 0 || product.rating >= 4; return true; }), [activeCircle, activeTab, filterMode, products]);
 
   const refresh = async () => {
     await Promise.all([refreshProducts(), refreshStorefront()]);
@@ -72,7 +64,7 @@ export default function StoreScreen() {
             <TouchableOpacity
               key={tab.id}
               style={[styles.tabItem, activeTab?.id === tab.id && styles.tabActive]}
-              onPress={() => { setActiveTabId(tab.id); setActiveCircleId(null); }}
+              onPress={() => { setActiveTabId(tab.id); setActiveCircleId(null); if (!isAllStoreTab(tab)) router.push(`/collection?category=${encodeURIComponent(tab.title)}` as never); }}
             >
               <Text style={[styles.tabText, activeTab?.id === tab.id && styles.tabTextActive]}>{tab.title}</Text>
             </TouchableOpacity>
@@ -115,15 +107,15 @@ export default function StoreScreen() {
 
             {/* Flash Sale & Shipping Info */}
             <View style={styles.promoBar}>
-              <View style={styles.promoItem}>
+              <TouchableOpacity style={styles.promoItem} onPress={() => router.push("/collection?mode=flash" as never)}>
                 <View style={styles.promoIcon}><MaterialIcons name="bolt" size={18} color="#111" /></View>
                 <View><Text style={styles.promoTitle}>تخفيضات سريعة</Text><Text style={styles.promoLink}>عرض المزيد</Text></View>
-              </View>
+              </TouchableOpacity>
               <View style={styles.promoDivider} />
-              <View style={styles.promoItem}>
+              <TouchableOpacity style={styles.promoItem} onPress={() => router.push("/collection?mode=free_shipping" as never)}>
                 <View style={styles.promoIcon}><MaterialIcons name="local-shipping" size={18} color="#111" /></View>
                 <View><Text style={styles.promoTitle}>شحن مجاني</Text><Text style={styles.promoSub}>أضيفي المزيد للحصول عليه</Text></View>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* Circle Categories */}
@@ -137,7 +129,7 @@ export default function StoreScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.circleList}
                   renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.circleItem} onPress={() => setActiveCircleId((current) => current === item.id ? null : item.id)}>
+                    <TouchableOpacity style={styles.circleItem} onPress={() => { setActiveCircleId((current) => current === item.id ? null : item.id); router.push(`/collection?category=${encodeURIComponent(item.targetCategory || item.title)}` as never); }}>
                       <View style={[styles.circleImageWrap, activeCircle?.id === item.id && styles.circleSelected]}>
                         {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.circleImage} /> : <MaterialIcons name="category" size={24} color="#808080" />}
                       </View>
@@ -150,10 +142,10 @@ export default function StoreScreen() {
 
             {/* Filter Tabs */}
             <View style={styles.filterBar}>
-              <FilterTab label="لكِ" active />
-              <FilterTab label="وصل حديثًا" />
-              <FilterTab label="العروض" />
-              <FilterTab label="الأكثر مبيعًا" />
+              <FilterTab label="لكِ" active={filterMode === "for_you"} onPress={() => setFilterMode("for_you")} />
+              <FilterTab label="وصل حديثًا" active={filterMode === "new"} onPress={() => setFilterMode("new")} />
+              <FilterTab label="العروض" active={filterMode === "deals"} onPress={() => setFilterMode("deals")} />
+              <FilterTab label="الأكثر مبيعًا" active={filterMode === "bestsellers"} onPress={() => setFilterMode("bestsellers")} />
             </View>
 
             <View style={styles.sectionHeading}>
@@ -173,9 +165,9 @@ export default function StoreScreen() {
   );
 }
 
-function FilterTab({ label, active = false }: { label: string; active?: boolean }) {
+function FilterTab({ label, active = false, onPress }: { label: string; active?: boolean; onPress: () => void }) {
   return (
-    <TouchableOpacity style={[styles.filterTab, active && styles.filterTabActive]}>
+    <TouchableOpacity onPress={onPress} style={[styles.filterTab, active && styles.filterTabActive]}>
       <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>{label}</Text>
     </TouchableOpacity>
   );

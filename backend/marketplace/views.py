@@ -135,6 +135,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         vendor = self.request.query_params.get("vendor")
         category = self.request.query_params.get("category")
         trending = self.request.query_params.get("trending")
+        tag = self.request.query_params.get("tag")
         if query:
             queryset = queryset.filter(Q(name__icontains=query) | Q(sku__icontains=query) | Q(description__icontains=query))
         if vendor:
@@ -143,6 +144,8 @@ class ProductViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(categories__slug=category)
         if trending == "1":
             queryset = queryset.filter(is_trending=True)
+        if tag:
+            queryset = queryset.filter(hashtags__icontains=tag)
         return queryset.distinct()
 
     def get_permissions(self):

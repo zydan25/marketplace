@@ -21,6 +21,7 @@ export default function TabLayout() {
       <Tabs.Screen name="categories" options={{ title: "الفئات", tabBarIcon: ({ color }) => <IconSymbol name="square.grid.2x2.fill" size={22} color={color} /> }} />
       <Tabs.Screen name="trends" options={{ title: "ترند", tabBarIcon: ({ color }) => <IconSymbol name="sparkles" size={22} color={color} /> }} />
       <Tabs.Screen name="bag" options={{ title: "السلة", tabBarIcon: ({ color }) => <IconSymbol name="bag.fill" size={22} color={color} /> }} />
+      <Tabs.Screen name="vendors" options={{ title: "التجار", tabBarIcon: ({ color }) => <IconSymbol name="cube.box.fill" size={22} color={color} /> }} />
       <Tabs.Screen name="profile" options={{ title: "حسابي", tabBarIcon: ({ color }) => <IconSymbol name="person.fill" size={22} color={color} /> }} />
     </Tabs>
   );

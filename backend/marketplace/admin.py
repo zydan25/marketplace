@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
 from .models_extra import GiftTransfer, Loan
+from .models_extended import ProductVariant
 from .models import (
     Category,
     Conversation,
@@ -65,6 +66,13 @@ class ProductAdmin(admin.ModelAdmin):
     @admin.display(description="السعر الحالي")
     def effective_price_display(self, obj):
         return obj.effective_price
+
+
+@admin.register(ProductVariant)
+class ProductVariantAdmin(admin.ModelAdmin):
+    list_display = ("product", "sku", "color", "size", "price_override", "stock", "reserved_stock")
+    list_filter = ("color", "size")
+    search_fields = ("product__name", "sku", "color", "size")
 
 
 @admin.register(ProductImage)

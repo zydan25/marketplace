@@ -55,7 +55,7 @@ class GiftTransferViewSet(viewsets.ModelViewSet):
 
         receiver = User.objects.filter(phone=receiver_phone).first()
         if not receiver:
-            return Response({"detail": "رقم الهاتف المستلم غير مسجل"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "المحفظة التي طُلب التحويل إليها غير موجودة؛ لم يتم إنشاء طلب التحويل."}, status=status.HTTP_404_NOT_FOUND)
 
         if receiver == request.user:
             return Response({"detail": "لا يمكنك تحويل رصيد لنفسك"}, status=status.HTTP_400_BAD_REQUEST)
