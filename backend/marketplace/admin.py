@@ -12,6 +12,7 @@ from .models import (
     Order,
     OrderItem,
     Product,
+    ProductImage,
     Referral,
     StorefrontSection,
     User,
@@ -64,6 +65,13 @@ class ProductAdmin(admin.ModelAdmin):
     @admin.display(description="السعر الحالي")
     def effective_price_display(self, obj):
         return obj.effective_price
+
+
+@admin.register(ProductImage)
+class ProductImageAdmin(admin.ModelAdmin):
+    list_display = ("product", "sort_order", "is_primary", "created_at")
+    list_filter = ("is_primary",)
+    search_fields = ("product__name", "product__sku", "alt_text")
 
 
 @admin.register(StorefrontSection)

@@ -1,4 +1,9 @@
+import base64
+import binascii
+
+from django.core.files.base import ContentFile
 from rest_framework import serializers
+
 from .models import (
     Category,
     Conversation,
@@ -9,6 +14,7 @@ from .models import (
     Order,
     OrderItem,
     Product,
+    ProductImage,
     StorefrontSection,
     User,
     VendorProfile,
@@ -57,16 +63,69 @@ class CategorySerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     vendor = VendorSerializer(read_only=True)
     categories = CategorySerializer(many=True, read_only=True)
+    category_ids = serializers.PrimaryKeyRelatedField(queryset=Category.objects.filter(is_active=True), many=True, source="categories", write_only=True, required=False)
     effective_price = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     discount_percent = serializers.IntegerField(read_only=True)
     main_image_url = serializers.SerializerMethodField()
+    gallery = serializers.SerializerMethodField()
+    image_data_urls = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
+    main_image_data_url = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Product
-        fields = ["id", "vendor", "categories", "sku", "name", "slug", "description", "price", "sale_price", "effective_price", "discount_percent", "currency", "stock", "colors", "sizes", "hashtags", "details", "main_image_url", "images", "rating", "reviews_count", "is_published", "is_trending"]
+        fields = ["id", "vendor", "categories", "category_ids", "sku", "name", "slug", "description", "brand", "material", "shipping_note", "return_policy", "price", "sale_price", "effective_price", "discount_percent", "currency", "stock", "colors", "sizes", "hashtags", "details", "main_image_url", "images", "gallery", "image_data_urls", "main_image_data_url", "rating", "reviews_count", "sold_count", "is_published", "is_trending"]
+        read_only_fields = ["id", "vendor", "effective_price", "discount_percent", "main_image_url", "gallery", "rating", "reviews_count", "sold_count"]
+
+    def _absolute(self, value):
+        if not value:
+            return None
+        request = self.context.get("request")
+        if value.startswith("http://") or value.startswith("https://"):
+            return value
+        return request.build_absolute_uri(value) if request else value
 
     def get_main_image_url(self, obj):
-        return obj.main_image.url if obj.main_image else None
+        return self._absolute(obj.main_image.url) if obj.main_image else None
+
+    def get_gallery(self, obj):
+        output = []
+        for item in obj.image_items.all():
+            output.append({"id": item.id, "url": self._absolute(item.image.url), "alt": item.alt_text, "sort_order": item.sort_order, "is_primary": item.is_primary})
+        if not output and obj.images:
+            for index, value in enumerate(obj.images):
+                url = value.get("url") if isinstance(value, dict) else value
+                if url:
+                    output.append({"id": -index - 1, "url": self._absolute(str(url)), "alt": "", "sort_order": index, "is_primary": index == 0})
+        return output
+
+    def _save_data_images(self, product, urls):
+        for index, data_url in enumerate(urls or []):
+            if not data_url or ";base64," not in data_url:
+                continue
+            header, encoded = data_url.split(";base64,", 1)
+            extension = header.split("/")[-1].split(";")[0] or "jpg"
+            try:
+                content = ContentFile(base64.b64decode(encoded), name=f"product-{product.pk}-{index}.{extension}")
+            except (ValueError, binascii.Error):
+                continue
+            ProductImage.objects.create(product=product, image=content, sort_order=index, is_primary=index == 0)
+        if not product.main_image and product.image_items.exists():
+            product.main_image = product.image_items.first().image
+            product.save(update_fields=["main_image", "updated_at"])
+
+    def create(self, validated_data):
+        urls = validated_data.pop("image_data_urls", [])
+        main_url = validated_data.pop("main_image_data_url", "")
+        product = super().create(validated_data)
+        self._save_data_images(product, ([main_url] if main_url else []) + urls)
+        return product
+
+    def update(self, instance, validated_data):
+        urls = validated_data.pop("image_data_urls", [])
+        main_url = validated_data.pop("main_image_data_url", "")
+        product = super().update(instance, validated_data)
+        self._save_data_images(product, ([main_url] if main_url else []) + urls)
+        return product
 
 
 class StorefrontSectionSerializer(serializers.ModelSerializer):

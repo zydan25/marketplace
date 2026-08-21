@@ -45,7 +45,13 @@ type DjangoProduct = {
   reviews_count?: number;
   categories?: Array<{ id?: number; name: string; slug?: string }>;
   main_image_url?: string | null;
-  images?: Array<{ id?: number; url?: string; storageKey?: string; sortOrder?: number }>;
+  images?: Array<{ id?: number; url?: string; storageKey?: string; sortOrder?: number } | string>;
+  gallery?: Array<{ id?: number; url?: string; alt?: string; sort_order?: number; is_primary?: boolean }>;
+  brand?: string;
+  material?: string;
+  shipping_note?: string;
+  return_policy?: string;
+  sold_count?: number;
 };
 
 function numberValue(value: string | number | null | undefined): number {
@@ -56,12 +62,16 @@ function numberValue(value: string | number | null | undefined): number {
 function normalizeProduct(product: DjangoProduct): StoreProduct {
   const basePrice = numberValue(product.price);
   const finalPrice = numberValue(product.effective_price ?? product.sale_price ?? product.price);
-  const imageItems = (product.images ?? []).map((image, index) => ({
-    id: Number(image.id ?? index),
-    storageKey: image.storageKey ?? "",
-    url: image.url ?? "",
-    sortOrder: Number(image.sortOrder ?? index),
-  })).filter((image) => image.url);
+  const rawImages = product.gallery?.length ? product.gallery : (product.images ?? []);
+  const imageItems = rawImages.map((image, index) => {
+    const item = typeof image === "string" ? { url: image } : image;
+    return {
+      id: Number(item.id ?? index),
+      storageKey: "storageKey" in item ? String(item.storageKey ?? "") : "",
+      url: String(item.url ?? ""),
+      sortOrder: Number("sort_order" in item ? item.sort_order ?? index : "sortOrder" in item ? item.sortOrder ?? index : index),
+    };
+  }).filter((image) => image.url);
   if (product.main_image_url && !imageItems.some((image) => image.url === product.main_image_url)) {
     imageItems.unshift({ id: -1, storageKey: "", url: product.main_image_url, sortOrder: -1 });
   }
@@ -73,11 +83,11 @@ function normalizeProduct(product: DjangoProduct): StoreProduct {
     categories: (product.categories ?? []).map((category) => category.name),
     description: product.description ?? "",
     details: product.details ?? "",
-    material: "",
+    material: product.material ?? "",
     price: finalPrice,
     originalPrice: basePrice,
     discountPercent: Number(product.discount_percent ?? (basePrice > finalPrice ? Math.round((1 - finalPrice / basePrice) * 100) : 0)),
-    shippingNote: "",
+    shippingNote: product.shipping_note ?? "",
     isTrending: Boolean(product.is_trending),
     trendTags: product.hashtags ?? [],
     images: imageItems,

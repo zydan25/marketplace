@@ -120,12 +120,13 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
-    lookup_field = "slug"
+    # التطبيق يمرر رقم المنتج من البطاقة؛ هذا يمنع ظهور «الصنف غير موجود».
+    lookup_field = "pk"
 
     def get_queryset(self):
-        queryset = Product.objects.filter(is_published=True).select_related("vendor", "vendor__owner").prefetch_related("categories")
+        queryset = Product.objects.filter(is_published=True).select_related("vendor", "vendor__owner").prefetch_related("categories", "image_items")
         if self.request.user.is_authenticated and self.request.user.role == "vendor":
-            queryset = Product.objects.filter(vendor__owner=self.request.user).select_related("vendor", "vendor__owner").prefetch_related("categories")
+            queryset = Product.objects.filter(vendor__owner=self.request.user).select_related("vendor", "vendor__owner").prefetch_related("categories", "image_items")
         query = self.request.query_params.get("q")
         vendor = self.request.query_params.get("vendor")
         category = self.request.query_params.get("category")

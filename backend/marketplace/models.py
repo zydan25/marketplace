@@ -102,6 +102,10 @@ class Product(TimeStampedModel):
     name = models.CharField(max_length=220)
     slug = models.SlugField(max_length=240, unique=True)
     description = models.TextField(blank=True)
+    brand = models.CharField(max_length=120, blank=True)
+    material = models.CharField(max_length=180, blank=True)
+    shipping_note = models.CharField(max_length=255, blank=True)
+    return_policy = models.CharField(max_length=255, blank=True)
     price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     sale_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
     currency = models.CharField(max_length=6, default="YER")
@@ -116,6 +120,7 @@ class Product(TimeStampedModel):
     reviews_count = models.PositiveIntegerField(default=0)
     is_published = models.BooleanField(default=False)
     is_trending = models.BooleanField(default=False)
+    sold_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ["-created_at"]
@@ -133,6 +138,17 @@ class Product(TimeStampedModel):
 
     def __str__(self):
         return f"{self.name} ({self.sku})"
+
+
+class ProductImage(TimeStampedModel):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="image_items")
+    image = models.ImageField(upload_to="products/gallery/")
+    alt_text = models.CharField(max_length=180, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_primary = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
 
 
 class StorefrontSection(TimeStampedModel):

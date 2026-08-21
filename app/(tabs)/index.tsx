@@ -117,12 +117,12 @@ export default function StoreScreen() {
             <View style={styles.promoBar}>
               <View style={styles.promoItem}>
                 <View style={styles.promoIcon}><MaterialIcons name="bolt" size={18} color="#111" /></View>
-                <View><Text style={styles.promoTitle}>Flash Sale</Text><Text style={styles.promoLink}>View more</Text></View>
+                <View><Text style={styles.promoTitle}>تخفيضات سريعة</Text><Text style={styles.promoLink}>عرض المزيد</Text></View>
               </View>
               <View style={styles.promoDivider} />
               <View style={styles.promoItem}>
                 <View style={styles.promoIcon}><MaterialIcons name="local-shipping" size={18} color="#111" /></View>
-                <View><Text style={styles.promoTitle}>Free Shipping</Text><Text style={styles.promoSub}>Buy $99.00 more to get</Text></View>
+                <View><Text style={styles.promoTitle}>شحن مجاني</Text><Text style={styles.promoSub}>أضيفي المزيد للحصول عليه</Text></View>
               </View>
             </View>
 
@@ -150,10 +150,10 @@ export default function StoreScreen() {
 
             {/* Filter Tabs */}
             <View style={styles.filterBar}>
-              <FilterTab label="For You" active />
-              <FilterTab label="New In" />
-              <FilterTab label="Deals" />
-              <FilterTab label="Bestsellers" />
+              <FilterTab label="لكِ" active />
+              <FilterTab label="وصل حديثًا" />
+              <FilterTab label="العروض" />
+              <FilterTab label="الأكثر مبيعًا" />
             </View>
 
             <View style={styles.sectionHeading}>

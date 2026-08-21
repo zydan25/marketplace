@@ -1,176 +1,69 @@
-import { useState, useEffect } from "react";
-import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Switch } from "react-native";
+import { useEffect, useState } from "react";
+import * as ImagePicker from "expo-image-picker";
+import { ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoApi } from "@/lib/django-api";
 
-type Product = { id: number; name: string; sku: string; effective_price: string; stock: number; is_published: boolean; currency: string };
+type Product = { id: number; name: string; sku: string; description?: string; brand?: string; material?: string; shipping_note?: string; return_policy?: string; price: string; sale_price?: string | null; effective_price: string; stock: number; currency: string; colors?: { name: string; hex?: string }[]; sizes?: { label: string; stock?: number }[]; hashtags?: string[]; details?: Record<string, string> | string; is_trending: boolean; is_published: boolean; main_image_url?: string | null; gallery?: { id: number; url: string }[] };
+
+const emptyForm = { name: "", sku: "", brand: "", material: "", description: "", details: "", price: "", salePrice: "", stock: "", shipping: "", returns: "", colors: "", sizes: "", hashtags: "", isTrending: false, isPublished: true };
+type FormState = typeof emptyForm;
 
 export default function VendorProductsScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [sku, setSku] = useState("");
-  const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [imageData, setImageData] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   async function load() {
-    try {
-      setLoading(true);
-      const data = await djangoApi<{ results?: Product[] }>("/api/products/");
-      setProducts(data.results ?? []);
-    } catch (error) {
-      Alert.alert("تعذر التحميل", error instanceof Error ? error.message : "حدث خطأ");
-    } finally {
-      setLoading(false);
-    }
+    try { setLoading(true); const data = await djangoApi<{ results?: Product[] }>("/api/products/"); setProducts(data.results ?? []); }
+    catch (error) { Alert.alert("تعذر التحميل", error instanceof Error ? error.message : "حدث خطأ"); }
+    finally { setLoading(false); }
   }
-
   useEffect(() => { load(); }, []);
 
+  const setField = (key: keyof FormState, value: string | boolean) => setForm(current => ({ ...current, [key]: value }));
+  const parseColors = () => form.colors.split(",").map((value, index) => { const [name, hex] = value.split(":"); return { name: (name || `لون ${index + 1}`).trim(), hex: (hex || "#E5E5E5").trim() }; }).filter(item => item.name);
+  const parseSizes = () => form.sizes.split(",").map((value, index) => { const [label, stock] = value.split(":"); return { label: (label || `مقاس ${index + 1}`).trim(), stock: Number(stock || form.stock || 0) }; }).filter(item => item.label);
+
+  async function pickImages() {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: true, quality: 0.78, base64: true });
+    if (result.canceled) return;
+    const encoded = result.assets.filter(asset => asset.base64).map(asset => `data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`);
+    setImageData(current => [...current, ...encoded].slice(0, 8));
+  }
+
+  function openCreate() { setEditingId(null); setForm(emptyForm); setImageData([]); setShowForm(true); }
+  function openEdit(product: Product) {
+    const details = typeof product.details === "string" ? product.details : Object.entries(product.details ?? {}).map(([key, value]) => `${key}: ${value}`).join("\n");
+    setEditingId(product.id); setForm({ name: product.name, sku: product.sku, brand: product.brand ?? "", material: product.material ?? "", description: product.description ?? "", details, price: String(product.price ?? ""), salePrice: String(product.sale_price ?? ""), stock: String(product.stock ?? ""), shipping: product.shipping_note ?? "", returns: product.return_policy ?? "", colors: (product.colors ?? []).map(color => `${color.name}:${color.hex ?? "#E5E5E5"}`).join(","), sizes: (product.sizes ?? []).map(size => `${size.label}:${size.stock ?? product.stock}`).join(","), hashtags: (product.hashtags ?? []).join(","), isTrending: product.is_trending, isPublished: product.is_published }); setImageData([]); setShowForm(true);
+  }
+
   async function save() {
-    if (!name.trim() || !sku.trim() || !price || !stock) return Alert.alert("بيانات ناقصة", "أكمل اسم المنتج والرقم والسعر والمخزون.");
+    if (!form.name.trim() || !form.sku.trim() || !form.price || !form.stock) return Alert.alert("بيانات ناقصة", "أكمل الاسم ورقم الصنف والسعر والمخزون.");
     setSaving(true);
-    try {
-      await djangoApi("/api/products/", {
-        method: "POST",
-        body: JSON.stringify({
-          name: name.trim(),
-          sku: sku.trim(),
-          slug: `${sku.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now()}`,
-          price,
-          stock,
-          is_published: true,
-          currency: "YER"
-        })
-      });
-      setName(""); setSku(""); setPrice(""); setStock(""); setShowForm(false);
-      await load();
-      Alert.alert("نجاح", "تمت إضافة المنتج بنجاح.");
-    } catch (error) {
-      Alert.alert("تعذر الحفظ", error instanceof Error ? error.message : "حدث خطأ");
-    } finally { setSaving(false); }
+    const details = form.details.split("\n").filter(Boolean).reduce<Record<string, string>>((acc, line, index) => { const [key, ...rest] = line.split(":"); acc[(key || `تفصيل ${index + 1}`).trim()] = rest.join(":").trim() || line.trim(); return acc; }, {});
+    const payload = { name: form.name.trim(), sku: form.sku.trim(), slug: `${form.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`, brand: form.brand.trim(), material: form.material.trim(), description: form.description.trim(), details, price: form.price, sale_price: form.salePrice || null, stock: Number(form.stock), shipping_note: form.shipping.trim(), return_policy: form.returns.trim(), colors: parseColors(), sizes: parseSizes(), hashtags: form.hashtags.split(",").map(item => item.trim()).filter(Boolean), image_data_urls: imageData, is_published: form.isPublished, is_trending: form.isTrending, currency: "YER" };
+    try { await djangoApi(editingId ? `/api/products/${editingId}/` : "/api/products/", { method: editingId ? "PATCH" : "POST", body: JSON.stringify(payload) }); setShowForm(false); setForm(emptyForm); setImageData([]); await load(); Alert.alert("تم الحفظ", editingId ? "تم تحديث بيانات المنتج." : "تمت إضافة المنتج بكل خصائصه."); }
+    catch (error) { Alert.alert("تعذر الحفظ", error instanceof Error ? error.message : "تحقق من البيانات والصور."); }
+    finally { setSaving(false); }
   }
 
-  async function togglePublish(product: Product) {
-    try {
-      await djangoApi(`/api/products/${product.id}/`, {
-        method: "PATCH",
-        body: JSON.stringify({ is_published: !product.is_published })
-      });
-      setProducts(current => current.map(p => p.id === product.id ? { ...p, is_published: !p.is_published } : p));
-    } catch (error) {
-      Alert.alert("خطأ", "تعذر تحديث حالة النشر.");
-    }
-  }
+  async function togglePublish(product: Product) { try { await djangoApi(`/api/products/${product.id}/`, { method: "PATCH", body: JSON.stringify({ is_published: !product.is_published }) }); setProducts(current => current.map(item => item.id === product.id ? { ...item, is_published: !item.is_published } : item)); } catch { Alert.alert("خطأ", "تعذر تحديث حالة النشر."); } }
+  function deleteProduct(id: number) { Alert.alert("حذف المنتج", "سيتم حذف المنتج نهائيًا.", [{ text: "إلغاء", style: "cancel" }, { text: "حذف", style: "destructive", onPress: async () => { try { await djangoApi(`/api/products/${id}/`, { method: "DELETE" }); setProducts(current => current.filter(item => item.id !== id)); } catch { Alert.alert("خطأ", "تعذر حذف المنتج."); } } }]); }
+  const input = (key: keyof FormState, placeholder: string, multiline = false) => <TextInput style={[styles.input, multiline && styles.multiline]} placeholder={placeholder} placeholderTextColor="#999" value={String(form[key])} onChangeText={value => setField(key, value)} multiline={multiline} textAlign="right" />;
 
-  async function deleteProduct(id: number) {
-    Alert.alert("حذف المنتج", "هل أنت متأكد من حذف هذا المنتج نهائيًا؟", [
-      { text: "إلغاء", style: "cancel" },
-      {
-        text: "حذف",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await djangoApi(`/api/products/${id}/`, { method: "DELETE" });
-            setProducts(current => current.filter(p => p.id !== id));
-          } catch (error) {
-            Alert.alert("خطأ", "تعذر حذف المنتج.");
-          }
-        }
-      }
-    ]);
-  }
-
-  return (
-    <ScreenContainer className="bg-[#F8F9FA]" edges={["top", "bottom", "left", "right"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><MaterialIcons name="arrow-forward" size={24} color="#111" /></TouchableOpacity>
-        <Text style={styles.title}>إدارة المنتجات</Text>
-        <TouchableOpacity onPress={() => setShowForm(!showForm)} style={styles.addBtn}><MaterialIcons name={showForm ? "close" : "add"} size={24} color="#FFF" /></TouchableOpacity>
-      </View>
-
-      {showForm && (
-        <View style={styles.form}>
-          <Text style={styles.formTitle}>إضافة منتج جديد</Text>
-          <TextInput style={styles.input} placeholder="اسم المنتج" value={name} onChangeText={setName} textAlign="right" />
-          <TextInput style={styles.input} placeholder="رقم الصنف SKU" value={sku} onChangeText={setSku} textAlign="right" autoCapitalize="characters" />
-          <View style={styles.row}>
-            <TextInput style={[styles.input, styles.half]} placeholder="السعر (ر.ي)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" textAlign="right" />
-            <TextInput style={[styles.input, styles.half]} placeholder="المخزون" value={stock} onChangeText={setStock} keyboardType="number-pad" textAlign="right" />
-          </View>
-          <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>
-            {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>إضافة ونشر المنتج</Text>}
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {loading ? (
-        <View style={styles.center}><ActivityIndicator color="#E60023" /><Text style={styles.muted}>جارٍ تحميل المنتجات...</Text></View>
-      ) : (
-        <FlatList
-          data={products}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={<View style={styles.emptyBox}><MaterialIcons name="inventory" size={48} color="#DDD" /><Text style={styles.empty}>لا توجد منتجات في متجرك حاليًا.</Text></View>}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.cardMain}>
-                <Text style={styles.productName}>{item.name}</Text>
-                <Text style={styles.meta}>SKU: {item.sku} · المخزون: {item.stock}</Text>
-                <View style={styles.statusRow}>
-                  <Switch
-                    value={item.is_published}
-                    onValueChange={() => togglePublish(item)}
-                    trackColor={{ true: "#168451", false: "#CCC" }}
-                    style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                  />
-                  <Text style={[styles.statusText, { color: item.is_published ? "#168451" : "#777" }]}>{item.is_published ? "منشور للعملاء" : "مسودة مخفية"}</Text>
-                </View>
-              </View>
-              <View style={styles.cardActions}>
-                <Text style={styles.priceText}>{item.effective_price} {item.currency}</Text>
-                <View style={styles.btns}>
-                  <TouchableOpacity onPress={() => deleteProduct(item.id)} style={styles.actionIcon}><MaterialIcons name="delete-outline" size={20} color="#E60023" /></TouchableOpacity>
-                  <TouchableOpacity style={styles.actionIcon}><MaterialIcons name="edit" size={20} color="#444" /></TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          )}
-        />
-      )}
-    </ScreenContainer>
-  );
+  return <ScreenContainer className="bg-[#F7F7F7]" edges={["top", "bottom", "left", "right"]}>
+    <View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={24} color="#111" /></TouchableOpacity><Text style={styles.title}>منتجات المتجر</Text><TouchableOpacity onPress={showForm ? () => setShowForm(false) : openCreate} style={styles.addBtn}><MaterialIcons name={showForm ? "close" : "add"} size={24} color="#FFF" /></TouchableOpacity></View>
+    {showForm ? <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled"><Text style={styles.formTitle}>{editingId ? "تعديل المنتج" : "إضافة منتج جديد"}</Text>{input("name", "اسم المنتج بالعربية أو الإنجليزية")}{input("sku", "رقم الصنف SKU")}{input("brand", "العلامة التجارية")}{input("material", "الخامة / التركيب")}{input("description", "وصف المنتج الكامل", true)}{input("details", "تفاصيل إضافية، كل سطر: الخاصية: القيمة", true)}<View style={styles.row}>{input("price", "السعر الأصلي")}{input("salePrice", "سعر التخفيض")}</View><View style={styles.row}>{input("stock", "المخزون")}{input("shipping", "ملاحظة الشحن")}</View>{input("returns", "سياسة الإرجاع")}{input("colors", "الألوان: أزرق:#223366, أحمر:#AA2233")}{input("sizes", "المقاسات: S:10, M:20, L:15")}{input("hashtags", "الوسوم: ترند, فستان, جديد")}
+      <TouchableOpacity style={styles.imagePicker} onPress={pickImages}><MaterialIcons name="add-photo-alternate" size={24} color="#E60023" /><Text style={styles.imagePickerText}>إضافة صور المنتج ({imageData.length}/8)</Text></TouchableOpacity><ScrollView horizontal contentContainerStyle={styles.previewRow}>{imageData.map((uri, index) => <Image key={index} source={{ uri }} style={styles.preview} />)}</ScrollView>
+      <View style={styles.switchRow}><Text style={styles.switchText}>عرض المنتج للعملاء فورًا</Text><Switch value={form.isPublished} onValueChange={value => setField("isPublished", value)} trackColor={{ true: "#168451" }} /></View><View style={styles.switchRow}><Text style={styles.switchText}>إظهاره ضمن الترندات</Text><Switch value={form.isTrending} onValueChange={value => setField("isTrending", value)} trackColor={{ true: "#E60023" }} /></View><TouchableOpacity style={styles.save} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>{editingId ? "حفظ تعديلات المنتج" : "إضافة ونشر المنتج"}</Text>}</TouchableOpacity></ScrollView> : loading ? <View style={styles.center}><ActivityIndicator color="#E60023" /><Text style={styles.muted}>جارٍ تحميل المنتجات...</Text></View> : <FlatList data={products} keyExtractor={item => String(item.id)} contentContainerStyle={styles.list} ListEmptyComponent={<View style={styles.emptyBox}><MaterialIcons name="inventory" size={48} color="#DDD" /><Text style={styles.empty}>لا توجد منتجات في متجرك حاليًا.</Text></View>} renderItem={({ item }) => <View style={styles.card}><View style={styles.thumbBox}>{item.main_image_url || item.gallery?.[0]?.url ? <Image source={{ uri: item.main_image_url || item.gallery?.[0]?.url }} style={styles.thumb} /> : <MaterialIcons name="image-not-supported" size={28} color="#CCC" />}</View><View style={styles.cardMain}><Text style={styles.productName}>{item.name}</Text><Text style={styles.meta}>SKU: {item.sku} · المخزون: {item.stock}</Text><Text style={styles.priceText}>{item.effective_price} {item.currency}</Text><View style={styles.statusRow}><Switch value={item.is_published} onValueChange={() => togglePublish(item)} trackColor={{ true: "#168451", false: "#CCC" }} /><Text style={[styles.statusText, { color: item.is_published ? "#168451" : "#777" }]}>{item.is_published ? "منشور" : "مسودة"}</Text></View></View><View style={styles.btns}><TouchableOpacity onPress={() => deleteProduct(item.id)} style={styles.actionIcon}><MaterialIcons name="delete-outline" size={20} color="#E60023" /></TouchableOpacity><TouchableOpacity onPress={() => openEdit(item)} style={styles.actionIcon}><MaterialIcons name="edit" size={20} color="#444" /></TouchableOpacity></View></View>} />}
+  </ScreenContainer>;
 }
 
-const styles = StyleSheet.create({
-  header: { height: 60, paddingHorizontal: 16, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFF", borderBottomWidth: 1, borderColor: "#EEE" },
-  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 18, fontWeight: "900", color: "#111" },
-  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#E60023", alignItems: "center", justifyContent: "center" },
-  form: { backgroundColor: "#FFF", margin: 12, padding: 16, borderRadius: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
-  formTitle: { fontSize: 16, fontWeight: "900", textAlign: "right", marginBottom: 15, color: "#111" },
-  input: { backgroundColor: "#F8F9FA", borderWidth: 1, borderColor: "#E9ECEF", borderRadius: 8, padding: 12, marginBottom: 10, fontSize: 14, color: "#111" },
-  row: { flexDirection: "row-reverse", gap: 10 },
-  half: { flex: 1 },
-  save: { backgroundColor: "#111", padding: 14, borderRadius: 8, alignItems: "center", marginTop: 5 },
-  saveText: { color: "#FFF", fontWeight: "900", fontSize: 14 },
-  list: { padding: 12, paddingBottom: 40 },
-  card: { backgroundColor: "#FFF", borderRadius: 12, padding: 15, flexDirection: "row-reverse", justifyContent: "space-between", marginBottom: 10, borderWidth: 1, borderColor: "#F0F0F0" },
-  cardMain: { flex: 1, alignItems: "flex-end" },
-  productName: { fontWeight: "800", fontSize: 15, color: "#111", textAlign: "right" },
-  meta: { color: "#777", fontSize: 11, marginTop: 4, textAlign: "right" },
-  statusRow: { flexDirection: "row-reverse", alignItems: "center", marginTop: 8, gap: 5 },
-  statusText: { fontSize: 11, fontWeight: "700" },
-  cardActions: { alignItems: "flex-start", justifyContent: "space-between" },
-  priceText: { color: "#E60023", fontSize: 16, fontWeight: "900" },
-  btns: { flexDirection: "row", gap: 12, marginTop: 10 },
-  actionIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#F8F9FA", alignItems: "center", justifyContent: "center" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 10 },
-  muted: { color: "#777", fontSize: 13 },
-  emptyBox: { padding: 60, alignItems: "center" },
-  empty: { color: "#999", textAlign: "center", marginTop: 15, fontSize: 14 },
-});
+const styles = StyleSheet.create({ header: { height: 60, paddingHorizontal: 16, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFF", borderBottomWidth: 1, borderColor: "#EEE" }, title: { fontSize: 18, fontWeight: "900", color: "#111" }, addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#E60023", alignItems: "center", justifyContent: "center" }, form: { padding: 14, paddingBottom: 60 }, formTitle: { backgroundColor: "#FFF", padding: 15, borderRadius: 10, fontSize: 18, fontWeight: "900", textAlign: "right", marginBottom: 10 }, input: { backgroundColor: "#FFF", borderWidth: 1, borderColor: "#E5E5E5", borderRadius: 9, padding: 12, marginBottom: 9, fontSize: 13, color: "#111", flex: 1 }, multiline: { minHeight: 78, textAlignVertical: "top" }, row: { flexDirection: "row-reverse", gap: 9 }, imagePicker: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#F1B4BB", backgroundColor: "#FFF7F8" }, imagePickerText: { color: "#B00020", fontWeight: "800" }, previewRow: { gap: 8, paddingVertical: 10 }, preview: { width: 70, height: 70, borderRadius: 8, backgroundColor: "#EEE" }, switchRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FFF", padding: 10, borderRadius: 8, marginBottom: 8 }, switchText: { fontSize: 13, fontWeight: "700", color: "#333" }, save: { backgroundColor: "#111", padding: 15, borderRadius: 9, alignItems: "center", marginTop: 5 }, saveText: { color: "#FFF", fontWeight: "900", fontSize: 14 }, list: { padding: 12, paddingBottom: 50 }, card: { backgroundColor: "#FFF", borderRadius: 12, padding: 12, flexDirection: "row-reverse", alignItems: "center", gap: 10, marginBottom: 10, borderWidth: 1, borderColor: "#F0F0F0" }, thumbBox: { width: 72, height: 88, borderRadius: 8, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "#F7F7F7" }, thumb: { width: "100%", height: "100%" }, cardMain: { flex: 1, alignItems: "flex-end" }, productName: { fontWeight: "800", fontSize: 14, color: "#111", textAlign: "right" }, meta: { color: "#777", fontSize: 10, marginTop: 4, textAlign: "right" }, priceText: { color: "#E60023", fontSize: 15, fontWeight: "900", marginTop: 5 }, statusRow: { flexDirection: "row-reverse", alignItems: "center", marginTop: 5 }, statusText: { fontSize: 10, fontWeight: "700" }, btns: { gap: 8 }, actionIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#F8F9FA", alignItems: "center", justifyContent: "center" }, center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 10 }, muted: { color: "#777", fontSize: 13 }, emptyBox: { padding: 60, alignItems: "center" }, empty: { color: "#999", textAlign: "center", marginTop: 15, fontSize: 14 } });
