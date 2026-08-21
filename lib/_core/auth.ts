@@ -11,6 +11,7 @@ export type User = {
   governorate?: string | null;
   loginMethod: string | null;
   role?: "user" | "admin" | "vendor" | "customer";
+  points_balance?: number;
   lastSignedIn: Date;
 };
 

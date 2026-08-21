@@ -31,6 +31,7 @@ class User(AbstractUser):
     governorate = models.CharField(max_length=80, blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     is_phone_verified = models.BooleanField(default=False)
+    points_balance = models.PositiveIntegerField(default=0)
 
     def save(self, *args, **kwargs):
         if not self.username:
