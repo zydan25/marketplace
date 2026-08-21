@@ -57,22 +57,28 @@ sudo chown -R www-data:www-data /var/www/shabik/backend
 
 إذا كانت قاعدة البيانات الحالية موجودة على الخادم القديم، انسخ ملف `db.sqlite3` إلى `/var/www/shabik/backend/db.sqlite3` قبل تشغيل `migrate`، ثم اضبط الملكية إلى `www-data`.
 
-## 4. تشغيل Django على المنفذ 5015
+## 4. تشغيل Django على المنفذ 5015 باستخدام PM2
 
-ثبت خدمة systemd الجاهزة:
+ثبت PM2 عالمياً (إذا لم يكن مثبتاً):
 
 ```bash
-sudo cp /var/www/shabik/deploy/shabik-django.service /etc/systemd/system/shabik-django.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now shabik-django
-sudo systemctl status shabik-django --no-pager
+sudo npm install -g pm2
+```
+
+شغل الخادم باستخدام ملف الإعدادات المجهز:
+
+```bash
+cd /var/www/shabik/deploy
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup
 ```
 
 اختبر Django محليًا على الخادم:
 
 ```bash
 curl -I http://127.0.0.1:5015/
-sudo journalctl -u shabik-django -n 80 --no-pager
+pm2 logs shabik-django --lines 50
 ```
 
 ## 5. بناء واجهة الويب
@@ -172,7 +178,7 @@ cd /var/www/shabik
 sudo -u www-data git pull origin main
 cd backend
 sudo -u www-data bash -lc 'set -a; source .env.production; set +a; .venv/bin/pip install -r requirements.txt; .venv/bin/python manage.py migrate; .venv/bin/python manage.py collectstatic --noinput'
-sudo systemctl restart shabik-django
+pm2 restart shabik-django
 cd ..
 pnpm install --frozen-lockfile
 pnpm build:web:customer
