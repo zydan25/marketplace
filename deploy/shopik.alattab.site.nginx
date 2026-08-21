@@ -26,7 +26,7 @@ server {
 
     # نسخة العميل المصدرة من Expo Web
     location / {
-        root /var/www/shabik/dist-web/customer;
+        root /home/root/projects/shabik/dist-web/customer;
         try_files $uri $uri/ /index.html;
     }
 
@@ -44,14 +44,14 @@ server {
 
     # ملفات Django الثابتة وملفات لوحة الإدارة
     location /static/ {
-        alias /var/www/shabik/backend/staticfiles/;
+        alias /home/root/projects/shabik/backend/staticfiles/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
 
     # صور وملفات المنتجات المرفوعة
     location /media/ {
-        alias /var/www/shabik/backend/media/;
+        alias /home/root/projects/shabik/backend/media/;
         expires 7d;
         add_header Cache-Control "public";
     }

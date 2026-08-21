@@ -28,10 +28,10 @@ sudo apt install -y git nginx python3-venv python3-dev build-essential certbot p
 استخدم مسارًا قياسيًا يسهل على `www-data` الوصول إليه:
 
 ```bash
-sudo mkdir -p /var/www
-sudo git clone https://github.com/zydan25/marketplace.git /var/www/shabik
-sudo chown -R www-data:www-data /var/www/shabik
-cd /var/www/shabik/backend
+sudo mkdir -p /home/root/projects
+sudo git clone https://github.com/zydan25/marketplace.git /home/root/projects/shabik
+sudo chown -R www-data:www-data /home/root/projects/shabik
+cd /home/root/projects/shabik/backend
 sudo -u www-data python3 -m venv .venv
 sudo -u www-data .venv/bin/pip install --upgrade pip
 sudo -u www-data .venv/bin/pip install -r requirements.txt
@@ -40,8 +40,8 @@ sudo -u www-data .venv/bin/pip install -r requirements.txt
 أنشئ ملف البيئة:
 
 ```bash
-sudo cp /var/www/shabik/deploy/backend.env.production.example /var/www/shabik/backend/.env.production
-sudo nano /var/www/shabik/backend/.env.production
+sudo cp /home/root/projects/shabik/deploy/backend.env.production.example /home/root/projects/shabik/backend/.env.production
+sudo nano /home/root/projects/shabik/backend/.env.production
 ```
 
 غيّر `DJANGO_SECRET_KEY` إلى قيمة عشوائية طويلة وفريدة. لا تضع المفتاح في GitHub ولا ترسله في محادثة عامة.
@@ -49,13 +49,13 @@ sudo nano /var/www/shabik/backend/.env.production
 أنشئ قاعدة البيانات والملفات الثابتة:
 
 ```bash
-cd /var/www/shabik/backend
+cd /home/root/projects/shabik/backend
 sudo -u www-data bash -lc 'set -a; source .env.production; set +a; .venv/bin/python manage.py migrate'
 sudo -u www-data bash -lc 'set -a; source .env.production; set +a; .venv/bin/python manage.py collectstatic --noinput'
-sudo chown -R www-data:www-data /var/www/shabik/backend
+sudo chown -R www-data:www-data /home/root/projects/shabik/backend
 ```
 
-إذا كانت قاعدة البيانات الحالية موجودة على الخادم القديم، انسخ ملف `db.sqlite3` إلى `/var/www/shabik/backend/db.sqlite3` قبل تشغيل `migrate`، ثم اضبط الملكية إلى `www-data`.
+إذا كانت قاعدة البيانات الحالية موجودة على الخادم القديم، انسخ ملف `db.sqlite3` إلى `/home/root/projects/shabik/backend/db.sqlite3` قبل تشغيل `migrate`، ثم اضبط الملكية إلى `www-data`.
 
 ## 4. تشغيل Django على المنفذ 5015 باستخدام PM2
 
@@ -68,7 +68,7 @@ sudo npm install -g pm2
 شغل الخادم باستخدام ملف الإعدادات المجهز:
 
 ```bash
-cd /var/www/shabik/deploy
+cd /home/root/projects/shabik/deploy
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup
@@ -86,7 +86,7 @@ pm2 logs shabik-django --lines 50
 ثبت Node.js وpnpm إن لم يكونا مثبتين، ثم ابنِ نسخة العميل من داخل مجلد المشروع. ملف `.env` في آخر Commit مضبوط على `https://shopik.alattab.site`، وهو الرابط الذي سيُضمّن داخل JavaScript عند البناء:
 
 ```bash
-cd /var/www/shabik
+cd /home/root/projects/shabik
 corepack enable
 pnpm install --frozen-lockfile
 pnpm check
@@ -96,8 +96,8 @@ pnpm build:web:customer
 سيتم إنشاء `dist-web/customer`. انسخها إلى مسار خدمة الويب:
 
 ```bash
-sudo mkdir -p /var/www/shabik/dist-web/customer
-sudo chown -R www-data:www-data /var/www/shabik/dist-web
+sudo mkdir -p /home/root/projects/shabik/dist-web/customer
+sudo chown -R www-data:www-data /home/root/projects/shabik/dist-web
 ```
 
 إذا كان البناء على الخادم نفسه، لا حاجة لنسخ إضافي. وبالنسبة إلى نسخة التاجر المنفصلة للويب، يمكن تنفيذ:
@@ -113,7 +113,7 @@ pnpm build:web:vendor
 انسخ الإعداد الجاهز:
 
 ```bash
-sudo cp /var/www/shabik/deploy/shopik.alattab.site.nginx /etc/nginx/sites-available/shopik.alattab.site
+sudo cp /home/root/projects/shabik/deploy/shopik.alattab.site.nginx /etc/nginx/sites-available/shopik.alattab.site
 sudo ln -sfn /etc/nginx/sites-available/shopik.alattab.site /etc/nginx/sites-enabled/shopik.alattab.site
 sudo nginx -t
 ```
@@ -162,7 +162,7 @@ EXPO_PUBLIC_DJANGO_API_URL=https://shopik.alattab.site
 بناء نسخة العميل والتاجر من حساب Expo:
 
 ```bash
-cd /var/www/shabik
+cd /home/root/projects/shabik
 pnpm run apk:customer
 pnpm run apk:vendor
 ```
@@ -174,7 +174,7 @@ pnpm run apk:vendor
 للتحديثات اللاحقة:
 
 ```bash
-cd /var/www/shabik
+cd /home/root/projects/shabik
 sudo -u www-data git pull origin main
 cd backend
 sudo -u www-data bash -lc 'set -a; source .env.production; set +a; .venv/bin/pip install -r requirements.txt; .venv/bin/python manage.py migrate; .venv/bin/python manage.py collectstatic --noinput'
