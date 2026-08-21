@@ -1,10 +1,106 @@
 import { apiCall } from "@/lib/_core/api";
 
-export type StoreProduct = { id: string; productCode: string; name: string; category: string; categories: string[]; description: string; details: string; material: string; price: number; originalPrice: number; discountPercent: number; shippingNote: string; isTrending: boolean; trendTags: string[]; images: { id: number; storageKey: string; url: string; sortOrder: number }[]; colors: { id: number; name: string; hex: string }[]; sizes: { id: number; label: string; stock: number }[]; rating: number; reviews: number; reviewsList: { id: number; rating: number; body: string; selectedColor: string | null; selectedSize: string | null; helpfulCount: number; author: string; createdAt: string }[]; };
+export type StoreProduct = {
+  id: string;
+  productCode: string;
+  name: string;
+  category: string;
+  categories: string[];
+  description: string;
+  details: string;
+  material: string;
+  price: number;
+  originalPrice: number;
+  discountPercent: number;
+  shippingNote: string;
+  isTrending: boolean;
+  trendTags: string[];
+  images: { id: number; storageKey: string; url: string; sortOrder: number }[];
+  colors: { id: number; name: string; hex: string }[];
+  sizes: { id: number; label: string; stock: number }[];
+  rating: number;
+  reviews: number;
+  reviewsList: { id: number; rating: number; body: string; selectedColor: string | null; selectedSize: string | null; helpfulCount: number; author: string; createdAt: string }[];
+};
+
 export type ProductEditorPayload = { productCode?: string; name: string; category: string; categories: string[]; description: string; details: string; material: string; price: number; discountPercent: number; shippingNote: string; isTrending: boolean; trendTags: string[]; isPublished: boolean; colors: { name: string; hex: string }[]; sizes: { label: string; stock: number }[]; images?: { dataUrl: string; fileName: string; sortOrder: number }[]; existingImages?: { storageKey: string; url: string; sortOrder: number }[]; newImages?: { dataUrl: string; fileName: string; sortOrder: number }[]; };
 
-export async function getProducts(query = "") { return (await apiCall<{ products: StoreProduct[] }>(`/api/products${query ? `?q=${encodeURIComponent(query)}` : ""}`)).products; }
-export async function getProduct(id: string) { return apiCall<{ product: StoreProduct; similar: StoreProduct[] }>(`/api/products/${id}`); }
-export async function getAdminProducts() { return (await apiCall<{ products: StoreProduct[] }>("/api/admin/products")).products; }
-export async function createProduct(payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>("/api/admin/products", { method: "POST", body: JSON.stringify(payload) }); }
-export async function updateProduct(id: string, payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>(`/api/admin/products/${id}`, { method: "PATCH", body: JSON.stringify(payload) }); }
+type DjangoProduct = {
+  id: number;
+  sku?: string;
+  name: string;
+  description?: string;
+  details?: string;
+  price?: string | number;
+  sale_price?: string | number | null;
+  effective_price?: string | number;
+  discount_percent?: number;
+  currency?: string;
+  stock?: number;
+  colors?: Array<{ id?: number; name: string; hex?: string }>;
+  sizes?: Array<{ id?: number; label: string; stock?: number }>;
+  hashtags?: string[];
+  is_trending?: boolean;
+  rating?: string | number;
+  reviews_count?: number;
+  categories?: Array<{ id?: number; name: string; slug?: string }>;
+  main_image_url?: string | null;
+  images?: Array<{ id?: number; url?: string; storageKey?: string; sortOrder?: number }>;
+};
+
+function numberValue(value: string | number | null | undefined): number {
+  const result = Number(value ?? 0);
+  return Number.isFinite(result) ? result : 0;
+}
+
+function normalizeProduct(product: DjangoProduct): StoreProduct {
+  const basePrice = numberValue(product.price);
+  const finalPrice = numberValue(product.effective_price ?? product.sale_price ?? product.price);
+  const imageItems = (product.images ?? []).map((image, index) => ({
+    id: Number(image.id ?? index),
+    storageKey: image.storageKey ?? "",
+    url: image.url ?? "",
+    sortOrder: Number(image.sortOrder ?? index),
+  })).filter((image) => image.url);
+  if (product.main_image_url && !imageItems.some((image) => image.url === product.main_image_url)) {
+    imageItems.unshift({ id: -1, storageKey: "", url: product.main_image_url, sortOrder: -1 });
+  }
+  return {
+    id: String(product.id),
+    productCode: product.sku ?? `SKU-${product.id}`,
+    name: product.name,
+    category: product.categories?.[0]?.name ?? "عام",
+    categories: (product.categories ?? []).map((category) => category.name),
+    description: product.description ?? "",
+    details: product.details ?? "",
+    material: "",
+    price: finalPrice,
+    originalPrice: basePrice,
+    discountPercent: Number(product.discount_percent ?? (basePrice > finalPrice ? Math.round((1 - finalPrice / basePrice) * 100) : 0)),
+    shippingNote: "",
+    isTrending: Boolean(product.is_trending),
+    trendTags: product.hashtags ?? [],
+    images: imageItems,
+    colors: (product.colors ?? []).map((color, index) => ({ id: Number(color.id ?? index), name: color.name, hex: color.hex ?? "#E5E5E5" })),
+    sizes: (product.sizes ?? []).map((size, index) => ({ id: Number(size.id ?? index), label: size.label, stock: Number(size.stock ?? product.stock ?? 0) })),
+    rating: numberValue(product.rating),
+    reviews: Number(product.reviews_count ?? 0),
+    reviewsList: [],
+  };
+}
+
+export async function getProducts(query = "") {
+  const suffix = query ? `?q=${encodeURIComponent(query)}` : "";
+  const response = await apiCall<DjangoProduct[] | { results?: DjangoProduct[]; products?: DjangoProduct[] }>(`/api/products/${suffix}`);
+  const items = Array.isArray(response) ? response : (response.results ?? response.products ?? []);
+  return items.map(normalizeProduct);
+}
+
+export async function getProduct(id: string) {
+  const response = await apiCall<DjangoProduct>(`/api/products/${encodeURIComponent(id)}/`);
+  return { product: normalizeProduct(response), similar: [] as StoreProduct[] };
+}
+
+export async function getAdminProducts() { return getProducts(); }
+export async function createProduct(payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>("/api/products/", { method: "POST", body: JSON.stringify(payload) }); }
+export async function updateProduct(id: string, payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>(`/api/products/${encodeURIComponent(id)}/`, { method: "PATCH", body: JSON.stringify(payload) }); }

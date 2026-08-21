@@ -10,7 +10,7 @@ export type User = {
   phone?: string | null;
   governorate?: string | null;
   loginMethod: string | null;
-  role?: "user" | "admin";
+  role?: "user" | "admin" | "vendor" | "customer";
   lastSignedIn: Date;
 };
 

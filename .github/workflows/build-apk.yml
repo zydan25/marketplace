@@ -1,0 +1,50 @@
+name: Build Android APKs
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "نسخة التطبيق المطلوب بناؤها"
+        required: true
+        default: both
+        type: choice
+        options:
+          - customer
+          - vendor
+          - both
+
+jobs:
+  build:
+    name: Build ${{ matrix.variant }} APK
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [customer, vendor]
+    if: ${{ inputs.variant == 'both' || inputs.variant == matrix.variant }}
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      APP_VARIANT: ${{ matrix.variant }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate TypeScript
+        run: pnpm check
+
+      - name: Build APK with EAS
+        run: pnpm exec eas-cli build --platform android --profile ${{ matrix.variant }} --non-interactive --no-wait

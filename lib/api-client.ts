@@ -5,9 +5,15 @@ import { API_BASE_URL } from "@/constants/oauth";
 const TOKEN_KEY = "django_marketplace_token";
 
 function getBaseUrl() {
-  const explicit = process.env.EXPO_PUBLIC_DJANGO_API_URL || API_BASE_URL;
+  const explicit = process.env.EXPO_PUBLIC_DJANGO_API_URL;
   if (explicit) return explicit.replace(/\/$/, "");
   if (Platform.OS === "web" && typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    // إذا كان يعمل على الويب التجريبي عبر منفذ 8081 أو 8082، وجهه إلى منفذ 8000
+    if (hostname.startsWith("8081-") || hostname.startsWith("8082-")) {
+      const apiHostname = hostname.replace(/^808[12]-/, "8000-");
+      return `${protocol}//${apiHostname}`;
+    }
     return window.location.origin;
   }
   return "http://10.0.2.2:8000";
