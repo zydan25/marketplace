@@ -55,7 +55,7 @@ export default function SettingsScreen() {
           <Row label="التواصل معنا" icon="support-agent" onPress={() => router.push("/support" as never)} />
         </Section>
         {user?.role === "admin" ? <Section><Row label="لوحة الإدارة" icon="admin-panel-settings" onPress={() => router.push("/admin" as never)} /></Section> : null}
-        <Text style={styles.version}>التخفيض الصح · إصدار 1.0.0</Text>
+        <Text style={styles.version}>شبيك · إصدار 1.0.0</Text>
       </ScrollView>
     </ScreenContainer>
   );

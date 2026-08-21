@@ -16,8 +16,8 @@ const bundleId = rawBundleId
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
 
-const appName = variant === "vendor" ? "التخفيض الصح — التاجر" : "التخفيض الصح";
-const appSlug = "true-discount-fashion";
+const appName = variant === "vendor" ? "شبيك — التاجر" : "شبيك";
+const appSlug = "shabik-marketplace";
 
 const config: ExpoConfig = {
   name: appName,

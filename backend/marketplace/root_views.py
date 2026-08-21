@@ -8,7 +8,7 @@ def landing_page(request):
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>التخفيض الصح | منصة السوق</title>
+        <title>شبيك | شبيك لبيك طلبك بين يديك</title>
         <style>
           body { margin:0; font-family:Arial,sans-serif; background:#f6f6f6; color:#161616; }
           .wrap { max-width:900px; margin:0 auto; padding:48px 20px; }
@@ -27,9 +27,9 @@ def landing_page(request):
       <body>
         <main class="wrap">
           <section class="hero">
-            <div class="brand">التخفيض الصح</div>
-            <h1>منصة السوق متعددة التجار</h1>
-            <p>الخادم يعمل بنجاح. هذه الصفحة هي نقطة الدخول الرئيسية للتجربة، بينما تستخدم التطبيقات واجهات API نفسها.</p>
+            <div class="brand">شبيك</div>
+            <h1>شبيك لبيك، طلبك بين يديك</h1>
+            <p>مرحبًا بك في شبيك، منصة السوق متعددة التجار. طلبك بين يديك، والتطبيقات تستخدم واجهات API نفسها بأمان.</p>
             <span class="pill">Django API Online</span>
           </section>
           <section class="grid">
@@ -38,7 +38,7 @@ def landing_page(request):
             <div class="card"><h2>الواجهة الديناميكية</h2><p>الأقسام والبنرات التي يتحكم بها المدير والتاجر.</p><a href="/api/home/">فتح API الصفحة الرئيسية</a></div>
             <div class="card"><h2>حالة الخادم</h2><p>المصادقة والسلة والعناوين والمدن والمحافظ متاحة عبر المسار الموحد.</p><a href="/api/cities/">فحص المدن والتسعير</a></div>
           </section>
-          <footer>للاستخدام التجريبي فقط. لا تضع بيانات إنتاجية أو كلمات مرور حقيقية في الخادم المؤقت.</footer>
+          <footer>شبيك — شبيك لبيك طلبك بين يديك. هذه الصفحة تعمل من خادمك الدائم.</footer>
         </main>
       </body>
     </html>

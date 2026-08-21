@@ -3,8 +3,8 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-change-me")
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",") if host]
+DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
+ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "shopik.alattab.site,www.shopik.alattab.site,127.0.0.1,localhost").split(",") if host.strip()]
 
 AUTH_USER_MODEL = "marketplace.User"
 
@@ -77,8 +77,11 @@ _preview_origins = [
     "https://8000-id0885qolflwfkg80ln4e-d21a2d6a.us5.manus.computer",
     "https://8081-id0885qolflwfkg80ln4e-d21a2d6a.us5.manus.computer",
     "https://8082-id0885qolflwfkg80ln4e-d21a2d6a.us5.manus.computer",
+    "https://8083-id0885qolflwfkg80ln4e-d21a2d6a.us5.manus.computer",
+    "https://shopik.alattab.site",
+    "https://www.shopik.alattab.site",
 ]
-CSRF_TRUSTED_ORIGINS = [origin for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if origin] + _preview_origins
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "https://shopik.alattab.site,https://www.shopik.alattab.site").split(",") if origin.strip()] + _preview_origins
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
