@@ -106,6 +106,9 @@ class VendorViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        query = self.request.query_params.get("q")
+        if query:
+            queryset = queryset.filter(Q(store_name__icontains=query) | Q(description__icontains=query) | Q(slug__icontains=query))
         if self.request.user.is_authenticated and self.request.user.role in {"admin", "vendor"} and self.action in {"list", "retrieve"}:
             if self.request.user.role == "vendor":
                 return VendorProfile.objects.filter(owner=self.request.user).select_related("owner")
