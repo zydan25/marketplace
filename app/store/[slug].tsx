@@ -1,73 +1,13 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ScreenContainer } from "@/components/screen-container";
 import { ApiClient } from "@/lib/api-client";
+import { getProducts, type StoreProduct } from "@/lib/product-api";
 import { ProductCard } from "@/components/product-card";
 import { ShareButton } from "@/components/share-button";
 
-export default function StoreScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
-  const [store, setStore] = useState<any>(null);
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([
-      ApiClient.get(`/api/vendors/${slug}/`),
-      ApiClient.get(`/api/products/?vendor=${slug}`)
-    ]).then(([vendorData, productsData]: any) => {
-      setStore(vendorData);
-      setProducts(productsData.results || []);
-    }).catch(console.error).finally(() => setLoading(false));
-  }, [slug]);
-
-  if (loading) return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E60023" /></View></ScreenContainer>;
-  if (!store) return <ScreenContainer><View style={styles.center}><Text>المتجر غير موجود</Text></View></ScreenContainer>;
-
-  return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F5F5F5]">
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} /></TouchableOpacity>
-        <Text style={styles.title}>{store.store_name}</Text>
-        <ShareButton type="store" id={store.slug} title={store.store_name} />
-      </View>
-      
-      <FlatList
-        data={products}
-        numColumns={2}
-        keyExtractor={item => String(item.id)}
-        contentContainerStyle={styles.list}
-        columnWrapperStyle={styles.row}
-        ListHeaderComponent={
-          <View style={styles.storeInfo}>
-            <View style={styles.logoPlaceholder}>
-              <MaterialIcons name="storefront" size={40} color="#AAA" />
-            </View>
-            <Text style={styles.storeName}>{store.store_name}</Text>
-            <Text style={styles.storeDesc}>{store.description || "مرحباً بكم في متجرنا"}</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.productWrapper}>
-            <ProductCard product={item} />
-          </View>
-        )}
-      />
-    </ScreenContainer>
-  );
-}
-
-const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { height: 54, paddingHorizontal: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#F5F5F5" },
-  title: { fontSize: 16, fontWeight: "900", color: "#111" },
-  storeInfo: { alignItems: "center", padding: 24, backgroundColor: "#FFF", marginBottom: 16, borderRadius: 12, shadowColor: "#000", shadowOpacity: 0.03, shadowRadius: 8, elevation: 2 },
-  logoPlaceholder: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#F5F5F5", alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  storeName: { fontSize: 18, fontWeight: "900", color: "#111", marginBottom: 4 },
-  storeDesc: { color: "#777", textAlign: "center", fontSize: 12, lineHeight: 20 },
-  list: { padding: 16 },
-  row: { justifyContent: "space-between", gap: 12, marginBottom: 0 },
-  productWrapper: { flex: 1, maxWidth: "48%" }
-});
+type Store = { store_name: string; slug: string; description?: string; logo_url?: string | null; cover_url?: string | null };
+export default function StoreScreen() { const { slug } = useLocalSearchParams<{ slug: string }>(); const [store, setStore] = useState<Store | null>(null); const [products, setProducts] = useState<StoreProduct[]>([]); const [loading, setLoading] = useState(true); useEffect(() => { Promise.all([ApiClient.get<Store>(`/api/vendors/${slug}/`), getProducts()]).then(([data, items]) => { setStore(data); setProducts(items.filter(item => item.vendor.slug === slug)); }).catch(() => undefined).finally(() => setLoading(false)); }, [slug]); if (loading) return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E60023" /></View></ScreenContainer>; if (!store) return <ScreenContainer><View style={styles.center}><Text>المتجر غير موجود</Text></View></ScreenContainer>; return <ScreenContainer edges={["top","bottom","left","right"]} className="bg-[#F5F5F5]"><View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} /></TouchableOpacity><Text style={styles.title}>{store.store_name}</Text><ShareButton type="store" id={store.slug} title={store.store_name} /></View><FlatList data={products} numColumns={2} keyExtractor={item => item.id} contentContainerStyle={styles.list} columnWrapperStyle={styles.row} ListHeaderComponent={<View style={styles.storeInfo}>{store.cover_url ? <Image source={{uri:store.cover_url}} style={styles.cover} /> : null}<View style={styles.logoPlaceholder}>{store.logo_url ? <Image source={{uri:store.logo_url}} style={styles.logoImage} /> : <MaterialIcons name="storefront" size={40} color="#E60023" />}</View><Text style={styles.storeName}>{store.store_name}</Text><View style={styles.rating}><MaterialIcons name="star" size={18} color="#F2B600" /><Text>4.8 · تقييم العملاء</Text></View><Text style={styles.storeDesc}>{store.description || "وصف المتجر سيظهر هنا."}</Text><Text style={styles.productsTitle}>منتجات المتجر ({products.length})</Text></View>} renderItem={({ item }) => <View style={styles.productWrapper}><ProductCard product={item} /></View>} ListEmptyComponent={<Text style={styles.empty}>لا توجد منتجات منشورة في هذا المتجر.</Text>} /></ScreenContainer>; }
+const styles=StyleSheet.create({center:{flex:1,justifyContent:"center",alignItems:"center"},header:{height:54,paddingHorizontal:16,backgroundColor:"#FFF",flexDirection:"row",justifyContent:"space-between",alignItems:"center",borderBottomWidth:1,borderColor:"#F5F5F5"},title:{fontSize:16,fontWeight:"900",color:"#111"},storeInfo:{alignItems:"flex-end",padding:18,backgroundColor:"#FFF",marginBottom:12,borderRadius:12},cover:{width:"100%",height:120,borderRadius:10,marginBottom:12},logoPlaceholder:{width:72,height:72,borderRadius:36,backgroundColor:"#FFF",alignItems:"center",justifyContent:"center",marginBottom:8,borderWidth:1,borderColor:"#EEE",overflow:"hidden"},logoImage:{width:"100%",height:"100%"},storeName:{fontSize:20,fontWeight:"900",color:"#111"},rating:{flexDirection:"row",gap:5,alignItems:"center",marginTop:5},storeDesc:{color:"#777",textAlign:"right",fontSize:12,lineHeight:20,marginTop:8},productsTitle:{fontSize:16,fontWeight:"900",marginTop:16},list:{padding:10},row:{justifyContent:"space-between",gap:10,marginBottom:10},productWrapper:{flex:1,maxWidth:"48%"},empty:{padding:40,textAlign:"center",color:"#777"}});

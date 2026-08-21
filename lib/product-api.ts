@@ -21,6 +21,8 @@ export type StoreProduct = {
   rating: number;
   reviews: number;
   reviewsList: { id: number; rating: number; body: string; selectedColor: string | null; selectedSize: string | null; helpfulCount: number; author: string; createdAt: string }[];
+  vendor: { id: number; name: string; slug: string; description: string; logoUrl?: string | null; rating?: number };
+  returnPolicy: string;
 };
 
 export type ProductEditorPayload = { productCode?: string; name: string; category: string; categories: string[]; description: string; details: string; material: string; price: number; discountPercent: number; shippingNote: string; isTrending: boolean; trendTags: string[]; isPublished: boolean; colors: { name: string; hex: string }[]; sizes: { label: string; stock: number }[]; images?: { dataUrl: string; fileName: string; sortOrder: number }[]; existingImages?: { storageKey: string; url: string; sortOrder: number }[]; newImages?: { dataUrl: string; fileName: string; sortOrder: number }[]; };
@@ -30,7 +32,7 @@ type DjangoProduct = {
   sku?: string;
   name: string;
   description?: string;
-  details?: string;
+  details?: unknown;
   price?: string | number;
   sale_price?: string | number | null;
   effective_price?: string | number;
@@ -44,6 +46,7 @@ type DjangoProduct = {
   rating?: string | number;
   reviews_count?: number;
   categories?: Array<{ id?: number; name: string; slug?: string }>;
+  vendor?: { id?: number; store_name?: string; slug?: string; description?: string; logo_url?: string | null };
   main_image_url?: string | null;
   images?: Array<{ id?: number; url?: string; storageKey?: string; sortOrder?: number } | string>;
   gallery?: Array<{ id?: number; url?: string; alt?: string; sort_order?: number; is_primary?: boolean }>;
@@ -53,6 +56,13 @@ type DjangoProduct = {
   return_policy?: string;
   sold_count?: number;
 };
+
+function detailsText(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") return Object.entries(value as Record<string, unknown>).map(([key, item]) => `${key}: ${String(item)}`).join("\n");
+  return String(value);
+}
 
 function numberValue(value: string | number | null | undefined): number {
   const result = Number(value ?? 0);
@@ -82,7 +92,7 @@ function normalizeProduct(product: DjangoProduct): StoreProduct {
     category: product.categories?.[0]?.name ?? "عام",
     categories: (product.categories ?? []).map((category) => category.name),
     description: product.description ?? "",
-    details: product.details ?? "",
+    details: detailsText(product.details),
     material: product.material ?? "",
     price: finalPrice,
     originalPrice: basePrice,
@@ -96,6 +106,8 @@ function normalizeProduct(product: DjangoProduct): StoreProduct {
     rating: numberValue(product.rating),
     reviews: Number(product.reviews_count ?? 0),
     reviewsList: [],
+    vendor: { id: Number(product.vendor?.id ?? 0), name: product.vendor?.store_name ?? "متجر موثوق", slug: product.vendor?.slug ?? "", description: product.vendor?.description ?? "", logoUrl: product.vendor?.logo_url ?? null },
+    returnPolicy: product.return_policy ?? "إرجاع خلال 7 أيام حسب سياسة المتجر",
   };
 }
 

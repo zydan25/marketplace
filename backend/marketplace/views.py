@@ -41,6 +41,7 @@ from .serializers import (
     UserSerializer,
     VendorSerializer,
     WalletSerializer,
+    WalletTransactionSerializer,
 )
 
 
@@ -203,7 +204,29 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if self.request.user.role == "admin" or self.request.user.is_staff:
+            return Wallet.objects.all().select_related("user").prefetch_related("transactions")
         return Wallet.objects.filter(user=self.request.user).prefetch_related("transactions")
+
+    @action(detail=True, methods=["post"])
+    def admin_adjust(self, request, pk=None):
+        if request.user.role != "admin" and not request.user.is_staff:
+            return Response({"detail": "هذه العملية للمدير فقط"}, status=status.HTTP_403_FORBIDDEN)
+        wallet = self.get_object()
+        amount = Decimal(str(request.data.get("amount", "0")))
+        if amount == 0:
+            return Response({"detail": "أدخل مبلغًا غير صفري"}, status=status.HTTP_400_BAD_REQUEST)
+        transaction_type = request.data.get("transaction_type", "adjustment")
+        allowed = {choice.value for choice in WalletTransaction.Types}
+        if transaction_type not in allowed:
+            return Response({"detail": "نوع العملية غير صالح"}, status=status.HTTP_400_BAD_REQUEST)
+        new_balance = wallet.balance + amount
+        if new_balance < 0:
+            return Response({"detail": "لا يمكن أن يصبح الرصيد سالبًا"}, status=status.HTTP_400_BAD_REQUEST)
+        wallet.balance = new_balance
+        wallet.save(update_fields=["balance", "updated_at"])
+        entry = WalletTransaction.objects.create(wallet=wallet, transaction_type=transaction_type, amount=amount, balance_after=new_balance, reference=request.data.get("reference", ""), note=request.data.get("note", ""), metadata={"document_type": request.data.get("document_type", "receipt"), "issued_by": request.user.phone})
+        return Response({"wallet": WalletSerializer(wallet).data, "transaction": WalletTransactionSerializer(entry).data}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"])
     def top_up_request(self, request, pk=None):
