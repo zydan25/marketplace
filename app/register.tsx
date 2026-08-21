@@ -67,7 +67,7 @@ export default function RegisterScreen() {
           <MaterialIcons name="close" size={22} color="#111" />
         </TouchableOpacity>
       </View>
-      <ScrollView contentContainerStyle={s.content} automaticallyAdjustKeyboardInsets>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} automaticallyAdjustKeyboardInsets>
         <Text style={s.sub}>انضمي إلى شبيك لتتسوقي أحدث الموديلات وتستفيدي من العروض الحصرية.</Text>
         
         {error ? (

@@ -16,7 +16,7 @@ export default function LoginScreen() {
           <MaterialIcons name="close" size={22} color="#111" />
         </TouchableOpacity>
       </View>
-      <ScrollView contentContainerStyle={s.content} automaticallyAdjustKeyboardInsets>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} automaticallyAdjustKeyboardInsets>
         <Image source={require("@/assets/images/welcome-logo.png")} style={s.logo} resizeMode="contain" />
         <Text style={s.title}>تسجيل الدخول</Text>
         <Text style={s.sub}>أدخل رقم الجوال وكلمة المرور للوصول إلى حسابك.</Text>
@@ -58,7 +58,7 @@ function Field({ icon, ...props }: { icon: "phone-android" | "lock-outline"; val
 const s = StyleSheet.create({
   header: { height: 54, paddingHorizontal: 20, justifyContent: "center" },
   close: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F5F5F5", alignItems: "center", justifyContent: "center" },
-  content: { flex: 1, paddingHorizontal: 24, justifyContent: "center", paddingBottom: 40, maxWidth: 400, width: "100%", alignSelf: "center" },
+  content: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 80, maxWidth: 400, width: "100%", alignSelf: "center" },
   logo: { width: 70, height: 70, alignSelf: "center", marginBottom: 24 },
   title: { fontSize: 24, fontWeight: "900", textAlign: "center", color: "#111" },
   sub: { fontSize: 13, color: "#777", textAlign: "center", marginTop: 8, marginBottom: 32 },

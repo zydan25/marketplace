@@ -25,9 +25,9 @@ export default function RootLayout() {
         <DocumentDirection />
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false, animation: "slide_from_left" }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="register" />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ presentation: "fullScreenModal" }} />
+          <Stack.Screen name="register" options={{ presentation: "fullScreenModal" }} />
           <Stack.Screen name="admin/index" />
           <Stack.Screen name="admin/products" />
           <Stack.Screen name="admin/storefront" />
