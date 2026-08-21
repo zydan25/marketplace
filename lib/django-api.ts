@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "@/constants/oauth";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import * as Auth from "@/lib/_core/auth";
 
 export type MarketplaceRole = "customer" | "vendor" | "admin";
 export type MarketplaceUser = {
@@ -27,6 +28,8 @@ function baseUrl() {
 }
 
 async function getToken() {
+  const sharedToken = await Auth.getSessionToken();
+  if (sharedToken) return sharedToken;
   if (Platform.OS === "web") {
     return typeof localStorage !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
   }
@@ -34,6 +37,7 @@ async function getToken() {
 }
 
 async function saveToken(token: string) {
+  await Auth.setSessionToken(token);
   if (Platform.OS === "web") {
     localStorage.setItem(TOKEN_KEY, token);
   } else {
@@ -66,6 +70,8 @@ export async function djangoRegister(input: Record<string, unknown>) {
 }
 
 export async function djangoLogout() {
+  await Auth.removeSessionToken();
+  await Auth.clearUserInfo();
   if (Platform.OS === "web") localStorage.removeItem(TOKEN_KEY);
   else await SecureStore.deleteItemAsync(TOKEN_KEY);
 }

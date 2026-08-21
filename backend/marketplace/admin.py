@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
+from .models_extra import GiftTransfer, Loan
 from .models import (
     Category,
     Conversation,
@@ -142,3 +143,19 @@ class ReferralAdmin(admin.ModelAdmin):
     list_display = ("inviter", "invitee", "code", "reward_amount", "reward_paid")
     list_filter = ("reward_paid",)
     search_fields = ("code", "inviter__phone", "invitee__phone")
+
+
+@admin.register(Loan)
+class LoanAdmin(admin.ModelAdmin):
+    list_display = ("user", "amount", "status", "approved_by", "created_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("user__phone", "reason")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(GiftTransfer)
+class GiftTransferAdmin(admin.ModelAdmin):
+    list_display = ("sender", "receiver", "amount", "status", "receiver_name_snapshot", "created_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("sender__phone", "receiver__phone", "receiver_name_snapshot")
+    readonly_fields = ("sender", "receiver", "amount", "receiver_name_snapshot", "created_at", "updated_at")

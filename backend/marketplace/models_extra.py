@@ -34,8 +34,15 @@ class Loan(TimeStampedModel):
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="approved_loans")
 
 class GiftTransfer(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "قيد التأكيد"
+        COMPLETED = "completed", "مكتمل"
+        CANCELLED = "cancelled", "ملغى"
+
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sent_gifts")
     receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="received_gifts")
     amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     points = models.PositiveIntegerField(default=0)
     message = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    receiver_name_snapshot = models.CharField(max_length=255, blank=True)

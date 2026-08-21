@@ -14,9 +14,10 @@ class LoanSerializer(serializers.ModelSerializer):
         read_only_fields = ["user", "status", "approved_by"]
 
 class GiftTransferSerializer(serializers.ModelSerializer):
-    receiver_phone = serializers.CharField(write_only=True)
+    receiver_phone = serializers.CharField(write_only=True, required=False)
+    receiver_name = serializers.CharField(source="receiver_name_snapshot", read_only=True)
     
     class Meta:
         model = GiftTransfer
-        fields = ["id", "sender", "receiver", "receiver_phone", "amount", "points", "message", "created_at"]
-        read_only_fields = ["id", "sender", "receiver", "created_at"]
+        fields = ["id", "sender", "receiver", "receiver_phone", "receiver_name", "amount", "points", "message", "status", "created_at"]
+        read_only_fields = ["id", "sender", "receiver", "receiver_name", "status", "created_at"]
