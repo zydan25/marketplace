@@ -1,0 +1,14 @@
+import type { Express, Request, Response } from "express";
+import * as db from "./db";
+import { sdk } from "./_core/sdk";
+async function auth(req: Request, res: Response, admin = false) { try { const user = await sdk.authenticateRequest(req); if (admin && user.role !== "admin") { res.status(403).json({ error: "هذه العملية للإدارة فقط." }); return undefined; } return user; } catch { res.status(401).json({ error: "سجّلي الدخول أولًا." }); return undefined; } }
+export function registerSettingsRoutes(app: Express) {
+  app.get("/api/preferences", async (req, res) => { const user = await auth(req, res); if (user) res.json({ currency: await db.getCurrencyPreference(user.id) }); });
+  app.patch("/api/preferences", async (req, res) => { const user = await auth(req, res); if (!user) return; const currency = req.body?.currency; if (!["YER", "SAR", "USD"].includes(currency)) { res.status(400).json({ error: "العملة غير مدعومة." }); return; } res.json(await db.setCurrencyPreference(user.id, currency)); });
+  app.get("/api/pricing-settings", async (_req, res) => res.json(await db.getPricingSettings()));
+  app.patch("/api/admin/pricing-settings", async (req, res) => { const admin = await auth(req, res, true); if (!admin) return; const markup = Number(req.body?.outsideIbbMarkupPercent); if (!Number.isInteger(markup) || markup < 0 || markup > 100) { res.status(400).json({ error: "أدخلي نسبة من 0 إلى 100." }); return; } res.json(await db.updatePricingSettings({ outsideIbbMarkupPercent: markup, freeShippingOutsideIbb: req.body?.freeShippingOutsideIbb !== false }, admin.id)); });
+  app.get("/api/support", async (req, res) => { const user = await auth(req, res); if (user) res.json({ conversation: await db.getSupportConversation(user.id) }); });
+  app.post("/api/support/messages", async (req, res) => { const user = await auth(req, res); if (!user) return; const conversation = await db.getSupportConversation(user.id); try { res.status(201).json({ conversation: await db.addSupportMessage(conversation.id, user.id, user.role === "admin" ? "admin" : "customer", typeof req.body?.body === "string" ? req.body.body : "") }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "تعذر إرسال الرسالة." }); } });
+  app.get("/api/admin/support", async (req, res) => { if (await auth(req, res, true)) res.json({ conversations: await db.listSupportConversations() }); });
+  app.post("/api/admin/support/:id/messages", async (req, res) => { const admin = await auth(req, res, true); if (!admin) return; try { res.status(201).json({ conversation: await db.addSupportMessage(Number(req.params.id), admin.id, "admin", typeof req.body?.body === "string" ? req.body.body : "") }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "تعذر إرسال الرد." }); } });
+}

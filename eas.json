@@ -1,0 +1,12 @@
+{
+  "build": {
+    "customer": {
+      "android": { "buildType": "apk" },
+      "env": { "APP_VARIANT": "customer" }
+    },
+    "vendor": {
+      "android": { "buildType": "apk" },
+      "env": { "APP_VARIANT": "vendor" }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+import type { Express, Request, Response } from "express";
+
+import * as db from "./db";
+import { sdk } from "./_core/sdk";
+import { storagePut } from "./storage";
+
+async function requireUser(req: Request, res: Response) { try { return await sdk.authenticateRequest(req); } catch { res.status(401).json({ error: "سجّلي الدخول للوصول إلى طلباتك." }); return undefined; } }
+async function requireAdmin(req: Request, res: Response) { const user = await requireUser(req, res); if (!user) return undefined; if (user.role !== "admin") { res.status(403).json({ error: "هذه العملية مخصصة للإدارة." }); return undefined; } return user; }
+async function canAccessOrder(req: Request, res: Response, orderId: number) { const user = await requireUser(req, res); if (!user) return undefined; const order = await db.getOrderOwner(orderId); if (!order) { res.status(404).json({ error: "الطلب غير موجود." }); return undefined; } if (user.role !== "admin" && order.userId !== user.id) { res.status(403).json({ error: "لا يمكنك الوصول إلى محادثة عميل آخر." }); return undefined; } return { user, order }; }
+async function uploadPaymentProof(dataUrl: unknown, orderId: number) { if (typeof dataUrl !== "string") return undefined; const match = dataUrl.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=]+)$/); if (!match) throw new Error("صيغة صورة إشعار الدفع غير مدعومة."); if (match[2].length > 7_000_000) throw new Error("صورة إشعار الدفع كبيرة جدًا."); const extension = match[1] === "image/png" ? "png" : match[1] === "image/webp" ? "webp" : "jpg"; return storagePut(`payment-proofs/${orderId}-${Date.now()}.${extension}`, Buffer.from(match[2], "base64"), match[1]); }
+
+export function registerOrderRoutes(app: Express) {
+  app.post("/api/orders", async (req, res) => { const user = await requireUser(req, res); if (!user) return; try { const lines = Array.isArray(req.body?.lines) ? req.body.lines.map((line: unknown) => { const item = line as Record<string, unknown>; return { productId: Number(item?.productId), color: typeof item?.color === "string" ? item.color : "", size: typeof item?.size === "string" ? item.size : "", quantity: Number(item?.quantity) }; }) : []; const order = await db.createOrderForCustomer(user.id, lines); res.status(201).json({ order }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "تعذر إنشاء الطلب." }); } });
+  app.get("/api/orders", async (req, res) => { const user = await requireUser(req, res); if (!user) return; res.json({ orders: await db.listOrdersForCustomer(user.id) }); });
+  app.get("/api/orders/:id", async (req, res) => { const access = await canAccessOrder(req, res, Number(req.params.id)); if (!access) return; res.json({ order: await db.getOrderDetails(access.order.id) }); });
+  app.post("/api/orders/:id/messages", async (req, res) => { const access = await canAccessOrder(req, res, Number(req.params.id)); if (!access) return; try { const uploaded = await uploadPaymentProof(req.body?.imageDataUrl, access.order.id); const order = await db.addOrderMessage(access.order.id, access.user.id, access.user.role === "admin" ? "admin" : "customer", { body: typeof req.body?.body === "string" ? req.body.body : "", imageStorageKey: uploaded?.key, imageUrl: uploaded?.url }); res.status(201).json({ order }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "تعذر إرسال الرسالة." }); } });
+  app.get("/api/notifications", async (req, res) => { const user = await requireUser(req, res); if (!user) return; res.json({ notifications: await db.listCustomerNotifications(user.id) }); });
+  app.get("/api/admin/orders", async (req, res) => { if (!await requireAdmin(req, res)) return; res.json({ orders: await db.listOrdersForAdmin() }); });
+  app.patch("/api/admin/orders/:id/paid-shipping", async (req, res) => { const admin = await requireAdmin(req, res); if (!admin) return; try { const order = await db.markOrderPaidShipping(Number(req.params.id), admin.id); res.json({ order }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "تعذر تحديث حالة الطلب." }); } });
+}

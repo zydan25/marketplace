@@ -1,0 +1,9 @@
+import type { Express, Request, Response } from "express";
+import * as db from "./db";
+import { sdk } from "./_core/sdk";
+
+async function authenticate(req: Request, res: Response, admin = false) { try { const user = await sdk.authenticateRequest(req); if (admin && user.role !== "admin") { res.status(403).json({ error: "هذه العملية للإدارة فقط." }); return undefined; } return user; } catch { res.status(401).json({ error: "سجّلي الدخول أولًا." }); return undefined; } }
+export function registerMarketingRoutes(app: Express) {
+  app.get("/api/marketing-notifications", async (req, res) => { const user = await authenticate(req, res); if (user) res.json({ notifications: await db.listMarketingNotificationsForUser(user.id) }); });
+  app.post("/api/admin/marketing-notifications", async (req, res) => { const admin = await authenticate(req, res, true); if (!admin) return; try { const body = req.body ?? {}; const input: db.MarketingNotificationInput = { title: typeof body.title === "string" ? body.title.trim() : "", body: typeof body.body === "string" ? body.body.trim() : "", audienceType: body.audienceType, governorate: typeof body.governorate === "string" ? body.governorate : undefined, userIds: Array.isArray(body.userIds) ? body.userIds.map(Number).filter(Number.isInteger) : [], productId: Number.isInteger(body.productId) ? body.productId : undefined, imageStorageKey: typeof body.imageStorageKey === "string" ? body.imageStorageKey : undefined, imageUrl: typeof body.imageUrl === "string" ? body.imageUrl : undefined }; if (!input.title || !input.body || !["governorate", "single", "selected"].includes(input.audienceType)) throw new Error("العنوان والنص والجمهور المطلوب بيانات أساسية."); res.status(201).json({ notification: await db.createMarketingNotification(input, admin.id) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "تعذر إرسال الإشعار." }); } });
+}

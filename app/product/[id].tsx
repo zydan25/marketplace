@@ -1,0 +1,64 @@
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Clipboard from "expo-clipboard";
+import { ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { ProductCard } from "@/components/product-card";
+import { ScreenContainer } from "@/components/screen-container";
+import { useCart } from "@/lib/cart-context";
+import { formatYER } from "@/lib/catalog";
+import { getProduct, type StoreProduct } from "@/lib/product-api";
+import { ShareButton } from "@/components/share-button";
+
+export default function ProductDetailsScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { addItem } = useCart(); const [product, setProduct] = useState<StoreProduct | null>(null); const [similar, setSimilar] = useState<StoreProduct[]>([]); const [loading, setLoading] = useState(true); const [color, setColor] = useState(""); const [size, setSize] = useState(""); const [quantity, setQuantity] = useState(1); const [image, setImage] = useState(0);
+  useEffect(() => { getProduct(id).then(({ product: item, similar: related }) => { setProduct(item); setSimilar(related); setColor(item.colors[0]?.name ?? "افتراضي"); setSize(item.sizes[0]?.label ?? "مقاس موحد"); }).catch(() => setProduct(null)).finally(() => setLoading(false)); }, [id]);
+  if (loading) return <ScreenContainer edges={["top", "bottom"]}><View style={s.center}><ActivityIndicator color="#E60023" /></View></ScreenContainer>;
+  if (!product) return <ScreenContainer edges={["top", "bottom"]}><View style={s.center}><Text>الصنف غير متاح حاليًا.</Text></View></ScreenContainer>;
+  const code = product.productCode || `TDS-${product.id}`;
+  const copyCode = async () => { await Clipboard.setStringAsync(code); Alert.alert("تم النسخ", `تم نسخ رقم الصنف: ${code}`); };
+  return <ScreenContainer edges={["top", "left", "right"]} className="bg-white"><View style={s.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={24} /></TouchableOpacity><Text style={s.headerTitle}>تفاصيل المنتج</Text><View style={{flexDirection:"row", gap:10}}><ShareButton type="product" id={id} title={product.name} /><TouchableOpacity style={{width: 40, height: 40, justifyContent: "center", alignItems: "center"}} onPress={() => router.push("/bag" as never)}><MaterialIcons name="shopping-bag" size={23} /></TouchableOpacity></View></View><ScrollView contentContainerStyle={s.content}>{product.images.length ? <><Image source={{ uri: product.images[image]?.url }} style={s.photo} /><FlatList horizontal inverted data={product.images} keyExtractor={(item) => String(item.id)} contentContainerStyle={s.thumbs} renderItem={({ item, index }) => <TouchableOpacity onPress={() => setImage(index)} style={[s.thumb, image === index && s.thumbActive]}><Image source={{ uri: item.url }} style={s.thumbImage} /></TouchableOpacity>} /></> : <View style={s.empty}><MaterialIcons name="image-not-supported" size={42} color="#AAA" /></View>}<View style={s.body}><Text style={s.category}>{product.category}</Text><Text style={s.title}>{product.name}</Text><View style={s.pricing}><Text style={s.price}>{formatYER(product.price)}</Text>{product.discountPercent ? <Text style={s.oldPrice}>{formatYER(product.originalPrice)}</Text> : null}</View><View style={s.codeRow}><TouchableOpacity onPress={copyCode} style={s.copy}><MaterialIcons name="content-copy" size={15} color="#E60023" /><Text style={s.copyText}>نسخ</Text></TouchableOpacity><View><Text style={s.code}>رقم الصنف: {code}</Text><Text style={s.hint}>اضغطي لنسخ رقم الصنف</Text></View></View></View><Choice title={`اللون: ${color}`}>{product.colors.map((item) => <TouchableOpacity key={item.id} onPress={() => setColor(item.name)} style={[s.color, color === item.name && s.activeColor, { backgroundColor: item.hex }]} />)}</Choice><Choice title="المقاس">{product.sizes.map((item) => <TouchableOpacity key={item.id} onPress={() => setSize(item.label)} style={[s.size, size === item.label && s.activeSize]}><Text style={size === item.label ? s.activeSizeText : s.sizeText}>{item.label}</Text></TouchableOpacity>)}</Choice><Choice title="الكمية"><View style={s.quantity}><TouchableOpacity onPress={() => setQuantity(Math.max(1, quantity - 1))}><MaterialIcons name="remove" size={20} /></TouchableOpacity><Text style={s.number}>{quantity}</Text><TouchableOpacity onPress={() => setQuantity(quantity + 1)}><MaterialIcons name="add" size={20} /></TouchableOpacity></View></Choice><View style={s.body}><Text style={s.section}>تفاصيل أكثر</Text><Text style={s.description}>{product.description}</Text>{product.details ? <Text style={s.description}>{product.details}</Text> : null}</View><View style={s.related}><Text style={s.section}>ربما يعجبك أيضًا</Text><FlatList horizontal inverted data={similar} keyExtractor={(item) => item.id} renderItem={({ item }) => <View style={s.relatedCard}><ProductCard product={item} /></View>} /></View></ScrollView><View style={s.bottom}><TouchableOpacity style={s.add} onPress={() => { addItem(product, color, size, quantity); Alert.alert("تمت الإضافة", "أصبح الصنف في حقيبتك."); }}><Text style={s.addText}>أضيفي إلى الحقيبة · {formatYER(product.price * quantity)}</Text></TouchableOpacity></View></ScreenContainer>;
+}
+function Choice({ title, children }: { title: string; children: React.ReactNode }) { return <View style={s.choice}><Text style={s.choiceTitle}>{title}</Text><View style={s.options}>{children}</View></View>; }
+const s = StyleSheet.create({
+  header: { height: 54, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#F5F5F5", backgroundColor: "#FFF" },
+  headerTitle: { fontSize: 16, fontWeight: "900", color: "#111" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  content: { paddingBottom: 100 },
+  photo: { width: "100%", height: 380, backgroundColor: "#F9F9F9" },
+  thumbs: { padding: 12, gap: 8 },
+  thumb: { width: 56, height: 72, borderWidth: 2, borderColor: "transparent", borderRadius: 8, overflow: "hidden" },
+  thumbActive: { borderColor: "#111" },
+  thumbImage: { width: "100%", height: "100%" },
+  empty: { height: 280, alignItems: "center", justifyContent: "center", backgroundColor: "#F5F5F5" },
+  body: { padding: 16, alignItems: "flex-end" },
+  category: { color: "#777", fontSize: 11, fontWeight: "600" },
+  title: { fontSize: 18, fontWeight: "900", color: "#111", textAlign: "right", marginTop: 4, lineHeight: 26 },
+  pricing: { width: "100%", flexDirection: "row-reverse", gap: 8, alignItems: "center", marginTop: 12 },
+  price: { color: "#111", fontSize: 22, fontWeight: "900" },
+  oldPrice: { color: "#999", textDecorationLine: "line-through", fontSize: 13 },
+  codeRow: { marginTop: 16, flexDirection: "row", gap: 12, alignItems: "center", padding: 12, backgroundColor: "#F9F9F9", borderRadius: 8, width: "100%", justifyContent: "flex-end" },
+  code: { fontWeight: "700", fontSize: 12, color: "#333", textAlign: "right" },
+  hint: { color: "#777", fontSize: 10, marginTop: 2, textAlign: "right" },
+  copy: { paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row-reverse", gap: 4, backgroundColor: "#FFF", borderWidth: 1, borderColor: "#EFEFEF", borderRadius: 16, alignItems: "center" },
+  copyText: { fontSize: 10, color: "#111", fontWeight: "700" },
+  choice: { padding: 16, borderTopWidth: 1, borderColor: "#F5F5F5", alignItems: "flex-end" },
+  choiceTitle: { fontSize: 14, fontWeight: "900", color: "#111" },
+  options: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 10, marginTop: 12 },
+  color: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: "transparent" },
+  activeColor: { borderColor: "#111" },
+  size: { minWidth: 48, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: "#EFEFEF", borderRadius: 20, alignItems: "center", backgroundColor: "#F9F9F9" },
+  activeSize: { backgroundColor: "#111", borderColor: "#111" },
+  sizeText: { fontSize: 12, color: "#333", fontWeight: "600" },
+  activeSizeText: { fontSize: 12, color: "#FFF", fontWeight: "700" },
+  quantity: { width: 120, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderColor: "#EFEFEF", borderRadius: 24, padding: 4, backgroundColor: "#F9F9F9" },
+  number: { fontWeight: "900", fontSize: 14, color: "#111" },
+  section: { fontSize: 15, fontWeight: "900", color: "#111", marginBottom: 8 },
+  description: { textAlign: "right", lineHeight: 22, fontSize: 13, color: "#555" },
+  related: { padding: 16, borderTopWidth: 1, borderColor: "#F5F5F5", alignItems: "flex-end" },
+  relatedCard: { width: 140, marginTop: 12, marginLeft: 12 },
+  bottom: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: "#FFF", borderTopWidth: 1, borderColor: "#F5F5F5" },
+  add: { height: 48, borderRadius: 24, backgroundColor: "#111", alignItems: "center", justifyContent: "center" },
+  addText: { color: "#FFF", fontWeight: "800", fontSize: 14 }
+});

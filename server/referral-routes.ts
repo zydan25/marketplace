@@ -1,0 +1,5 @@
+import type { Express, Request, Response } from "express";
+import * as db from "./db";
+import { sdk } from "./_core/sdk";
+async function auth(req: Request, res: Response, admin = false) { try { const user = await sdk.authenticateRequest(req); if (admin && user.role !== "admin") { res.status(403).json({ error: "هذه العملية للإدارة فقط." }); return undefined; } return user; } catch { res.status(401).json({ error: "سجّلي الدخول أولًا." }); return undefined; } }
+export function registerReferralRoutes(app: Express) { app.get("/api/referrals/me", async (req, res) => { const user = await auth(req, res); if (user) res.json({ referral: await db.getReferralSummary(user.id) }); }); app.patch("/api/admin/referrals/settings", async (req, res) => { const user = await auth(req, res, true); if (!user) return; res.json({ referral: await db.setReferralEnabled(req.body?.isEnabled === true, user.id) }); }); app.get("/api/admin/referrals", async (req, res) => { if (await auth(req, res, true)) res.json({ referrals: await db.listReferralLeaders() }); }); }
