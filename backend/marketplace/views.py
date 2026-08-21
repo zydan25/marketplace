@@ -145,7 +145,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         if trending == "1":
             queryset = queryset.filter(is_trending=True)
         if tag:
-            queryset = queryset.filter(hashtags__icontains=tag)
+            normalized_tag = tag.strip().lstrip("#").casefold()
+            tagged_ids = [item.id for item in Product.objects.only("id", "hashtags") if normalized_tag in {str(value).strip().lstrip("#").casefold() for value in (item.hashtags or [])}]
+            queryset = queryset.filter(id__in=tagged_ids)
         return queryset.distinct()
 
     def get_permissions(self):
