@@ -25,7 +25,7 @@ export default function StoreScreen() {
     const allTab: StorefrontTab = { id: "fallback-all", title: "الكل", searchPlaceholder: "ابحثي عن منتج أو متجر", isActive: true, sortOrder: 0, slides: firstImage ? [{ id: "fallback-hero", title: "اختيارات تناسبك", subtitle: "تسوّقي أحدث المنتجات", ctaLabel: "تسوّقي الآن", imageUrl: firstImage, storageKey: "", isActive: true, sortOrder: 0 }] : [], circles: categoryNames.map((name, index) => ({ id: `fallback-circle-${index}`, title: name, targetCategory: name, imageUrl: products.find((product) => product.categories.includes(name))?.images[0]?.url || "", storageKey: "", isActive: true, sortOrder: index })) };
     return [allTab, ...categoryNames.map((name, index) => ({ id: `fallback-category-${index}`, title: name, searchPlaceholder: `ابحثي في ${name}`, isActive: true, sortOrder: index + 1, slides: [], circles: [] }))];
   }, [products]);
-  const displayTabs = useMemo(() => { const base = tabs.length ? tabs : fallbackTabs; const existing = new Set(base.map(tab => tab.title)); const categories = Array.from(new Set(products.flatMap(product => product.categories))).filter(name => name && !existing.has(name)).slice(0, 12); return [...base, ...categories.map((name, index) => ({ id: `auto-category-${index}-${name}`, title: name, searchPlaceholder: `ابحثي في ${name}`, isActive: true, sortOrder: base.length + index, slides: [], circles: [] }))]; }, [fallbackTabs, products, tabs]);
+  const displayTabs = useMemo<StorefrontTab[]>(() => { const base: StorefrontTab[] = tabs.length ? tabs : fallbackTabs; const existing = new Set(base.map(tab => tab.title)); const categories = Array.from(new Set(products.flatMap(product => product.categories))).filter(name => name && !existing.has(name)).slice(0, 12); return [...base, ...categories.map((name, index) => ({ id: `auto-category-${index}-${name}`, title: name, searchPlaceholder: `ابحثي في ${name}`, isActive: true, sortOrder: base.length + index, slides: [], circles: [] }))]; }, [fallbackTabs, products, tabs]);
 
   useEffect(() => {
     if (!activeTabId && displayTabs[0]) setActiveTabId(displayTabs[0].id);
@@ -109,12 +109,12 @@ export default function StoreScreen() {
             <View style={styles.promoBar}>
               <TouchableOpacity style={styles.promoItem} onPress={() => router.push("/collection?mode=flash" as never)}>
                 <View style={styles.promoIcon}><MaterialIcons name="bolt" size={18} color="#111" /></View>
-                <View><Text style={styles.promoTitle}>تخفيضات سريعة</Text><Text style={styles.promoLink}>عرض المزيد</Text></View>
+                <View><Text style={styles.promoTitle}>{activeTab?.promo?.flashTitle ?? "تخفيضات سريعة"}</Text><Text style={styles.promoLink}>{activeTab?.promo?.flashSubtitle ?? "عرض المزيد"}</Text></View>
               </TouchableOpacity>
               <View style={styles.promoDivider} />
               <TouchableOpacity style={styles.promoItem} onPress={() => router.push("/collection?mode=free_shipping" as never)}>
                 <View style={styles.promoIcon}><MaterialIcons name="local-shipping" size={18} color="#111" /></View>
-                <View><Text style={styles.promoTitle}>شحن مجاني</Text><Text style={styles.promoSub}>أضيفي المزيد للحصول عليه</Text></View>
+                <View><Text style={styles.promoTitle}>{activeTab?.promo?.freeShippingTitle ?? "شحن مجاني"}</Text><Text style={styles.promoSub}>{activeTab?.promo?.freeShippingSubtitle ?? "أضيفي المزيد للحصول عليه"}</Text></View>
               </TouchableOpacity>
             </View>
 

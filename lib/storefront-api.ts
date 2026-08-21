@@ -2,7 +2,8 @@ import { apiCall } from "@/lib/_core/api";
 
 export type StorefrontSlide = { id: string; title: string; subtitle: string; ctaLabel: string; imageUrl: string; storageKey: string; isActive: boolean; sortOrder: number };
 export type StorefrontCircle = { id: string; title: string; targetCategory: string; imageUrl: string; storageKey: string; isActive: boolean; sortOrder: number };
-export type StorefrontTab = { id: string; title: string; searchPlaceholder: string; isActive: boolean; sortOrder: number; slides: StorefrontSlide[]; circles: StorefrontCircle[] };
+export type StorefrontPromo = { flashTitle: string; flashSubtitle: string; flashMode: string; freeShippingTitle: string; freeShippingSubtitle: string; freeShippingCategory: string };
+export type StorefrontTab = { id: string; title: string; searchPlaceholder: string; isActive: boolean; sortOrder: number; slides: StorefrontSlide[]; circles: StorefrontCircle[]; promo?: StorefrontPromo };
 type ImagePayload = { dataUrl: string; fileName: string };
 type ConfigRecord = Record<string, unknown>;
 type RawSection = { id: number | string; title?: string; section_type?: string; type?: string; vendor?: number | null; config?: ConfigRecord; sort_order?: number; is_visible?: boolean };
@@ -63,6 +64,8 @@ function toTab(section: RawSection): StorefrontTab {
   if (!slides.length && ["hero", "banner"].includes(text(section.section_type ?? section.type).toLowerCase())) {
     slides.push(toSlide(id, config, 0));
   }
+  const promoConfig = asRecord(config.promo);
+  const promo: StorefrontPromo = { flashTitle: text(promoConfig.flashTitle, "تخفيضات سريعة"), flashSubtitle: text(promoConfig.flashSubtitle, "عرض المزيد"), flashMode: text(promoConfig.flashMode, "flash"), freeShippingTitle: text(promoConfig.freeShippingTitle, "شحن مجاني"), freeShippingSubtitle: text(promoConfig.freeShippingSubtitle, "أضيفي المزيد للحصول عليه"), freeShippingCategory: text(promoConfig.freeShippingCategory) };
   return {
     id,
     title: text(section.title, "الرئيسية"),
@@ -71,6 +74,7 @@ function toTab(section: RawSection): StorefrontTab {
     sortOrder: number(section.sort_order),
     slides: slides.sort((a, b) => a.sortOrder - b.sortOrder),
     circles: circles.sort((a, b) => a.sortOrder - b.sortOrder),
+    promo,
   };
 }
 
@@ -154,6 +158,12 @@ export async function createTab(payload: { title: string; searchPlaceholder: str
     }),
   });
   return { tabs: await getAdminStorefront() };
+}
+
+export async function updatePromos(id: string, promo: StorefrontPromo) {
+  const section = await fetchSection(id);
+  const config = { ...asRecord(section.config), promo };
+  return saveSection(id, { config });
 }
 
 export async function updateTab(id: string, payload: Partial<{ title: string; searchPlaceholder: string; isActive: boolean; sortOrder: number }>) {
