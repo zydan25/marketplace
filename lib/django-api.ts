@@ -24,7 +24,7 @@ function baseUrl() {
   if (Platform.OS === "web" && typeof window !== "undefined") {
     return window.location.origin;
   }
-  return "http://10.0.2.2:8000";
+  return "https://shopik.alattab.site";
 }
 
 async function getToken() {
