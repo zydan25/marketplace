@@ -118,6 +118,15 @@ export default function StoreScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* صورة ترند (تدار من الإدارة) */}
+            <TouchableOpacity onPress={() => router.push("/collection?mode=flash" as never)} style={{ marginHorizontal: 16, marginTop: 15, borderRadius: 12, overflow: "hidden", height: 140 }}>
+              <Image source={{ uri: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=800&q=80" }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+              <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 12, backgroundColor: "rgba(0,0,0,0.4)" }}>
+                <Text style={{ color: "#FFF", fontSize: 16, fontWeight: "900", textAlign: "right" }}>الترند الحالي</Text>
+                <Text style={{ color: "#FFF", fontSize: 12, textAlign: "right" }}>اكتشفي أحدث الموديلات التي أضافتها الإدارة</Text>
+              </View>
+            </TouchableOpacity>
+
             {/* Circle Categories */}
             {activeTab?.circles.length ? (
               <View style={styles.circlesArea}>

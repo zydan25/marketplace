@@ -8,7 +8,7 @@ import * as Auth from "@/lib/_core/auth";
 
 export default function LoginScreen() {
   const [phone,setPhone]=useState(""); const [password,setPassword]=useState(""); const [loading,setLoading]=useState(false);
-  const submit=async()=>{ if(!phone.trim()||!password) return Alert.alert("بيانات ناقصة","أدخلي رقم الجوال وكلمة المرور."); try{setLoading(true);const r=await Api.loginWithPhone(phone,password);await Auth.setSessionToken(r.sessionToken);await Auth.setUserInfo({...r.user,lastSignedIn:new Date(r.user.lastSignedIn)});router.replace("/profile" as never)}catch(e){Alert.alert("تعذر الدخول",e instanceof Error?e.message:"حاولي مرة أخرى.")}finally{setLoading(false)}};
+  const submit=async()=>{ if(!phone.trim()||!password) return Alert.alert("بيانات ناقصة","أدخلي رقم الجوال وكلمة المرور."); try{setLoading(true);const r=await Api.loginWithPhone(phone,password);await Auth.setSessionToken(r.sessionToken);await Auth.setUserInfo({...r.user,lastSignedIn:new Date(r.user.lastSignedIn)});if(r.user.role==="vendor"){router.replace("/vendor" as never)}else{router.replace("/profile" as never)}}catch(e){Alert.alert("تعذر الدخول",e instanceof Error?e.message:"حاولي مرة أخرى.")}finally{setLoading(false)}};
   return (
     <ScreenContainer edges={["top"]} className="bg-[#FFF]">
       <View style={s.header}>
