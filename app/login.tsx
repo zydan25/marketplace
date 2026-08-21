@@ -16,7 +16,7 @@ export default function LoginScreen() {
           <MaterialIcons name="close" size={22} color="#111" />
         </TouchableOpacity>
       </View>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} automaticallyAdjustKeyboardInsets>
+      <ScrollView contentContainerStyle={s.content} automaticallyAdjustKeyboardInsets>
         <Image source={require("@/assets/images/welcome-logo.png")} style={s.logo} resizeMode="contain" />
         <Text style={s.title}>تسجيل الدخول</Text>
         <Text style={s.sub}>أدخل رقم الجوال وكلمة المرور للوصول إلى حسابك.</Text>

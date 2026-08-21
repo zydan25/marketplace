@@ -67,7 +67,7 @@ export default function RegisterScreen() {
           <MaterialIcons name="close" size={22} color="#111" />
         </TouchableOpacity>
       </View>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} automaticallyAdjustKeyboardInsets>
+      <ScrollView contentContainerStyle={s.content} automaticallyAdjustKeyboardInsets>
         <Text style={s.sub}>انضمي إلى شبيك لتتسوقي أحدث الموديلات وتستفيدي من العروض الحصرية.</Text>
         
         {error ? (
@@ -141,7 +141,7 @@ const s = StyleSheet.create({
   header: { height: 54, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#F5F5F5" },
   headerTitle: { fontSize: 16, fontWeight: "900", color: "#111" },
   back: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F5F5F5", alignItems: "center", justifyContent: "center" },
-  content: { padding: 24, paddingBottom: 80, maxWidth: 450, width: "100%", alignSelf: "center" },
+  content: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 80, maxWidth: 450, width: "100%", alignSelf: "center" },
   sub: { color: "#777", fontSize: 13, textAlign: "center", marginBottom: 24, lineHeight: 22 },
   errorBox: { flexDirection: "row-reverse", backgroundColor: "#FFF0F0", padding: 12, borderRadius: 8, alignItems: "center", gap: 8, marginBottom: 20, borderWidth: 1, borderColor: "#FFD6D6" },
   errorText: { color: "#E60023", fontSize: 12, fontWeight: "700", flex: 1, textAlign: "right" },
