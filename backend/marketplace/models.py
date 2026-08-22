@@ -294,3 +294,15 @@ class Referral(TimeStampedModel):
     code = models.CharField(max_length=32, unique=True)
     reward_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     reward_paid = models.BooleanField(default=False)
+
+
+# Additional scalable Marketplace domain entities live in a dedicated module to keep this
+# legacy-compatible model file manageable while still registering them with Django.
+from .marketplace_models import (  # noqa: E402,F401
+    InventoryReservation,
+    Payment,
+    Shipment,
+    VendorLedgerEntry,
+    VendorOrder,
+    VendorOrderItem,
+)
