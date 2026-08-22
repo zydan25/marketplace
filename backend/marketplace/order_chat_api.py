@@ -4,7 +4,6 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import VendorProfile
 from .marketplace_models import VendorOrder
 from .order_chat_models import OrderChat, OrderChatMessage
 
@@ -53,6 +52,15 @@ class OrderChatViewSet(viewsets.ModelViewSet):
             return qs.filter(vendor__owner=user)
         return qs.filter(customer=user)
 
+    def _ensure_chat(self, vendor_order):
+        return OrderChat.objects.get_or_create(
+            order=vendor_order.order,
+            vendor=vendor_order.vendor,
+            vendor_order=vendor_order,
+            customer=vendor_order.order.customer,
+            defaults={"subject": f"محادثة الطلب {vendor_order.order.order_number}"},
+        )[0]
+
     @action(detail=False, methods=["post"])
     def ensure_for_vendor_order(self, request):
         vendor_order_id = request.data.get("vendor_order_id")
@@ -63,22 +71,30 @@ class OrderChatViewSet(viewsets.ModelViewSet):
         except (ValueError, VendorOrder.DoesNotExist):
             raise ValidationError({"vendor_order_id": "طلب التاجر غير موجود"})
         user = request.user
-        if user.role == "customer":
-            if vendor_order.order.customer_id != user.id:
-                raise PermissionDenied("لا تملك هذا الطلب")
-        elif user.role == "vendor":
-            if vendor_order.vendor.owner_id != user.id:
-                raise PermissionDenied("لا تملك هذا الطلب")
-        elif not (user.is_staff or user.role == "admin"):
+        if user.role == "customer" and vendor_order.order.customer_id != user.id:
+            raise PermissionDenied("لا تملك هذا الطلب")
+        if user.role == "vendor" and vendor_order.vendor.owner_id != user.id:
+            raise PermissionDenied("لا تملك هذا الطلب")
+        if user.role not in {"customer", "vendor", "admin"} and not user.is_staff:
             raise PermissionDenied("غير مصرح")
-        chat, _ = OrderChat.objects.get_or_create(
-            order=vendor_order.order,
-            vendor=vendor_order.vendor,
-            vendor_order=vendor_order,
-            customer=vendor_order.order.customer,
-            defaults={"subject": f"محادثة الطلب {vendor_order.order.order_number}"},
-        )
-        return Response(OrderChatSerializer(chat, context={"request": request}).data)
+        return Response(OrderChatSerializer(self._ensure_chat(vendor_order), context={"request": request}).data)
+
+    @action(detail=False, methods=["post"])
+    def ensure_for_order(self, request):
+        order_id = request.data.get("order_id")
+        if not order_id:
+            raise ValidationError({"order_id": "مطلوب"})
+        qs = VendorOrder.objects.select_related("order", "vendor", "vendor__owner").filter(order_id=order_id)
+        if request.user.role == "customer":
+            qs = qs.filter(order__customer=request.user)
+        elif request.user.role == "vendor":
+            qs = qs.filter(vendor__owner=request.user)
+        elif not (request.user.is_staff or request.user.role == "admin"):
+            raise PermissionDenied("غير مصرح")
+        if not qs.exists():
+            raise ValidationError({"order_id": "الطلب غير موجود أو لا تملك الوصول إليه"})
+        chats = [self._ensure_chat(vendor_order) for vendor_order in qs]
+        return Response(OrderChatSerializer(chats, many=True, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
     def send_message(self, request, pk=None):
