@@ -14,7 +14,7 @@ from .secure_catalog import (
     SecureVendorViewSet,
 )
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
-from .secure_order_api import SecureOrderViewSet
+from .secure_order_v2 import SecureOrderV2ViewSet
 from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
@@ -53,7 +53,7 @@ router.register("products", SecureProductViewSet, basename="product")
 router.register("themes", SecureDesignThemeViewSet, basename="theme")
 router.register("storefront-sections", SecureStorefrontSectionViewSet, basename="storefront-section")
 router.register("wallets", WalletViewSet, basename="wallet")
-router.register("orders", SecureOrderViewSet, basename="order")
+router.register("orders", SecureOrderV2ViewSet, basename="order")
 router.register("notifications", SecureNotificationViewSet, basename="notification")
 router.register("conversations", SecureConversationViewSet, basename="conversation")
 router.register("coupons", CouponViewSet, basename="coupon")
