@@ -5,7 +5,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoApi } from "@/lib/django-api";
 
-type Theme={id:number;name:string;tokens:Record<string,string>;layout:Record<string,unknown>;is_active:boolean};
+type Theme={id:number;name:string;vendor?:number|null;tokens:Record<string,string>;layout:Record<string,unknown>;is_active:boolean};
 
 export default function VendorDesignScreen(){
  const [theme,setTheme]=useState<Theme|null>(null);const [name,setName]=useState("هوية متجري");const [primary,setPrimary]=useState("#111111");const [background,setBackground]=useState("#FFFFFF");const [radius,setRadius]=useState("14");const [rtl,setRtl]=useState(true);const [saving,setSaving]=useState(false);
