@@ -11,6 +11,7 @@ class StorefrontEditorTests(TestCase):
         self.admin = User.objects.create_user(phone="966500000001", username="966500000001", password="StrongPass123!", role="admin", is_staff=True)
         self.vendor = User.objects.create_user(phone="966500000002", username="966500000002", password="StrongPass123!", role="vendor")
         self.other_vendor_user = User.objects.create_user(phone="966500000003", username="966500000003", password="StrongPass123!", role="vendor")
+        self.customer = User.objects.create_user(phone="966500000004", username="966500000004", password="StrongPass123!", role="customer")
         self.vendor_profile = VendorProfile.objects.create(owner=self.vendor, store_name="Vendor A", slug="vendor-a", status="active")
         self.other_profile = VendorProfile.objects.create(owner=self.other_vendor_user, store_name="Vendor B", slug="vendor-b", status="active")
         self.global_section = StorefrontSection.objects.create(owner=self.admin, title="الرئيسية", section_type="hero", vendor=None, config={"subtitle": "مرحبا"}, sort_order=0, is_visible=True)
@@ -45,10 +46,18 @@ class StorefrontEditorTests(TestCase):
         self.assertEqual(own.status_code, 200)
         self.assertEqual(other.status_code, 403)
 
-    def test_editor_requires_staff(self):
+    def test_vendor_can_open_editor_but_sees_only_own_sections(self):
         self.client.force_login(self.vendor)
         response = self.client.get(reverse("admin-storefront-editor"))
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "متجري")
+        self.assertNotContains(response, "متجر آخر")
+        self.assertNotContains(response, "الرئيسية")
+
+    def test_customer_cannot_open_editor(self):
+        self.client.force_login(self.customer)
+        response = self.client.get(reverse("admin-storefront-editor"))
+        self.assertEqual(response.status_code, 403)
 
     def test_section_config_must_be_object(self):
         self.client.force_login(self.admin)
