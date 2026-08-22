@@ -1,6 +1,6 @@
 import { djangoApi } from "@/lib/django-api";
 
-export type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded";
+export type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "partially_fulfilled" | "delivered" | "cancelled" | "refunded";
 export type OrderLinePayload = { productId: number; variantId?: number; color?: string; size?: string; quantity: number };
 type DjangoOrder = { id: number; order_number: string; status: string; total: string | number; shipping_address: Record<string, unknown>; payment_method: string; payment_status: string; currency: string; items: Array<{ id: number; product: number; name_snapshot: string; quantity: number; unit_price: string | number; color?: string; size?: string; sku_snapshot?: string }>; created_at: string; updated_at?: string };
 
