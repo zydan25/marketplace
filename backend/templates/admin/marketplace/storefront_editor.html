@@ -1,0 +1,72 @@
+{% extends "admin/base_site.html" %}
+{% block title %}محرر واجهة المتجر{% endblock %}
+{% block extrastyle %}
+<style>
+.editor-shell{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:20px;max-width:1500px;margin:20px auto;padding:0 16px;direction:rtl}
+.panel{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;box-shadow:0 4px 18px rgba(0,0,0,.04)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.toolbar select,.toolbar input,.toolbar button{border:1px solid #d1d5db;border-radius:9px;padding:9px;font:inherit}.toolbar button{background:#111827;color:#fff;cursor:pointer;border:0}
+.section-list{display:grid;gap:10px}.section{border:1px solid #e5e7eb;border-radius:12px;padding:14px;cursor:grab;background:#fff}.section.dragging{opacity:.5}.section-head{display:flex;gap:10px;align-items:center;justify-content:space-between}.section-title{font-weight:800}.badge{font-size:11px;padding:4px 8px;border-radius:999px;background:#f3f4f6}.badge.off{background:#fee2e2;color:#991b1b}
+.fields{display:grid;gap:10px;margin-top:14px}.fields label{font-weight:700;font-size:12px}.fields input,.fields textarea,.fields select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:9px;padding:9px;font:inherit}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{border:0;border-radius:9px;padding:9px 13px;cursor:pointer;background:#111827;color:#fff}.actions button.secondary{background:#e5e7eb;color:#111827}
+.preview-wrap{display:flex;justify-content:center}.phone{width:min(100%,390px);height:760px;border:10px solid #111827;border-radius:34px;overflow:auto;background:#f8fafc;box-shadow:0 12px 40px rgba(0,0,0,.18)}.phone::-webkit-scrollbar{width:4px}.phone::-webkit-scrollbar-thumb{background:#9ca3af;border-radius:99px}.preview-section{margin:10px;border-radius:14px;overflow:hidden;background:#fff;border:1px solid #e5e7eb}.preview-section img{width:100%;display:block;max-height:220px;object-fit:cover}.preview-content{padding:12px}.preview-title{font-weight:800}.preview-subtitle{color:#6b7280;font-size:12px;margin-top:4px}.preview-button{display:inline-block;margin-top:10px;background:#111827;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px}.preview-card{display:flex;gap:8px;align-items:center;margin-top:10px;padding:9px;border:1px solid #eee;border-radius:10px}.preview-card img{width:60px;height:60px;max-height:none;border-radius:8px}.help{color:#6b7280;font-size:12px;line-height:1.7}
+@media (max-width:900px){.editor-shell{grid-template-columns:1fr}.phone{height:620px}.grid2{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="editor-shell">
+  <div class="panel">
+    <h1>محرر واجهة المتجر</h1>
+    <p class="help">حرّر الصفحة دون تعديل الكود. اسحب الأقسام لإعادة ترتيبها، أو أنشئ قسمًا جديدًا. المدير يرى المنصة كلها، والتاجر يرى متجره فقط.</p>
+    <div class="toolbar">
+      <input id="new-title" placeholder="عنوان القسم الجديد">
+      <select id="new-type">{% for type in section_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select>
+      <button id="create-section" type="button">+ إضافة قسم</button>
+    </div>
+    <div id="sections" class="section-list">
+      {% for section in sections %}
+      <article class="section" draggable="true" data-id="{{ section.id }}">
+        <div class="section-head">
+          <span class="section-title">{{ section.title|default:"قسم بدون عنوان" }}</span>
+          <span class="badge {% if not section.is_visible %}off{% endif %}">{% if section.is_visible %}ظاهر{% else %}مخفي{% endif %}</span>
+        </div>
+        <div class="fields">
+          <label>العنوان</label><input class="js-title" value="{{ section.title|escape }}" maxlength="180">
+          <label>النوع</label><input value="{{ section.section_type }}" disabled>
+          <label>الظهور</label><select class="js-visible"><option value="true" {% if section.is_visible %}selected{% endif %}>ظاهر</option><option value="false" {% if not section.is_visible %}selected{% endif %}>مخفي</option></select>
+          <div class="grid2">
+            <div><label>الصورة URL</label><input class="js-image" placeholder="/media/... أو https://..." ></div>
+            <div><label>نص الزر</label><input class="js-button" placeholder="تسوّق الآن"></div>
+          </div>
+          <div class="grid2">
+            <div><label>النص الفرعي</label><input class="js-subtitle" placeholder="وصف قصير"></div>
+            <div><label>الرابط</label><input class="js-target" placeholder="/collection أو https://..."></div>
+          </div>
+          <label>بطاقات/عناصر إضافية (JSON اختياري)</label><textarea class="js-cards" rows="4" placeholder='[{"title":"...","image_url":"/media/...","target_url":"/collection"}]'></textarea>
+          <details><summary>إعدادات متقدمة JSON</summary><textarea class="js-config" rows="7">{{ section.config|default:"{}"|safe }}</textarea></details>
+        </div>
+        <div class="actions"><button type="button" class="js-save">حفظ القسم</button><button type="button" class="secondary js-preview">معاينة</button></div>
+      </article>
+      {% empty %}<p>لا توجد أقسام بعد.</p>{% endfor %}
+    </div>
+  </div>
+  <div class="panel">
+    <h2>معاينة الهاتف</h2>
+    <p class="help">المعاينة تحاكي عرضًا ضيقًا، وتستخدم تمريرًا رأسيًا واحدًا مع عناصر أفقية داخلية عند الحاجة.</p>
+    <div class="preview-wrap"><div id="phone" class="phone"></div></div>
+  </div>
+</div>
+<script>
+(function(){
+  const csrftoken=(document.cookie.match(/(?:^|; )csrftoken=([^;]+)/)||[])[1];
+  const list=document.getElementById('sections'); const phone=document.getElementById('phone'); let drag=null;
+  function parseJson(text,fallback={}){try{return JSON.parse(text||'{}')}catch(e){throw new Error('إعدادات JSON غير صالحة')}}
+  function readConfig(card){let advanced={};try{advanced=parseJson(card.querySelector('.js-config').value||'{}')}catch(e){};let cards=[];try{cards=JSON.parse(card.querySelector('.js-cards').value||'[]')}catch(e){cards=[]};return {...advanced,image_url:card.querySelector('.js-image').value.trim(),subtitle:card.querySelector('.js-subtitle').value.trim(),button_label:card.querySelector('.js-button').value.trim(),target_url:card.querySelector('.js-target').value.trim(),cards:Array.isArray(cards)?cards:[]}}
+  function hydrate(card){let cfg={};try{cfg=parseJson(card.dataset.config||'{}')}catch(e){};card.querySelector('.js-image').value=cfg.image_url||cfg.imageUrl||'';card.querySelector('.js-subtitle').value=cfg.subtitle||'';card.querySelector('.js-button').value=cfg.button_label||cfg.ctaLabel||'';card.querySelector('.js-target').value=cfg.target_url||cfg.targetUrl||'';card.querySelector('.js-cards').value=JSON.stringify(Array.isArray(cfg.cards)?cfg.cards:[],null,2);card.querySelector('.js-config').value=JSON.stringify(cfg,null,2)}
+  function sectionPayload(card){return {title:card.querySelector('.js-title').value,sort_order:[...list.querySelectorAll('.section')].indexOf(card),is_visible:card.querySelector('.js-visible').value==='true',config:readConfig(card)}}
+  async function save(card){const payload=sectionPayload(card);const r=await fetch('{% url "admin-storefront-section-update" 0 %}'.replace('/0/','/'+card.dataset.id+'/'),{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken||''},body:JSON.stringify(payload)});const data=await r.json();if(!r.ok)throw new Error(data.detail||'تعذر الحفظ');card.dataset.config=JSON.stringify(data.config||{});card.querySelector('.js-config').value=JSON.stringify(data.config||{},null,2);card.querySelector('.section-title').textContent=data.title||'قسم بدون عنوان';alert('تم الحفظ');render()}
+  async function create(){const title=document.getElementById('new-title').value.trim()||'قسم جديد';const type=document.getElementById('new-type').value;const r=await fetch('{% url "admin-storefront-section-create" %}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken||''},body:JSON.stringify({title,section_type:type})});const data=await r.json();if(!r.ok)throw new Error(data.detail||'تعذر إنشاء القسم');location.reload()}
+  function render(){phone.innerHTML='';[...list.querySelectorAll('.section')].forEach(card=>{if(card.querySelector('.js-visible').value!=='true')return;const cfg=readConfig(card);const box=document.createElement('div');box.className='preview-section';if(cfg.image_url){const img=document.createElement('img');img.src=cfg.image_url;box.appendChild(img)}const body=document.createElement('div');body.className='preview-content';const h=document.createElement('div');h.className='preview-title';h.textContent=card.querySelector('.js-title').value;body.appendChild(h);if(cfg.subtitle){const p=document.createElement('div');p.className='preview-subtitle';p.textContent=cfg.subtitle;body.appendChild(p)}if(cfg.button_label){const a=document.createElement('span');a.className='preview-button';a.textContent=cfg.button_label;body.appendChild(a)}if(Array.isArray(cfg.cards)){cfg.cards.forEach(c=>{const row=document.createElement('div');row.className='preview-card';if(c.image_url){const img=document.createElement('img');img.src=c.image_url;row.appendChild(img)}const text=document.createElement('span');text.textContent=c.title||'';row.appendChild(text);body.appendChild(row)})}box.appendChild(body);phone.appendChild(box)})}
+  list.querySelectorAll('.section').forEach(hydrate);document.getElementById('create-section').addEventListener('click',()=>create().catch(e=>alert(e.message)));list.addEventListener('click',e=>{const saveBtn=e.target.closest('.js-save');const previewBtn=e.target.closest('.js-preview');if(saveBtn)save(saveBtn.closest('.section')).catch(err=>alert(err.message));if(previewBtn)render()});list.addEventListener('input',render);list.addEventListener('change',render);
+  list.addEventListener('dragstart',e=>{drag=e.target.closest('.section');drag&&drag.classList.add('dragging')});list.addEventListener('dragend',()=>{drag&&drag.classList.remove('dragging');drag=null;render()});list.addEventListener('dragover',e=>{e.preventDefault();const target=e.target.closest('.section');if(!drag||!target||target===drag)return;const r=target.getBoundingClientRect();if(e.clientY<r.top+r.height/2)list.insertBefore(drag,target);else list.insertBefore(drag,target.nextSibling)});render();
+})();
+</script>
+{% endblock %}

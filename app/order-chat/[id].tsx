@@ -1,112 +1,16 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
-import { ApiClient } from "@/lib/api-client";
+import { djangoApi } from "@/lib/django-api";
 import { useAuth } from "@/hooks/use-auth";
 
-type Message = { id: number; body: string; sender: { id: number; role: string; first_name: string }; created_at: string };
-type Conversation = { id: number; subject: string; messages: Message[] };
-
-export default function OrderChatScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { user, isAuthenticated } = useAuth();
-  const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [draft, setDraft] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-
-  async function load() {
-    try {
-      setLoading(true);
-      const data = await ApiClient.get<{ results: Conversation[] }>(`/api/conversations/?order=${id}`);
-      if (data.results && data.results.length > 0) {
-        setConversation(data.results[0]);
-      } else {
-        // Create conversation if it doesn't exist
-        const newConv = await ApiClient.post<Conversation>("/api/conversations/", { order: id, subject: `طلب #${id}` });
-        setConversation(newConv);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { if (isAuthenticated && id) load(); }, [id, isAuthenticated]);
-
-  async function send() {
-    if (!conversation || !draft.trim()) return;
-    try {
-      setSending(true);
-      await ApiClient.post(`/api/conversations/${conversation.id}/send_message/`, { body: draft });
-      setDraft("");
-      await load();
-    } catch (error) {
-      Alert.alert("خطأ", "تعذر إرسال الرسالة");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  if (!isAuthenticated) return <ScreenContainer><View style={styles.center}><Text>سجل الدخول أولاً</Text></View></ScreenContainer>;
-  if (loading && !conversation) return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E60023" /></View></ScreenContainer>;
-
-  return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F6F6F6]">
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} /></TouchableOpacity>
-        <Text style={styles.headerTitle}>محادثة الطلب</Text>
-        <View style={{ width: 25 }} />
-      </View>
-
-      <FlatList
-        style={{ flex: 1 }}
-        data={conversation?.messages || []}
-        keyExtractor={item => String(item.id)}
-        contentContainerStyle={styles.list}
-        inverted
-        renderItem={({ item }) => {
-          const own = item.sender.id === user?.id;
-          return (
-            <View style={[styles.bubbleWrapper, own ? styles.ownWrapper : styles.otherWrapper]}>
-              <View style={[styles.bubble, own ? styles.ownBubble : styles.otherBubble]}>
-                <Text style={[styles.msgText, own && styles.ownText]}>{item.body}</Text>
-                <Text style={[styles.time, own && styles.ownTime]}>{new Date(item.created_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</Text>
-              </View>
-            </View>
-          );
-        }}
-      />
-
-      <View style={styles.composer}>
-        <TextInput value={draft} onChangeText={setDraft} style={styles.input} placeholder="اكتب رسالتك هنا..." textAlign="right" onSubmitEditing={send} />
-        <TouchableOpacity style={styles.sendBtn} onPress={send} disabled={sending}>
-          <MaterialIcons name="send" size={20} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-    </ScreenContainer>
-  );
-}
-
-const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { padding: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#EEE" },
-  headerTitle: { fontSize: 16, fontWeight: "900" },
-  list: { padding: 14, paddingBottom: 40, gap: 10 },
-  bubbleWrapper: { width: "100%", flexDirection: "row", marginBottom: 10 },
-  ownWrapper: { justifyContent: "flex-start" },
-  otherWrapper: { justifyContent: "flex-end" },
-  bubble: { maxWidth: "80%", padding: 12, borderRadius: 12 },
-  ownBubble: { backgroundColor: "#111", borderBottomLeftRadius: 0 },
-  otherBubble: { backgroundColor: "#FFF", borderBottomRightRadius: 0 },
-  msgText: { fontSize: 14, color: "#111", textAlign: "right" },
-  ownText: { color: "#FFF" },
-  time: { fontSize: 10, color: "#888", marginTop: 4, textAlign: "right" },
-  ownTime: { color: "#CCC" },
-  composer: { flexDirection: "row-reverse", padding: 10, backgroundColor: "#FFF", borderTopWidth: 1, borderColor: "#EEE", alignItems: "center", gap: 10 },
-  input: { flex: 1, backgroundColor: "#F5F5F5", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14 },
-  sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#E60023", alignItems: "center", justifyContent: "center" }
-});
+type Message={id:number;body:string;sender:number;created_at:string}; type Chat={id:number;vendor_name:string;order_number:string;messages:Message[];is_closed:boolean};
+export default function OrderChatScreen(){const {id,chatId}=useLocalSearchParams<{id:string;chatId?:string}>();const {user,isAuthenticated}=useAuth();const [chats,setChats]=useState<Chat[]>([]);const [activeId,setActiveId]=useState<number|null>(chatId?Number(chatId):null);const [draft,setDraft]=useState("");const [loading,setLoading]=useState(true);const [sending,setSending]=useState(false);
+const active=chats.find(c=>c.id===activeId)||chats[0]||null;
+const load=useCallback(async()=>{try{setLoading(true);const data=await djangoApi<Chat[]>("/api/order-chats/ensure_for_order/",{method:"POST",body:JSON.stringify({order_id:id})});setChats(data);if(activeId&&data.some(c=>c.id===activeId))setActiveId(activeId);else if(data[0])setActiveId(data[0].id);}catch{}finally{setLoading(false)}},[id]);useEffect(()=>{if(isAuthenticated&&id)load()},[id,isAuthenticated,load]);
+async function send(){if(!active||!draft.trim()||sending)return;setSending(true);try{await djangoApi(`/api/order-chats/${active.id}/send_message/`,{method:"POST",body:JSON.stringify({body:draft.trim()})});setDraft("");const fresh=await djangoApi<Chat>(`/api/order-chats/${active.id}/`);setChats(cs=>cs.map(c=>c.id===fresh.id?fresh:c));}finally{setSending(false)}}
+if(!isAuthenticated)return <ScreenContainer><View style={styles.center}><Text>سجل الدخول أولاً</Text></View></ScreenContainer>;if(loading)return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E60023"/></View></ScreenContainer>;
+return <ScreenContainer className="bg-[#F5F6F8]" edges={["top","bottom","left","right"]}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={8}><View style={styles.header}><TouchableOpacity onPress={()=>router.back()}><MaterialIcons name="arrow-forward" size={23} color="#111"/></TouchableOpacity><View style={styles.headCopy}><Text style={styles.title}>محادثات الطلب</Text><Text style={styles.subtitle}>{active?.vendor_name||"لا يوجد متجر"}</Text></View><View style={styles.icon}><MaterialIcons name="chat" size={19} color="#FFF"/></View></View>{chats.length>1&&<View style={styles.chatTabs}><FlatList horizontal inverted showsHorizontalScrollIndicator={false} data={chats} keyExtractor={x=>String(x.id)} contentContainerStyle={{paddingHorizontal:12,gap:8}} renderItem={({item})=><TouchableOpacity onPress={()=>setActiveId(item.id)} style={[styles.chatTab,item.id===active?.id&&styles.chatTabActive]}><Text style={[styles.chatTabText,item.id===active?.id&&styles.chatTabTextActive]}>{item.vendor_name}</Text></TouchableOpacity>}/></View>}<FlatList inverted data={[...(active?.messages||[])].reverse()} keyExtractor={x=>String(x.id)} contentContainerStyle={styles.list} renderItem={({item})=>{const own=item.sender===user?.id;return <View style={[styles.line,own?styles.left:styles.right]}><View style={[styles.bubble,own?styles.mine:styles.theirs]}><Text style={[styles.body,own&&styles.mineText]}>{item.body}</Text><Text style={[styles.time,own&&styles.mineTime]}>{new Date(item.created_at).toLocaleTimeString("ar-YE",{hour:"2-digit",minute:"2-digit"})}</Text></View></View>}} ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="chat-bubble-outline" size={38} color="#CCC"/><Text style={styles.muted}>{active?"ابدأ المحادثة مع المتجر":"لا توجد محادثة لهذا الطلب"}</Text></View>}/><View style={styles.composer}><TextInput value={draft} onChangeText={setDraft} placeholder="اكتب رسالتك للمتجر..." style={styles.input} multiline textAlign="right" blurOnSubmit={false}/><TouchableOpacity onPress={send} disabled={!active||sending||!!active?.is_closed} style={[styles.send,{opacity:!active||sending||active?.is_closed?0.5:1}]}><MaterialIcons name="send" size={19} color="#FFF"/></TouchableOpacity></View></KeyboardAvoidingView></ScreenContainer>}
+const styles=StyleSheet.create({header:{height:62,backgroundColor:"#FFF",paddingHorizontal:14,flexDirection:"row-reverse",alignItems:"center",gap:10,borderBottomWidth:1,borderColor:"#EEE"},headCopy:{flex:1,alignItems:"flex-end"},title:{fontSize:15,fontWeight:"900",color:"#111"},subtitle:{fontSize:10,color:"#888",marginTop:2},icon:{width:38,height:38,borderRadius:12,backgroundColor:"#111",alignItems:"center",justifyContent:"center"},chatTabs:{height:48,backgroundColor:"#FFF",borderBottomWidth:1,borderColor:"#EEE"},chatTab:{paddingHorizontal:13,height:34,borderRadius:17,borderWidth:1,borderColor:"#DDD",justifyContent:"center",marginTop:7},chatTabActive:{backgroundColor:"#111",borderColor:"#111"},chatTabText:{fontSize:10,color:"#666",fontWeight:"700"},chatTabTextActive:{color:"#FFF"},list:{padding:12,paddingBottom:20,gap:7},line:{width:"100%",flexDirection:"row"},left:{justifyContent:"flex-start"},right:{justifyContent:"flex-end"},bubble:{maxWidth:"82%",paddingHorizontal:12,paddingVertical:9,borderRadius:14},mine:{backgroundColor:"#111",borderBottomLeftRadius:4},theirs:{backgroundColor:"#FFF",borderBottomRightRadius:4},body:{fontSize:13,color:"#222",lineHeight:20,textAlign:"right"},mineText:{color:"#FFF"},time:{fontSize:9,color:"#999",marginTop:4,textAlign:"right"},mineTime:{color:"#CCC"},composer:{minHeight:58,paddingHorizontal:10,paddingVertical:8,backgroundColor:"#FFF",borderTopWidth:1,borderColor:"#EEE",flexDirection:"row-reverse",alignItems:"flex-end",gap:8},input:{flex:1,maxHeight:110,minHeight:42,borderRadius:20,backgroundColor:"#F3F4F6",paddingHorizontal:14,paddingVertical:10,fontSize:13},send:{width:42,height:42,borderRadius:21,backgroundColor:"#E60023",alignItems:"center",justifyContent:"center"},center:{flex:1,justifyContent:"center",alignItems:"center"},empty:{alignItems:"center",padding:35},muted:{fontSize:12,color:"#888"}});

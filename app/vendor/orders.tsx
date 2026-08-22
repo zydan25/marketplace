@@ -1,44 +1,24 @@
-import { useEffect, useState } from "react";
-import { Alert, ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoApi } from "@/lib/django-api";
 
-type Order = { id: number; order_number: string; status: string; total: string; currency: string; created_at: string; customer?: { phone?: string } };
-const statuses = ["pending", "processing", "shipped", "delivered", "cancelled"];
+type Order={id:number;order_number:string;parent_order_number:string;status:string;total:string;currency:string;created_at:string;customer?:{phone?:string;name?:string}};
+const filters=["all","pending","processing","shipped","delivered","cancelled"];
+const labels:Record<string,string>={all:"الكل",pending:"جديدة",processing:"تجهيز",shipped:"شحن",delivered:"مسلّمة",cancelled:"ملغاة"};
 
-export default function VendorOrdersScreen() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState<number | null>(null);
-
-  async function load() {
-    try {
-      const result = await djangoApi<{ results?: Order[] }>("/api/orders/");
-      setOrders(result.results ?? []);
-    } catch (error) {
-      Alert.alert("تعذر تحميل الطلبات", error instanceof Error ? error.message : "حاولي مجددًا.");
-    } finally { setLoading(false); }
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function updateStatus(order: Order, status: string) {
-    setUpdating(order.id);
-    try {
-      await djangoApi(`/api/orders/${order.id}/update_status/`, { method: "POST", body: JSON.stringify({ status }) });
-      setOrders(current => current.map(item => item.id === order.id ? { ...item, status } : item));
-    } catch (error) {
-      Alert.alert("تعذر تحديث الطلب", error instanceof Error ? error.message : "حاولي مجددًا.");
-    } finally { setUpdating(null); }
-  }
-
-  return <ScreenContainer className="bg-[#F8F9FA]" edges={["top", "bottom", "left", "right"]}>
-    <View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={24} color="#111" /></TouchableOpacity><Text style={styles.title}>إدارة الطلبات</Text><TouchableOpacity onPress={load}><MaterialIcons name="refresh" size={22} color="#E60023" /></TouchableOpacity></View>
-    {loading ? <View style={styles.center}><ActivityIndicator color="#E60023" /><Text style={styles.muted}>جارٍ تحميل الطلبات...</Text></View> : <FlatList style={{ flex: 1 }} data={orders} keyExtractor={item => String(item.id)} contentContainerStyle={styles.list} ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="shopping-bag" size={45} color="#DDD" /><Text style={styles.muted}>لا توجد طلبات لمتجرك.</Text></View>} renderItem={({ item }) => <View style={styles.card}><View style={styles.cardHead}><View><Text style={styles.amount}>{item.total} {item.currency}</Text><Text style={styles.date}>{new Date(item.created_at).toLocaleDateString("ar-YE")}</Text></View><View style={styles.orderCopy}><Text style={styles.number}>#{item.order_number}</Text><Text style={styles.customer}>{item.customer?.phone || "عميل"}</Text></View></View><Text style={styles.label}>تحديث الحالة</Text><View style={styles.statuses}>{statuses.map(status => <TouchableOpacity key={status} disabled={updating === item.id} onPress={() => updateStatus(item, status)} style={[styles.statusBtn, item.status === status && styles.statusActive]}><Text style={[styles.statusText, item.status === status && styles.statusTextActive]}>{translate(status)}</Text></TouchableOpacity>)}</View></View>} />}
-  </ScreenContainer>;
+export default function VendorOrdersScreen(){
+ const [orders,setOrders]=useState<Order[]>([]); const [loading,setLoading]=useState(true); const [refreshing,setRefreshing]=useState(false); const [filter,setFilter]=useState("all"); const [query,setQuery]=useState("");
+ async function load(){try{setRefreshing(true);const result=await djangoApi<Order[]>(`/api/orders/vendor_operations/${filter!=="all"?`?status=${filter}`:""}`);setOrders(result??[])}catch(error){setOrders([])}finally{setLoading(false);setRefreshing(false)}}
+ useEffect(()=>{load()},[filter]);
+ const visible=useMemo(()=>query.trim()?orders.filter(o=>(o.order_number+" "+(o.customer?.phone||"")+" "+(o.customer?.name||"")).toLowerCase().includes(query.trim().toLowerCase())):orders,[orders,query]);
+ return <ScreenContainer className="bg-[#F6F7F9]" edges={["top","bottom","left","right"]}>
+  <View style={styles.header}><TouchableOpacity onPress={()=>router.back()} style={styles.back}><MaterialIcons name="arrow-forward" size={23} color="#111"/></TouchableOpacity><View style={styles.headCopy}><Text style={styles.title}>طلبات متجري</Text><Text style={styles.subtitle}>{orders.length} طلب ظاهر</Text></View><TouchableOpacity onPress={load} style={styles.iconBtn}><MaterialIcons name="refresh" size={21} color="#E60023"/></TouchableOpacity></View>
+  <View style={styles.toolbar}><View style={styles.search}><MaterialIcons name="search" size={18} color="#999"/><TextInput value={query} onChangeText={setQuery} placeholder="ابحثي برقم الطلب أو العميل" style={styles.searchInput} textAlign="right"/></View><FlatList horizontal inverted data={filters} keyExtractor={x=>x} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters} renderItem={({item})=><TouchableOpacity onPress={()=>setFilter(item)} style={[styles.filter,filter===item&&styles.filterActive]}><Text style={[styles.filterText,filter===item&&styles.filterActiveText]}>{labels[item]}</Text></TouchableOpacity>}/></View>
+  {loading?<View style={styles.center}><ActivityIndicator color="#E60023"/><Text style={styles.muted}>جارٍ تحميل الطلبات...</Text></View>:<FlatList data={visible} keyExtractor={x=>String(x.id)} contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load}/>} ListEmptyComponent={<View style={styles.empty}><View style={styles.emptyIcon}><MaterialIcons name="shopping-bag" size={28} color="#999"/></View><Text style={styles.emptyTitle}>لا توجد طلبات في هذا التصنيف</Text><Text style={styles.muted}>ستظهر الطلبات الجديدة هنا فورًا.</Text></View>} renderItem={({item})=><TouchableOpacity activeOpacity={0.92} onPress={()=>router.push(`/vendor/order-detail?id=${item.id}` as never)} style={styles.card}><View style={styles.cardTop}><View style={styles.amountWrap}><Text style={styles.amount}>{item.total} {item.currency}</Text><Text style={styles.date}>{new Date(item.created_at).toLocaleDateString("ar-YE")}</Text></View><View style={styles.orderCopy}><View style={styles.orderLine}><Text style={styles.number}>#{item.order_number}</Text><View style={[styles.dot,{backgroundColor:statusColor(item.status)}]}/></View><Text style={styles.customer}>{item.customer?.name||item.customer?.phone||"عميل"}</Text></View></View><View style={styles.metaRow}><Text style={styles.meta}>تفاصيل الطلب</Text><Text style={[styles.status,{color:statusColor(item.status)}]}>{labels[item.status]||item.status}</Text></View><View style={styles.arrow}><MaterialIcons name="chevron-left" size={19} color="#AAA"/></View></TouchableOpacity>}/>} 
+ </ScreenContainer>;
 }
-
-function translate(status: string) { return ({ pending: "جديد", processing: "تجهيز", shipped: "شحن", delivered: "تم", cancelled: "ملغى" } as Record<string, string>)[status] || status; }
-const styles = StyleSheet.create({ header: { height: 60, paddingHorizontal: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#EEE" }, title: { fontSize: 19, fontWeight: "900", color: "#111" }, list: { padding: 12, paddingBottom: 180 }, card: { backgroundColor: "#FFF", borderRadius: 12, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: "#F0F0F0" }, cardHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, orderCopy: { alignItems: "flex-end" }, number: { fontSize: 15, fontWeight: "900", color: "#111" }, customer: { fontSize: 11, color: "#777", marginTop: 4 }, amount: { color: "#E60023", fontSize: 15, fontWeight: "900" }, date: { color: "#999", fontSize: 10, marginTop: 4 }, label: { color: "#777", fontSize: 11, textAlign: "right", marginTop: 14, marginBottom: 7 }, statuses: { flexDirection: "row-reverse", gap: 5, flexWrap: "wrap" }, statusBtn: { borderWidth: 1, borderColor: "#DDD", paddingHorizontal: 9, paddingVertical: 7, borderRadius: 6 }, statusActive: { backgroundColor: "#111", borderColor: "#111" }, statusText: { color: "#666", fontSize: 10, fontWeight: "700" }, statusTextActive: { color: "#FFF" }, center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }, muted: { color: "#777", fontSize: 13 }, empty: { alignItems: "center", paddingTop: 70, gap: 12 } });
+function statusColor(status:string){return({pending:"#E67E22",processing:"#3B82F6",shipped:"#8B5CF6",delivered:"#16A34A",cancelled:"#E11D48"} as Record<string,string>)[status]||"#777"}
+const styles=StyleSheet.create({header:{height:62,backgroundColor:"#FFF",paddingHorizontal:14,flexDirection:"row-reverse",alignItems:"center",gap:9,borderBottomWidth:1,borderColor:"#EEE"},back:{width:38,height:38,alignItems:"center",justifyContent:"center"},iconBtn:{width:38,height:38,alignItems:"center",justifyContent:"center"},headCopy:{flex:1,alignItems:"flex-end"},title:{fontSize:17,fontWeight:"900",color:"#111"},subtitle:{fontSize:10,color:"#999",marginTop:2},toolbar:{backgroundColor:"#FFF",paddingHorizontal:12,paddingVertical:10,borderBottomWidth:1,borderColor:"#F0F0F0"},search:{height:42,borderRadius:21,backgroundColor:"#F5F6F8",flexDirection:"row-reverse",alignItems:"center",paddingHorizontal:13,gap:7},searchInput:{flex:1,fontSize:12,color:"#111"},filters:{gap:7,paddingTop:9,paddingBottom:2},filter:{paddingHorizontal:13,paddingVertical:8,borderRadius:18,borderWidth:1,borderColor:"#E3E3E3",backgroundColor:"#FFF"},filterActive:{backgroundColor:"#111",borderColor:"#111"},filterText:{fontSize:10,fontWeight:"800",color:"#666"},filterActiveText:{color:"#FFF"},list:{padding:12,paddingBottom:120},card:{backgroundColor:"#FFF",borderRadius:15,padding:14,marginBottom:9,borderWidth:1,borderColor:"#ECECEC",position:"relative",minHeight:116},cardTop:{flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"flex-start",paddingRight:8},orderCopy:{alignItems:"flex-end",flex:1},orderLine:{flexDirection:"row-reverse",alignItems:"center",gap:7},number:{fontSize:14,fontWeight:"900",color:"#111"},dot:{width:7,height:7,borderRadius:4},customer:{fontSize:11,color:"#777",marginTop:5},amountWrap:{alignItems:"flex-start"},amount:{fontSize:15,fontWeight:"900",color:"#111"},date:{fontSize:10,color:"#999",marginTop:4},metaRow:{marginTop:15,paddingTop:10,borderTopWidth:1,borderColor:"#F1F1F1",flexDirection:"row-reverse",justifyContent:"space-between"},meta:{fontSize:10,color:"#999",fontWeight:"700"},status:{fontSize:10,fontWeight:"900"},arrow:{position:"absolute",left:7,top:46,width:28,height:28,borderRadius:14,backgroundColor:"#F7F7F7",alignItems:"center",justifyContent:"center"},center:{flex:1,alignItems:"center",justifyContent:"center",gap:10},muted:{fontSize:12,color:"#777"},empty:{alignItems:"center",paddingTop:65,gap:8},emptyIcon:{width:58,height:58,borderRadius:20,backgroundColor:"#FFF",alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:"#EEE"},emptyTitle:{fontSize:14,fontWeight:"900",color:"#333"}});

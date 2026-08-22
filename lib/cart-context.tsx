@@ -1,13 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import type { StoreProduct } from "@/lib/product-api";
+import type { ProductVariant, StoreProduct } from "@/lib/product-api";
+import { djangoApi } from "@/lib/django-api";
 
 export type CartItem = {
   lineId: string;
   product: StoreProduct;
+  variantId?: number;
   color: string;
   size: string;
+  unitPrice: number;
   quantity: number;
 };
 
@@ -20,11 +23,15 @@ type CartContextValue = {
   updateQuantity: (lineId: string, quantity: number) => void;
   removeItem: (lineId: string) => void;
   clearCart: () => void;
-  validateCartWithServer?: (cityId?: number) => Promise<any>;
+  validateCartWithServer: (cityId?: number, couponCode?: string, currency?: string) => Promise<any>;
 };
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
-const STORAGE_KEY = "true-discount-fashion-cart-v1";
+const STORAGE_KEY = "true-discount-fashion-cart-v2";
+
+function findVariant(product: StoreProduct, color: string, size: string): ProductVariant | undefined {
+  return product.variants.find((variant) => variant.isActive && variant.color === color && variant.size === size);
+}
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -44,11 +51,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [isReady, items]);
 
   const addItem = useCallback((product: StoreProduct, color: string, size: string, quantity = 1) => {
-    const lineId = `${product.id}-${color}-${size}`;
+    const variant = findVariant(product, color, size);
+    const variantId = variant?.id;
+    const unitPrice = variant?.effectivePrice ?? product.price;
+    const lineId = `${product.id}-${variantId ?? `${color}-${size}`}`;
     setItems((current) => {
       const existing = current.find((item) => item.lineId === lineId);
-      if (!existing) return [...current, { lineId, product, color, size, quantity }];
-      return current.map((item) => item.lineId === lineId ? { ...item, quantity: item.quantity + quantity } : item);
+      if (!existing) return [...current, { lineId, product, variantId, color, size, unitPrice, quantity }];
+      return current.map((item) => item.lineId === lineId ? { ...item, unitPrice, quantity: item.quantity + quantity } : item);
     });
   }, []);
 
@@ -59,29 +69,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const removeItem = useCallback((lineId: string) => setItems((current) => current.filter((item) => item.lineId !== lineId)), []);
   const clearCart = useCallback(() => setItems([]), []);
 
-  const validateCartWithServer = useCallback(async (cityId?: number) => {
-    try {
-      const { ApiClient } = require("./api-client");
-      const payload = items.map(i => ({ product_id: i.product.id, quantity: i.quantity, color: i.color, size: i.size }));
-      const result = await ApiClient.post("/api/cart/calculate/", { items: payload, city_id: cityId });
-      return result;
-    } catch (error) {
-      console.warn("Cart validation failed", error);
-      throw error;
-    }
+  const validateCartWithServer = useCallback(async (cityId?: number, couponCode?: string, currency = "YER") => {
+    const payload = {
+      items: items.map((item) => ({ product_id: Number(item.product.id), variant_id: item.variantId, quantity: item.quantity })),
+      city_id: cityId,
+      coupon_code: couponCode,
+      currency,
+    };
+    return djangoApi("/api/cart/calculate/", { method: "POST", body: JSON.stringify(payload) });
   }, [items]);
 
-  const value = useMemo<CartContextValue & { validateCartWithServer: (cityId?: number) => Promise<any> }>(() => ({
+  const value = useMemo<CartContextValue>(() => ({
     validateCartWithServer,
     items,
     isReady,
     itemCount: items.reduce((total, item) => total + item.quantity, 0),
-    subtotal: items.reduce((total, item) => total + item.product.price * item.quantity, 0),
+    subtotal: items.reduce((total, item) => total + item.unitPrice * item.quantity, 0),
     addItem,
     updateQuantity,
     removeItem,
     clearCart,
-  }), [addItem, clearCart, isReady, items, removeItem, updateQuantity]);
+  }), [addItem, clearCart, isReady, items, removeItem, updateQuantity, validateCartWithServer]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

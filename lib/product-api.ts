@@ -1,5 +1,18 @@
 import { djangoApi } from "@/lib/django-api";
 
+export type ProductVariant = {
+  id: number;
+  sku: string;
+  color: string;
+  size: string;
+  priceOverride: number | null;
+  effectivePrice: number;
+  stock: number;
+  reservedStock: number;
+  availableStock: number;
+  isActive: boolean;
+};
+
 export type StoreProduct = {
   id: string;
   productCode: string;
@@ -18,6 +31,7 @@ export type StoreProduct = {
   images: { id: number; storageKey: string; url: string; sortOrder: number }[];
   colors: { id: number; name: string; hex: string }[];
   sizes: { id: number; label: string; stock: number }[];
+  variants: ProductVariant[];
   rating: number;
   reviews: number;
   reviewsList: { id: number; rating: number; body: string; selectedColor: string | null; selectedSize: string | null; helpfulCount: number; author: string; createdAt: string }[];
@@ -43,6 +57,7 @@ export type ProductEditorPayload = {
   isPublished: boolean;
   colors: { name: string; hex: string }[];
   sizes: { label: string; stock: number }[];
+  variants?: Array<{ id?: number; sku: string; color: string; size: string; price_override?: number | null; stock: number; is_active?: boolean }>;
   images?: { dataUrl: string; fileName: string; sortOrder: number }[];
   existingImages?: { id?: number; storageKey: string; url: string; sortOrder: number }[];
   newImages?: { dataUrl: string; fileName: string; sortOrder: number }[];
@@ -59,6 +74,18 @@ type DjangoProduct = {
   effective_price?: string | number;
   discount_percent?: number;
   stock?: number;
+  variants?: Array<{
+    id: number;
+    sku: string;
+    color?: string;
+    size?: string;
+    price_override?: string | number | null;
+    effective_price?: string | number;
+    stock?: number;
+    reserved_stock?: number;
+    available_stock?: number;
+    is_active?: boolean;
+  }>;
   colors?: Array<{ id?: number; name: string; hex?: string }>;
   sizes?: Array<{ id?: number; label: string; stock?: number }>;
   hashtags?: string[];
@@ -103,6 +130,18 @@ function normalizeProduct(product: DjangoProduct): StoreProduct {
   if (product.main_image_url && !imageItems.some((image) => image.url === product.main_image_url)) {
     imageItems.unshift({ id: -1, storageKey: "", url: product.main_image_url, sortOrder: -1 });
   }
+  const variants = (product.variants ?? []).filter((variant) => variant.is_active !== false).map((variant) => ({
+    id: Number(variant.id),
+    sku: variant.sku,
+    color: variant.color ?? "",
+    size: variant.size ?? "",
+    priceOverride: variant.price_override == null ? null : numberValue(variant.price_override),
+    effectivePrice: numberValue(variant.effective_price ?? variant.price_override ?? product.effective_price ?? product.price),
+    stock: Number(variant.stock ?? 0),
+    reservedStock: Number(variant.reserved_stock ?? 0),
+    availableStock: Number(variant.available_stock ?? Math.max(0, Number(variant.stock ?? 0) - Number(variant.reserved_stock ?? 0))),
+    isActive: variant.is_active !== false,
+  }));
   return {
     id: String(product.id),
     productCode: product.sku ?? `SKU-${product.id}`,
@@ -121,6 +160,7 @@ function normalizeProduct(product: DjangoProduct): StoreProduct {
     images: imageItems,
     colors: (product.colors ?? []).map((color, index) => ({ id: Number(color.id ?? index), name: color.name, hex: color.hex ?? "#E5E5E5" })),
     sizes: (product.sizes ?? []).map((size, index) => ({ id: Number(size.id ?? index), label: size.label, stock: Number(size.stock ?? product.stock ?? 0) })),
+    variants,
     rating: numberValue(product.rating),
     reviews: Number(product.reviews_count ?? 0),
     reviewsList: [],
@@ -154,10 +194,9 @@ function toDjangoPayload(payload: ProductEditorPayload) {
     stock: payload.sizes.length ? payload.sizes.reduce((total, size) => total + size.stock, 0) : 0,
     shipping_note: payload.shippingNote,
     hashtags: payload.trendTags,
-    colors: payload.colors,
-    sizes: payload.sizes,
     is_trending: payload.isTrending,
     is_published: payload.isPublished,
+    variants: payload.variants,
     ...(payload.categoryIds?.length ? { category_ids: payload.categoryIds } : {}),
     ...(payload.keepImageIds ? { keep_image_ids: payload.keepImageIds } : {}),
     ...(imageDataUrls.length ? { image_data_urls: imageDataUrls } : {}),

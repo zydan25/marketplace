@@ -1,179 +1,37 @@
-import { useEffect, useState, useCallback } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, ScrollView, RefreshControl } from "react-native";
-import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoApi, djangoLogout } from "@/lib/django-api";
 
-type Vendor = { store_name: string; status: string; commission_percent: string; logo_url?: string };
-type Product = { id: number; name: string; sku: string; effective_price: string; stock: number; is_published: boolean };
-type Order = { id: number; order_number: string; status: string; total: string; currency: string; created_at: string };
-type Wallet = { balance: string; currency: string };
+type Vendor={store_name:string;status:string;commission_percent:string;logo_url?:string};
+type Dashboard={orders:number;new_orders:number;processing_orders:number;shipping_orders:number;delivered_orders:number;cancelled_orders:number;revenue:string;currency:string;products:number;published_products:number;low_stock_products:number;out_of_stock_products:number};
+type Finance={available:string;earned:string;paid:string;pending:string;currency:string};
 
-export default function VendorDashboardScreen() {
-  const [vendor, setVendor] = useState<Vendor | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const loadData = useCallback(async () => {
-    try {
-      const sessionUser = await djangoApi<{ role?: string }>("/api/auth/me/");
-      if (sessionUser.role !== "vendor") {
-        router.replace("/login" as never);
-        return;
-      }
-      const [vendorsRes, productsRes, ordersRes, walletsRes] = await Promise.all([
-        djangoApi<{ results?: Vendor[] }>("/api/vendors/"),
-        djangoApi<{ results?: Product[] }>("/api/products/"),
-        djangoApi<{ results?: Order[] }>("/api/orders/"),
-        djangoApi<{ results?: Wallet[] }>("/api/wallets/"),
-      ]);
-
-      setVendor(vendorsRes.results?.[0] ?? null);
-      setProducts(productsRes.results ?? []);
-      setOrders(ordersRes.results ?? []);
-      setWallet(walletsRes.results?.[0] ?? null);
-    } catch (error) {
-      console.error("Vendor Load Error:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadData();
-  };
-
-  async function logout() {
-    await djangoLogout();
-    router.replace("/vendor/login" as never);
-  }
-
-  if (loading) return <ScreenContainer><View style={styles.loading}><ActivityIndicator color="#E60023" /><Text style={styles.muted}>جارٍ تحميل لوحة المتجر...</Text></View></ScreenContainer>;
-
-  return (
-    <ScreenContainer className="bg-[#F8F9FA]" edges={["top", "bottom", "left", "right"]}>
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={logout} style={styles.iconBtn}><MaterialIcons name="logout" size={22} color="#E60023" /></TouchableOpacity>
-        <View style={styles.storeInfo}>
-          <Text style={styles.storeName}>{vendor?.store_name || "متجري"}</Text>
-          <View style={styles.statusBadge}><View style={[styles.statusDot, { backgroundColor: vendor?.status === "active" ? "#168451" : "#F0B800" }]} /><Text style={styles.statusText}>{vendor?.status === "active" ? "متجر نشط" : "قيد المراجعة"}</Text></View>
-        </View>
-        <View style={styles.logoBox}>{vendor?.logo_url ? <Image source={{ uri: vendor.logo_url }} style={styles.logo} /> : <MaterialIcons name="storefront" size={26} color="#FFF" />}</View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <View style={styles.walletCard}>
-          <View style={styles.walletHeader}><MaterialIcons name="account-balance-wallet" size={20} color="#FFF" /><Text style={styles.walletTitle}>رصيد المتجر الحالي</Text></View>
-          <Text style={styles.balance}>{wallet?.balance || "0.00"} <Text style={styles.currency}>{wallet?.currency || "ر.ي"}</Text></Text>
-          <View style={styles.walletFooter}><Text style={styles.commission}>عمولة المنصة: {vendor?.commission_percent || "0"}%</Text><TouchableOpacity onPress={() => router.push("/vendor/wallet" as never)}><Text style={styles.walletLink}>تفاصيل المحفظة ‹</Text></TouchableOpacity></View>
-        </View>
-
-        <View style={styles.grid}>
-          <StatCard label="إجمالي المنتجات" value={products.length} icon="inventory-2" color="#3498DB" />
-          <StatCard label="طلبات جديدة" value={orders.filter(o => o.status === "pending").length} icon="notification-important" color="#E67E22" />
-          <StatCard label="إجمالي الطلبات" value={orders.length} icon="shopping-bag" color="#168451" />
-          <StatCard label="المنتجات النشطة" value={products.filter(p => p.is_published).length} icon="check-circle" color="#9B59B6" />
-        </View>
-
-        <View style={styles.quickActions}>
-          <ActionButton label="إضافة منتج" icon="add-circle-outline" color="#E60023" onPress={() => router.push("/vendor/products" as never)} />
-          <ActionButton label="إدارة المنتجات" icon="list-alt" color="#111" onPress={() => router.push("/vendor/products" as never)} />
-          <ActionButton label="تصميم المتجر" icon="auto-fix-high" color="#111" onPress={() => router.push("/vendor/design" as never)} />
-          <ActionButton label="الطلبات" icon="assignment" color="#111" onPress={() => router.push("/vendor/orders" as never)} />
-        </View>
-
-        <View style={styles.sectionHeader}><TouchableOpacity><Text style={styles.seeAll}>عرض الكل</Text></TouchableOpacity><Text style={styles.sectionTitle}>آخر الطلبات الواردة</Text></View>
-
-        {orders.length === 0 ? (
-          <View style={styles.emptyState}><MaterialIcons name="history" size={40} color="#CCC" /><Text style={styles.emptyText}>لا توجد طلبات حتى الآن</Text></View>
-        ) : (
-          orders.slice(0, 5).map(order => (
-            <TouchableOpacity key={order.id} style={styles.orderItem}>
-              <View style={styles.orderMeta}><Text style={styles.orderNum}>#{order.order_number}</Text><Text style={styles.orderDate}>{new Date(order.created_at).toLocaleDateString("ar-YE")}</Text></View>
-              <View style={styles.orderStatus}><Text style={styles.orderAmount}>{order.total} {order.currency}</Text><View style={[styles.badge, { backgroundColor: getStatusColor(order.status) + "20" }]}><Text style={[styles.badgeText, { color: getStatusColor(order.status) }]}>{translateStatus(order.status)}</Text></View></View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
-    </ScreenContainer>
-  );
+export default function VendorDashboardScreen(){
+ const [vendor,setVendor]=useState<Vendor|null>(null); const [dashboard,setDashboard]=useState<Dashboard|null>(null); const [finance,setFinance]=useState<Finance|null>(null); const [loading,setLoading]=useState(true); const [refreshing,setRefreshing]=useState(false);
+ const loadData=useCallback(async()=>{try{const me=await djangoApi<{role?:string}>("/api/auth/me/");if(me.role!=="vendor"){router.replace("/login" as never);return;}const [v,d,f]=await Promise.all([djangoApi<{results?:Vendor[]}>("/api/vendors/"),djangoApi<Dashboard>("/api/orders/vendor_dashboard/"),djangoApi<Finance>("/api/vendor-finance/summary/")]);setVendor(v.results?.[0]??null);setDashboard(d);setFinance(f)}catch(error){console.error(error)}finally{setLoading(false);setRefreshing(false)}},[]);
+ useEffect(()=>{loadData()},[loadData]);
+ async function logout(){await djangoLogout();router.replace("/vendor/login" as never)}
+ if(loading)return <ScreenContainer><View style={styles.loading}><ActivityIndicator color="#E60023"/><Text style={styles.muted}>جارٍ تجهيز لوحة المتجر...</Text></View></ScreenContainer>;
+ const d=dashboard; const f=finance;
+ return <ScreenContainer className="bg-[#F6F7F9]" edges={["top","bottom","left","right"]}>
+  <View style={styles.topBar}><TouchableOpacity onPress={logout} style={styles.iconBtn}><MaterialIcons name="logout" size={20} color="#E11D48"/></TouchableOpacity><View style={styles.brand}><Text style={styles.storeName}>{vendor?.store_name||"متجري"}</Text><View style={styles.statusLine}><View style={[styles.statusDot,{backgroundColor:vendor?.status==="active"?"#16A34A":"#F59E0B"}]}/><Text style={styles.statusText}>{vendor?.status==="active"?"المتجر نشط":"قيد المراجعة"}</Text></View></View><View style={styles.logoBox}>{vendor?.logo_url?<Image source={{uri:vendor.logo_url}} style={styles.logo}/>:<MaterialIcons name="storefront" size={24} color="#FFF"/>}</View></View>
+  <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>{setRefreshing(true);loadData()}}/>}>
+   <View style={styles.balanceCard}><View style={styles.balanceTop}><View style={styles.balanceIcon}><MaterialIcons name="account-balance-wallet" size={19} color="#FFF"/></View><View style={styles.balanceCopy}><Text style={styles.balanceLabel}>المتاح للسحب</Text><Text style={styles.balanceValue}>{f?.available||"0.00"} <Text style={styles.balanceCurrency}>{f?.currency||d?.currency||"YER"}</Text></Text></View></View><View style={styles.balanceFooter}><Text style={styles.balanceHint}>إجمالي المكتسب {f?.earned||"0.00"}</Text><TouchableOpacity onPress={()=>router.push("/vendor/wallet" as never)} style={styles.balanceLink}><Text style={styles.balanceLinkText}>التفاصيل</Text><MaterialIcons name="arrow-back" size={14} color="#FFF"/></TouchableOpacity></View></View>
+   <View style={styles.sectionHead}><Text style={styles.sectionTitle}>نظرة سريعة</Text><Text style={styles.sectionHint}>الحالة الحالية</Text></View>
+   <View style={styles.grid}><Stat title="طلبات جديدة" value={d?.new_orders??0} icon="notifications-none" tone="red"/><Stat title="قيد التجهيز" value={d?.processing_orders??0} icon="inventory-2" tone="blue"/><Stat title="في الشحن" value={d?.shipping_orders??0} icon="local-shipping" tone="purple"/><Stat title="تم التسليم" value={d?.delivered_orders??0} icon="check-circle-outline" tone="green"/></View>
+   <View style={styles.revenue}><View style={styles.revenueHead}><View><Text style={styles.revenueValue}>{d?.revenue||"0.00"} {d?.currency||"YER"}</Text><Text style={styles.revenueLabel}>صافي مبيعات الطلبات المسلّمة</Text></View><View style={styles.revenueIcon}><MaterialIcons name="trending-up" size={21} color="#111"/></View></View><View style={styles.bars}>{[d?.new_orders||0,d?.processing_orders||0,d?.shipping_orders||0,d?.delivered_orders||0].map((value,i)=><View key={i} style={styles.barCol}><View style={styles.barTrack}><View style={[styles.barFill,{height:`${Math.min(100,Math.max(8,(value/Math.max(1,d?.orders||1))*100))}%`,backgroundColor:["#E11D48","#3B82F6","#8B5CF6","#16A34A"][i]}]}/></View><Text style={styles.barLabel}>{["جديد","تجهيز","شحن","تسليم"][i]}</Text></View>)}</View></View>
+   <View style={styles.sectionHead}><Text style={styles.sectionTitle}>إدارة المتجر</Text><Text style={styles.sectionHint}>أدوات سريعة</Text></View>
+   <View style={styles.actionGrid}><Action label="الطلبات" icon="assignment" onPress={()=>router.push("/vendor/orders" as never)}/><Action label="المنتجات" icon="inventory-2" onPress={()=>router.push("/vendor/products" as never)}/><Action label="المحادثات" icon="chat-bubble-outline" onPress={()=>router.push("/vendor/messages" as never)}/><Action label="واجهة المتجر" icon="auto-fix-high" onPress={()=>router.push("/vendor/storefront" as never)}/><Action label="التصميم" icon="palette" onPress={()=>router.push("/vendor/design" as never)}/><Action label="المستحقات" icon="payments" onPress={()=>router.push("/vendor/wallet" as never)}/></View>
+   <View style={styles.alertRow}><MiniAlert icon="warning-amber" title="مخزون منخفض" value={d?.low_stock_products??0} color="#F59E0B" onPress={()=>router.push("/vendor/products" as never)}/><MiniAlert icon="remove-shopping-cart" title="نفد المخزون" value={d?.out_of_stock_products??0} color="#E11D48" onPress={()=>router.push("/vendor/products" as never)}/></View>
+   <View style={styles.storeSummary}><View style={styles.summaryItem}><Text style={styles.summaryValue}>{d?.products??0}</Text><Text style={styles.summaryLabel}>إجمالي المنتجات</Text></View><View style={styles.summarySep}/><View style={styles.summaryItem}><Text style={styles.summaryValue}>{d?.published_products??0}</Text><Text style={styles.summaryLabel}>منشورة</Text></View><View style={styles.summarySep}/><View style={styles.summaryItem}><Text style={styles.summaryValue}>{d?.orders??0}</Text><Text style={styles.summaryLabel}>كل الطلبات</Text></View></View>
+  </ScrollView>
+ </ScreenContainer>
 }
-
-function StatCard({ label, value, icon, color }: { label: string; value: number | string; icon: any; color: string }) {
-  return <View style={styles.statCard}><View style={[styles.statIcon, { backgroundColor: color + "15" }]}><MaterialIcons name={icon} size={20} color={color} /></View><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>;
-}
-
-function ActionButton({ label, icon, color, onPress }: { label: string; icon: any; color: string; onPress: () => void }) {
-  return <TouchableOpacity style={styles.actionBtn} onPress={onPress}><View style={[styles.actionIcon, { backgroundColor: color }]}><MaterialIcons name={icon} size={22} color="#FFF" /></View><Text style={styles.actionLabel}>{label}</Text></TouchableOpacity>;
-}
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case "pending": return "#E67E22";
-    case "processing": return "#3498DB";
-    case "shipped": return "#9B59B6";
-    case "delivered": return "#168451";
-    case "cancelled": return "#E60023";
-    default: return "#777";
-  }
-}
-
-function translateStatus(status: string) {
-  const map: Record<string, string> = { pending: "قيد الانتظار", processing: "قيد التجهيز", shipped: "تم الشحن", delivered: "تم التسليم", cancelled: "ملغى" };
-  return map[status] || status;
-}
-
-const styles = StyleSheet.create({
-  loading: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
-  muted: { color: "#777", fontSize: 13 },
-  topBar: { height: 70, backgroundColor: "#FFF", flexDirection: "row", alignItems: "center", paddingHorizontal: 16, borderBottomWidth: 1, borderColor: "#EEE" },
-  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  storeInfo: { flex: 1, alignItems: "flex-end", paddingRight: 12 },
-  storeName: { fontSize: 18, fontWeight: "900", color: "#111" },
-  statusBadge: { flexDirection: "row-reverse", alignItems: "center", marginTop: 2 },
-  statusDot: { width: 6, height: 6, borderRadius: 3, marginLeft: 5 },
-  statusText: { fontSize: 11, color: "#777", fontWeight: "600" },
-  logoBox: { width: 44, height: 44, borderRadius: 10, backgroundColor: "#111", alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  logo: { width: "100%", height: "100%" },
-  scrollContent: { padding: 16, paddingBottom: 40 },
-  walletCard: { backgroundColor: "#111", borderRadius: 16, padding: 20, marginBottom: 20 },
-  walletHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 8, opacity: 0.8 },
-  walletTitle: { color: "#FFF", fontSize: 13, fontWeight: "700" },
-  balance: { color: "#FFF", fontSize: 32, fontWeight: "900", textAlign: "right", marginTop: 10 },
-  currency: { fontSize: 16, fontWeight: "600", opacity: 0.7 },
-  walletFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 15, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 12 },
-  commission: { color: "#FFF", fontSize: 11, opacity: 0.6 },
-  walletLink: { color: "#FFF", fontSize: 12, fontWeight: "800" },
-  grid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 10, marginBottom: 20 },
-  statCard: { width: "48.5%", backgroundColor: "#FFF", borderRadius: 12, padding: 15, alignItems: "flex-end", borderWidth: 1, borderColor: "#F0F0F0" },
-  statIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 10 },
-  statValue: { fontSize: 20, fontWeight: "900", color: "#111" },
-  statLabel: { fontSize: 11, color: "#777", marginTop: 2 },
-  quickActions: { flexDirection: "row-reverse", gap: 10, marginBottom: 25 },
-  actionBtn: { flex: 1, alignItems: "center", gap: 8 },
-  actionIcon: { width: 50, height: 50, borderRadius: 15, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  actionLabel: { fontSize: 10, fontWeight: "800", color: "#444", textAlign: "center" },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: "900", color: "#111" },
-  seeAll: { color: "#E60023", fontSize: 12, fontWeight: "700" },
-  orderItem: { backgroundColor: "#FFF", borderRadius: 12, padding: 15, marginBottom: 10, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderColor: "#F0F0F0" },
-  orderMeta: { alignItems: "flex-end" },
-  orderNum: { fontSize: 14, fontWeight: "800", color: "#111" },
-  orderDate: { fontSize: 11, color: "#999", marginTop: 4 },
-  orderStatus: { alignItems: "flex-start" },
-  orderAmount: { fontSize: 15, fontWeight: "900", color: "#111", marginBottom: 5 },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  badgeText: { fontSize: 10, fontWeight: "800" },
-  emptyState: { padding: 40, alignItems: "center", backgroundColor: "#FFF", borderRadius: 12, borderStyle: "dashed", borderWidth: 1, borderColor: "#DDD" },
-  emptyText: { color: "#999", fontSize: 13, marginTop: 10 },
-});
+function Stat({title,value,icon,tone}:{title:string;value:number|string;icon:string;tone:"red"|"blue"|"purple"|"green"}){const colors={red:["#FFF1F2","#E11D48"],blue:["#EFF6FF","#2563EB"],purple:["#F5F3FF","#7C3AED"],green:["#ECFDF5","#16A34A"]}[tone];return <View style={styles.stat}><View style={[styles.statIcon,{backgroundColor:colors[0]}]}><MaterialIcons name={icon as any} size={19} color={colors[1]}/></View><Text style={styles.statValue}>{value}</Text><Text style={styles.statTitle}>{title}</Text></View>}
+function Action({label,icon,onPress}:{label:string;icon:string;onPress:()=>void}){return <TouchableOpacity style={styles.action} onPress={onPress}><View style={styles.actionIcon}><MaterialIcons name={icon as any} size={20} color="#111"/></View><Text style={styles.actionText}>{label}</Text></TouchableOpacity>}
+function MiniAlert({icon,title,value,color,onPress}:{icon:string;title:string;value:number;color:string;onPress:()=>void}){return <TouchableOpacity style={styles.alert} onPress={onPress}><View style={[styles.alertIcon,{backgroundColor:color+"14"}]}><MaterialIcons name={icon as any} size={19} color={color}/></View><View style={styles.alertCopy}><Text style={styles.alertTitle}>{title}</Text><Text style={[styles.alertValue,{color}]}>{value}</Text></View></TouchableOpacity>}
+const styles=StyleSheet.create({loading:{flex:1,alignItems:"center",justifyContent:"center",gap:10},muted:{color:"#777",fontSize:12},topBar:{height:66,backgroundColor:"#FFF",paddingHorizontal:14,flexDirection:"row",alignItems:"center",borderBottomWidth:1,borderColor:"#EEE"},iconBtn:{width:38,height:38,alignItems:"center",justifyContent:"center"},brand:{flex:1,alignItems:"flex-end",paddingHorizontal:10},storeName:{fontSize:17,fontWeight:"900",color:"#111"},statusLine:{flexDirection:"row-reverse",alignItems:"center",gap:5,marginTop:2},statusDot:{width:6,height:6,borderRadius:3},statusText:{fontSize:9,color:"#777",fontWeight:"700"},logoBox:{width:42,height:42,borderRadius:13,backgroundColor:"#111",alignItems:"center",justifyContent:"center",overflow:"hidden"},logo:{width:"100%",height:"100%"},content:{padding:12,paddingBottom:130,maxWidth:900,width:"100%",alignSelf:"center"},balanceCard:{backgroundColor:"#111",borderRadius:20,padding:18,marginBottom:16},balanceTop:{flexDirection:"row-reverse",alignItems:"center",gap:10},balanceIcon:{width:38,height:38,borderRadius:12,backgroundColor:"#E11D48",alignItems:"center",justifyContent:"center"},balanceCopy:{flex:1,alignItems:"flex-end"},balanceLabel:{color:"#A8A8A8",fontSize:10},balanceValue:{color:"#FFF",fontSize:28,fontWeight:"900",marginTop:3},balanceCurrency:{fontSize:13,color:"#AAA"},balanceFooter:{marginTop:14,paddingTop:11,borderTopWidth:1,borderColor:"#292929",flexDirection:"row",justifyContent:"space-between",alignItems:"center"},balanceHint:{color:"#777",fontSize:10},balanceLink:{flexDirection:"row-reverse",alignItems:"center",gap:4},balanceLinkText:{color:"#FFF",fontSize:11,fontWeight:"800"},sectionHead:{flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"center",marginBottom:9,marginTop:3},sectionTitle:{fontSize:15,fontWeight:"900",color:"#111"},sectionHint:{fontSize:10,color:"#999"},grid:{flexDirection:"row-reverse",flexWrap:"wrap",gap:8,marginBottom:16},stat:{flexGrow:1,flexBasis:"44%",minWidth:125,backgroundColor:"#FFF",borderRadius:14,padding:13,borderWidth:1,borderColor:"#ECECEC",alignItems:"flex-end"},statIcon:{width:34,height:34,borderRadius:11,alignItems:"center",justifyContent:"center",marginBottom:8},statValue:{fontSize:20,fontWeight:"900",color:"#111"},statTitle:{fontSize:10,color:"#777",marginTop:2},revenue:{backgroundColor:"#FFF",borderRadius:16,padding:15,marginBottom:16,borderWidth:1,borderColor:"#ECECEC"},revenueHead:{flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"center"},revenueValue:{fontSize:20,fontWeight:"900",color:"#111",textAlign:"right"},revenueLabel:{fontSize:10,color:"#777",marginTop:2,textAlign:"right"},revenueIcon:{width:38,height:38,borderRadius:12,backgroundColor:"#F2F3F5",alignItems:"center",justifyContent:"center"},bars:{height:86,flexDirection:"row-reverse",alignItems:"flex-end",justifyContent:"space-around",marginTop:10},barCol:{width:45,alignItems:"center",height:"100%",justifyContent:"flex-end"},barTrack:{height:58,width:8,borderRadius:8,backgroundColor:"#F0F1F3",overflow:"hidden",justifyContent:"flex-end"},barFill:{width:"100%",borderRadius:8},barLabel:{fontSize:8,color:"#888",marginTop:5},actionGrid:{flexDirection:"row-reverse",flexWrap:"wrap",justifyContent:"space-between",marginBottom:15},action:{width:"30%",minWidth:82,alignItems:"center",gap:6,paddingVertical:7},actionIcon:{width:44,height:44,borderRadius:14,backgroundColor:"#FFF",borderWidth:1,borderColor:"#E5E5E5",alignItems:"center",justifyContent:"center"},actionText:{fontSize:9,fontWeight:"800",color:"#333",textAlign:"center"},alertRow:{flexDirection:"row-reverse",gap:9,marginBottom:16},alert:{flex:1,backgroundColor:"#FFF",borderRadius:14,borderWidth:1,borderColor:"#ECECEC",padding:12,flexDirection:"row-reverse",alignItems:"center",gap:9},alertIcon:{width:34,height:34,borderRadius:11,alignItems:"center",justifyContent:"center"},alertCopy:{flex:1,alignItems:"flex-end"},alertTitle:{fontSize:10,color:"#666",fontWeight:"700"},alertValue:{fontSize:18,fontWeight:"900",marginTop:2},storeSummary:{backgroundColor:"#FFF",borderRadius:14,borderWidth:1,borderColor:"#ECECEC",paddingVertical:16,flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-around",marginBottom:12},summaryItem:{alignItems:"center",flex:1},summaryValue:{fontSize:18,fontWeight:"900",color:"#111"},summaryLabel:{fontSize:9,color:"#777",marginTop:3},summarySep:{height:28,width:1,backgroundColor:"#EEE"}});

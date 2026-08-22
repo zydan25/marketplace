@@ -13,11 +13,15 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-for-production
+      DJANGO_DEBUG: "1"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -34,21 +38,39 @@ jobs:
         run: python manage.py test marketplace
 
   expo:
-    name: Expo TypeScript validation
+    name: Expo TypeScript and Web builds
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
+          run_install: false
+      - name: Enable pnpm via Corepack
+        run: corepack enable && corepack prepare pnpm@9 --activate
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: TypeScript check
         run: pnpm check
+      - name: Build customer web
+        run: pnpm build:web:customer
+        env:
+          EXPO_PUBLIC_DJANGO_API_URL: https://shopik.alattab.site
+      - name: Build vendor web
+        run: pnpm build:web:vendor
+        env:
+          EXPO_PUBLIC_DJANGO_API_URL: https://shopik.alattab.site
+      - name: Upload web artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-web-builds
+          path: |
+            dist-web/customer
+            dist-web/vendor
+          if-no-files-found: error

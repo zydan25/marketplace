@@ -1,136 +1,151 @@
-# نشر شبيك على Contabo Ubuntu
+# تشغيل شبيك تجريبيًا على Web ثم نشره على Contabo
 
-هذا الدليل ينقل المشروع من روابط التجربة المؤقتة إلى خادم دائم على النطاق `shopik.alattab.site`. سيعمل Django/Gunicorn محليًا على `127.0.0.1:5015`، بينما يستقبل Nginx طلبات HTTPS على المنفذ 443 ويوجه طلبات `/api/` و`/admin/` إلى Django، ويخدم واجهة العميل المصدرة من Expo Web.
+هذا الدليل مخصص للنسخة الحالية على الفرع:
 
-> لا يمكن تنفيذ أوامر الخادم على Contabo من داخل هذه الجلسة لأن بيانات SSH لم تُقدم. الملفات الجاهزة موجودة في مجلد `deploy/` ويمكن نسخها مباشرة إلى الخادم.
-
-## 1. تجهيز DNS
-
-في لوحة DNS الخاصة بالنطاق، أنشئ سجلًا من نوع `A` للاسم `shopik.alattab.site` يشير إلى عنوان IPv4 لخادم Contabo. أضف `www` كسجل `CNAME` إلى `shopik.alattab.site` أو كسجل `A` إلى العنوان نفسه. انتظر حتى ينتشر DNS، ثم تحقق من الخادم:
-
-```bash
-dig +short shopik.alattab.site
+```text
+refactor/django-marketplace-foundation
 ```
 
-يجب أن يعيد عنوان خادم Contabo.
+لا تدمج الفرع في `main` قبل اكتمال الاختبار التجريبي. في هذه المرحلة، الهدف هو تشغيل Customer Web وVendor Web مع Django ثم اختبار المسارات الأساسية من المتصفح.
 
-## 2. تثبيت الحزم الأساسية
+## 1. جلب الفرع الصحيح
 
-نفذ على Contabo:
+على جهاز التطوير أو الخادم:
+
+```bash
+git clone https://github.com/zydan25/marketplace.git /home/root/projects/shabik
+cd /home/root/projects/shabik
+git fetch origin
+git checkout refactor/django-marketplace-foundation
+git pull --ff-only origin refactor/django-marketplace-foundation
+```
+
+## 2. تجهيز Django
+
+```bash
+cd /home/root/projects/shabik/backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+python manage.py check
+python manage.py migrate
+```
+
+لبيئة تجريبية يمكن تشغيل Django على:
+
+```bash
+python manage.py runserver 0.0.0.0:8000
+```
+
+## 3. تشغيل Web محليًا مع Django
+
+في طرفية ثانية:
+
+```bash
+cd /home/root/projects/shabik
+corepack enable
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+أمر `pnpm dev` يشغل Django وExpo Web معًا. ويستخدم Web التطوير عنوان Django المحلي `http://127.0.0.1:8000`.
+
+## 4. بناء Web تجريبي ثابت
+
+أنشئ متغير البيئة الذي يشير إلى Django التجريبي:
+
+```env
+EXPO_PUBLIC_DJANGO_API_URL=https://shopik.alattab.site
+```
+
+ثم:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+pnpm build:web:customer
+pnpm build:web:vendor
+```
+
+النواتج:
+
+```text
+dist-web/customer
+dist-web/vendor
+```
+
+لا تعتمد على القيمة الافتراضية داخل التطبيق في بيئة إنتاج؛ اضبط `EXPO_PUBLIC_DJANGO_API_URL` أثناء البناء دائمًا.
+
+## 5. تحقق Web قبل الرفع
+
+اختبر بالترتيب:
+
+```text
+Customer
+→ التسجيل
+→ الدخول
+→ الرئيسية الديناميكية
+→ البحث
+→ الفئات
+→ المنتج
+→ Variant
+→ السلة
+→ العناوين
+→ Checkout
+→ إنشاء الطلب
+→ محادثة كل تاجر داخل الطلب
+→ الطلبات
+→ الإشعارات
+→ الحساب
+
+Vendor
+→ الدخول
+→ Dashboard
+→ المنتجات
+→ المخزون
+→ الطلبات
+→ تفاصيل الطلب
+→ الشحن والتتبع
+→ محادثة العميل
+→ تصميم المتجر
+→ المستحقات
+→ طلب السحب
+```
+
+## 6. نشر Django خلف Nginx/PM2
+
+على Contabo يمكن تشغيل Django/Gunicorn داخليًا على `127.0.0.1:5015` كما هو موضح في ملفات `deploy/`، ثم توجيه `/api/` و`/admin/` إليه عبر Nginx.
+
+ثبت الحزم الأساسية:
 
 ```bash
 sudo apt update
 sudo apt install -y git nginx python3-venv python3-dev build-essential certbot python3-certbot-nginx
 ```
 
-## 3. تنزيل المشروع وتجهيز Django
-
-استخدم مسارًا قياسيًا يسهل على `www-data` الوصول إليه:
-
-```bash
-sudo mkdir -p /home/root/projects
-sudo git clone https://github.com/zydan25/marketplace.git /home/root/projects/shabik
-sudo chown -R www-data:www-data /home/root/projects/shabik
-cd /home/root/projects/shabik/backend
-sudo -u www-data python3 -m venv .venv
-sudo -u www-data .venv/bin/pip install --upgrade pip
-sudo -u www-data .venv/bin/pip install -r requirements.txt
-```
-
-أنشئ ملف البيئة:
-
-```bash
-sudo cp /home/root/projects/shabik/deploy/backend.env.production.example /home/root/projects/shabik/backend/.env.production
-sudo nano /home/root/projects/shabik/backend/.env.production
-```
-
-غيّر `DJANGO_SECRET_KEY` إلى قيمة عشوائية طويلة وفريدة. لا تضع المفتاح في GitHub ولا ترسله في محادثة عامة.
-
-أنشئ قاعدة البيانات والملفات الثابتة:
+بعد تجهيز البيئة:
 
 ```bash
 cd /home/root/projects/shabik/backend
-sudo -u www-data bash -lc 'set -a; source .env.production; set +a; .venv/bin/python manage.py migrate'
-sudo -u www-data bash -lc 'set -a; source .env.production; set +a; .venv/bin/python manage.py collectstatic --noinput'
-sudo chown -R www-data:www-data /home/root/projects/shabik/backend
+sudo -u www-data .venv/bin/python manage.py migrate
+sudo -u www-data .venv/bin/python manage.py collectstatic --noinput
 ```
 
-إذا كانت قاعدة البيانات الحالية موجودة على الخادم القديم، انسخ ملف `db.sqlite3` إلى `/home/root/projects/shabik/backend/db.sqlite3` قبل تشغيل `migrate`، ثم اضبط الملكية إلى `www-data`.
+ولا تفتح منفذ Django الداخلي للعامة.
 
-## 4. تشغيل Django على المنفذ 5015 باستخدام PM2
+## 7. نشر Web
 
-ثبت PM2 عالمياً (إذا لم يكن مثبتاً):
-
-```bash
-sudo npm install -g pm2
-```
-
-شغل الخادم باستخدام ملف الإعدادات المجهز:
+بعد نجاح البناء:
 
 ```bash
-cd /home/root/projects/shabik/deploy
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup
-```
-
-اختبر Django محليًا على الخادم:
-
-```bash
-curl -I http://127.0.0.1:5015/
-pm2 logs shabik-django --lines 50
-```
-
-## 5. بناء واجهة الويب
-
-ثبت Node.js وpnpm إن لم يكونا مثبتين، ثم ابنِ نسخة العميل من داخل مجلد المشروع. ملف `.env` في آخر Commit مضبوط على `https://shopik.alattab.site`، وهو الرابط الذي سيُضمّن داخل JavaScript عند البناء:
-
-```bash
-cd /home/root/projects/shabik
-corepack enable
-pnpm install --frozen-lockfile
-pnpm check
-pnpm build:web:customer
-```
-
-سيتم إنشاء `dist-web/customer`. انسخها إلى مسار خدمة الويب:
-
-```bash
-sudo mkdir -p /home/root/projects/shabik/dist-web/customer
+sudo mkdir -p /home/root/projects/shabik/dist-web
 sudo chown -R www-data:www-data /home/root/projects/shabik/dist-web
 ```
 
-إذا كان البناء على الخادم نفسه، لا حاجة لنسخ إضافي. وبالنسبة إلى نسخة التاجر المنفصلة للويب، يمكن تنفيذ:
+خدم `dist-web/customer` بواسطة Nginx للموقع العام. يمكن وضع `dist-web/vendor` على نطاق/مسار منفصل إذا أردت Web Vendor مستقلًا.
 
-```bash
-pnpm build:web:vendor
-```
-
-لكن التطبيق الموحد لواجهة الموقع يستطيع توجيه التاجر إلى `/vendor` بعد تسجيل الدخول، لذلك تكفي نسخة العميل للموقع العام، بينما تبقى نسخة التاجر المنفصلة مخصصة لـ APK.
-
-## 6. إعداد Nginx
-
-انسخ الإعداد الجاهز:
-
-```bash
-sudo cp /home/root/projects/shabik/deploy/shopik.alattab.site.nginx /etc/nginx/sites-available/shopik.alattab.site
-sudo ln -sfn /etc/nginx/sites-available/shopik.alattab.site /etc/nginx/sites-enabled/shopik.alattab.site
-sudo nginx -t
-```
-
-في حال وجود إعداد قديم للنطاق نفسه، أوقف الرابط الرمزي القديم أو استبدله قبل إعادة التحميل. لا تشغل إعدادين لنفس `server_name`.
-
-## 7. إصدار أو تجديد شهادة HTTPS
-
-إذا كانت الشهادة الحالية صالحة للمجال، احتفظ بمساراتها الموجودة في الملف. وإلا نفذ بعد التأكد من DNS وفتح المنفذين 80 و443:
-
-```bash
-sudo certbot --nginx -d shopik.alattab.site -d www.shopik.alattab.site
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-ثم اختبر:
+## 8. فحص سريع بعد النشر
 
 ```bash
 curl -I https://shopik.alattab.site/
@@ -138,51 +153,28 @@ curl -I https://shopik.alattab.site/api/home/
 curl -I https://shopik.alattab.site/admin/
 ```
 
-## 8. الجدار الناري
+## 9. CI
 
-إذا كان UFW مفعّلًا:
+GitHub Actions في هذا الفرع تتحقق من:
+
+```text
+Django check
+Migrations
+Django tests
+TypeScript
+Customer Web export
+Vendor Web export
+```
+
+ويجب أن يظهر Workflow ناجح قبل اعتبار النسخة التجريبية قابلة للرفع النهائي.
+
+## 10. APK لاحقًا
+
+بعد نجاح Web فقط:
 
 ```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
-sudo ufw enable
-sudo ufw status
+EXPO_PUBLIC_DJANGO_API_URL=https://shopik.alattab.site pnpm apk:customer
+EXPO_PUBLIC_DJANGO_API_URL=https://shopik.alattab.site pnpm apk:vendor
 ```
 
-لا تفتح المنفذ 5015 للعامة؛ يجب أن يبقى Django مستمعًا على `127.0.0.1:5015` وتصل إليه Nginx داخليًا فقط.
-
-## 9. تحديث APK لاحقًا
-
-بعد نجاح الموقع الدائم، رابط API داخل APK الجديد يجب أن يكون:
-
-```env
-EXPO_PUBLIC_DJANGO_API_URL=https://shopik.alattab.site
-```
-
-بناء نسخة العميل والتاجر من حساب Expo:
-
-```bash
-cd /home/root/projects/shabik
-pnpm run apk:customer
-pnpm run apk:vendor
-```
-
-بناء APK يتطلب حصة EAS متاحة. النسخ القديمة ستظل تشير إلى رابط التجربة السابق حتى يتم إعادة بنائها؛ لا يمكن تغيير رابط API داخل APK موجود بعد تنزيله.
-
-## 10. التشغيل والصيانة
-
-للتحديثات اللاحقة:
-
-```bash
-cd /home/root/projects/shabik
-sudo -u www-data git pull origin main
-cd backend
-sudo -u www-data bash -lc 'set -a; source .env.production; set +a; .venv/bin/pip install -r requirements.txt; .venv/bin/python manage.py migrate; .venv/bin/python manage.py collectstatic --noinput'
-pm2 restart shabik-django
-cd ..
-pnpm install --frozen-lockfile
-pnpm build:web:customer
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-خذ نسخًا احتياطية منتظمة من `backend/db.sqlite3` ومجلد `backend/media/` قبل أي تحديث. للاستخدام التجاري الكبير، انقل قاعدة البيانات إلى PostgreSQL والتخزين إلى مساحة ملفات مستقلة بدل SQLite المحلي.
+لا تبن APK من نسخة لم تنجح دورة Web فيها بالكامل.
