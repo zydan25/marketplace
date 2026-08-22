@@ -10,7 +10,6 @@ from .models_extra import Address, Loan, GiftTransfer
 class TimeStampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
     class Meta:
         abstract = True
 
@@ -20,7 +19,6 @@ class User(AbstractUser):
         CUSTOMER = "customer", "عميل"
         VENDOR = "vendor", "تاجر"
         ADMIN = "admin", "مدير"
-
     username = models.CharField(max_length=150, unique=True, blank=True, null=True)
     phone = models.CharField(max_length=32, unique=True, null=True, blank=True)
     role = models.CharField(max_length=20, choices=Roles.choices, default=Roles.CUSTOMER)
@@ -32,12 +30,10 @@ class User(AbstractUser):
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     is_phone_verified = models.BooleanField(default=False)
     points_balance = models.PositiveIntegerField(default=0)
-
     def save(self, *args, **kwargs):
         if not self.username:
             self.username = self.phone or None
         super().save(*args, **kwargs)
-
     def __str__(self):
         return self.get_full_name() or self.phone or self.username or str(self.pk)
 
@@ -54,12 +50,10 @@ class VendorProfile(TimeStampedModel):
     status = models.CharField(max_length=20, choices=[("pending", "قيد المراجعة"), ("active", "نشط"), ("suspended", "موقوف")], default="pending")
     commission_percent = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("10.00"), validators=[MinValueValidator(0), MaxValueValidator(100)])
     settings = models.JSONField(default=dict, blank=True)
-
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.store_name, allow_unicode=True)
         super().save(*args, **kwargs)
-
     def __str__(self):
         return self.store_name
 
@@ -73,10 +67,8 @@ class DesignTheme(TimeStampedModel):
     tokens = models.JSONField(default=dict, blank=True)
     layout = models.JSONField(default=dict, blank=True)
     sections = models.JSONField(default=list, blank=True)
-
     class Meta:
         ordering = ["-is_global", "-updated_at"]
-
     def __str__(self):
         return self.name
 
@@ -88,10 +80,8 @@ class Category(TimeStampedModel):
     parent = models.ForeignKey("self", on_delete=models.CASCADE, related_name="children", null=True, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
-
     class Meta:
         ordering = ["sort_order", "name"]
-
     def __str__(self):
         return self.name
 
@@ -111,6 +101,7 @@ class Product(TimeStampedModel):
     sale_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
     currency = models.CharField(max_length=6, default="YER")
     stock = models.PositiveIntegerField(default=0)
+    reserved_stock = models.PositiveIntegerField(default=0)
     colors = models.JSONField(default=list, blank=True)
     sizes = models.JSONField(default=list, blank=True)
     hashtags = models.JSONField(default=list, blank=True)
@@ -122,21 +113,20 @@ class Product(TimeStampedModel):
     is_published = models.BooleanField(default=False)
     is_trending = models.BooleanField(default=False)
     sold_count = models.PositiveIntegerField(default=0)
-
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["vendor", "is_published"]), models.Index(fields=["sku"])]
-
+        indexes = [models.Index(fields=["vendor", "is_published"]), models.Index(fields=["sku"]), models.Index(fields=["vendor", "stock"])]
+    @property
+    def available_stock(self):
+        return max(0, self.stock - self.reserved_stock)
     @property
     def effective_price(self):
         return self.sale_price if self.sale_price is not None else self.price
-
     @property
     def discount_percent(self):
         if not self.sale_price or self.price <= 0 or self.sale_price >= self.price:
             return 0
         return round((1 - self.sale_price / self.price) * 100)
-
     def __str__(self):
         return f"{self.name} ({self.sku})"
 
@@ -147,7 +137,6 @@ class ProductImage(TimeStampedModel):
     alt_text = models.CharField(max_length=180, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
     is_primary = models.BooleanField(default=False)
-
     class Meta:
         ordering = ["sort_order", "id"]
 
@@ -159,7 +148,6 @@ class StorefrontSection(TimeStampedModel):
         PRODUCT_GRID = "product_grid", "شبكة منتجات"
         TREND = "trend", "ترند"
         BANNER = "banner", "بانر"
-
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="storefront_sections")
     vendor = models.ForeignKey(VendorProfile, on_delete=models.CASCADE, related_name="storefront_sections", null=True, blank=True)
     title = models.CharField(max_length=180, blank=True)
@@ -167,7 +155,6 @@ class StorefrontSection(TimeStampedModel):
     config = models.JSONField(default=dict, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
     is_visible = models.BooleanField(default=True)
-
     class Meta:
         ordering = ["sort_order", "id"]
 
@@ -187,7 +174,6 @@ class WalletTransaction(TimeStampedModel):
         REWARD = "reward", "مكافأة"
         WITHDRAWAL = "withdrawal", "سحب"
         ADJUSTMENT = "adjustment", "تسوية"
-
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name="transactions")
     transaction_type = models.CharField(max_length=20, choices=Types.choices)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
@@ -219,7 +205,6 @@ class Order(TimeStampedModel):
         DELIVERED = "delivered", "تم التسليم"
         CANCELLED = "cancelled", "ملغي"
         REFUNDED = "refunded", "مسترد"
-
     customer = models.ForeignKey(User, on_delete=models.PROTECT, related_name="orders")
     order_number = models.CharField(max_length=40, unique=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
@@ -232,7 +217,6 @@ class Order(TimeStampedModel):
     payment_method = models.CharField(max_length=40, default="cash_on_delivery")
     payment_status = models.CharField(max_length=20, default="pending")
     metadata = models.JSONField(default=dict, blank=True)
-
     class Meta:
         ordering = ["-created_at"]
 
@@ -295,9 +279,6 @@ class Referral(TimeStampedModel):
     reward_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     reward_paid = models.BooleanField(default=False)
 
-
-# Additional scalable Marketplace domain entities live in a dedicated module to keep this
-# legacy-compatible model file manageable while still registering them with Django.
 from .marketplace_models import (  # noqa: E402,F401
     InventoryReservation,
     Payment,
