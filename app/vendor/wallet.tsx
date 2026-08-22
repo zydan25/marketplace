@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoApi } from "@/lib/django-api";
 
@@ -12,7 +12,7 @@ export default function VendorWalletScreen(){
  const [finance,setFinance]=useState<Finance|null>(null); const [amount,setAmount]=useState(""); const [loading,setLoading]=useState(true); const [refreshing,setRefreshing]=useState(false); const [sending,setSending]=useState(false);
  async function load(){try{setFinance(await djangoApi<Finance>("/api/vendor-finance/summary/"))}catch{setFinance(null)}finally{setLoading(false);setRefreshing(false)}}
  useEffect(()=>{load()},[]);
- async function requestPayout(){if(!amount||Number(amount)<=0)return; if(finance&&Number(amount)>Number(finance.available)){return alert("المتاح للسحب غير كافٍ")};setSending(true);try{await djangoApi("/api/vendor-finance/request_payout/",{method:"POST",body:JSON.stringify({amount})});setAmount("");await load()}catch(error){alert(error instanceof Error?error.message:"تعذر إنشاء طلب السحب")}finally{setSending(false)}}
+ async function requestPayout(){if(!amount||Number(amount)<=0){Alert.alert("مبلغ غير صالح","أدخل قيمة موجبة.");return} if(finance&&Number(amount)>Number(finance.available)){Alert.alert("الرصيد غير كافٍ",`المتاح للسحب ${finance.available} ${finance.currency}.`);return}setSending(true);try{await djangoApi("/api/vendor-finance/request_payout/",{method:"POST",body:JSON.stringify({amount})});setAmount("");Alert.alert("تم الطلب","أُرسل طلب السحب إلى الإدارة للمراجعة.");await load()}catch(error){Alert.alert("تعذر إنشاء طلب السحب",error instanceof Error?error.message:"حدث خطأ")}finally{setSending(false)}}
  if(loading)return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E11D48"/><Text style={styles.muted}>جارٍ تحميل المستحقات...</Text></View></ScreenContainer>;
  return <ScreenContainer className="bg-[#F6F7F9]" edges={["top","bottom","left","right"]}>
   <View style={styles.header}><TouchableOpacity onPress={()=>router.back()} style={styles.iconBtn}><MaterialIcons name="arrow-forward" size={23} color="#111"/></TouchableOpacity><View style={styles.headerCopy}><Text style={styles.title}>مستحقات متجري</Text><Text style={styles.subtitle}>{finance?.vendor_name||""}</Text></View><View style={styles.headerIcon}><MaterialIcons name="payments" size={18} color="#FFF"/></View></View>
