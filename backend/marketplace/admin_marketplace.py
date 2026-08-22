@@ -4,15 +4,6 @@ from django.utils import timezone
 from .marketplace_models import CouponRedemption, InventoryReservation, Payment, Shipment, VendorApplication, VendorLedgerEntry, VendorOrder, VendorOrderItem
 from .models import VendorProfile
 from .order_chat_models import OrderChat, OrderChatMessage
-from .storefront_models import StorefrontMedia
-
-
-@admin.register(StorefrontMedia)
-class StorefrontMediaAdmin(admin.ModelAdmin):
-    list_display = ("name", "vendor", "is_active", "target_url", "updated_at")
-    list_filter = ("is_active", "vendor")
-    search_fields = ("name", "alt_text", "target_url", "vendor__store_name")
-    fields = ("name", "image", "alt_text", "target_url", "vendor", "is_active")
 
 
 @admin.register(VendorApplication)
