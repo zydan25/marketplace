@@ -38,7 +38,7 @@ jobs:
         run: python manage.py test marketplace
 
   expo:
-    name: Expo TypeScript validation
+    name: Expo TypeScript and Web builds
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -58,3 +58,19 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: TypeScript check
         run: pnpm check
+      - name: Build customer web
+        run: pnpm build:web:customer
+        env:
+          EXPO_PUBLIC_DJANGO_API_URL: https://shopik.alattab.site
+      - name: Build vendor web
+        run: pnpm build:web:vendor
+        env:
+          EXPO_PUBLIC_DJANGO_API_URL: https://shopik.alattab.site
+      - name: Upload web artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-web-builds
+          path: |
+            dist-web/customer
+            dist-web/vendor
+          if-no-files-found: error
