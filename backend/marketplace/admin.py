@@ -57,7 +57,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "sku", "vendor", "effective_price_display", "stock", "is_published", "is_trending")
+    list_display = ("name", "sku", "vendor", "effective_price_display", "stock", "reserved_stock", "is_published", "is_trending")
     list_filter = ("is_published", "is_trending", "currency", "vendor")
     search_fields = ("name", "sku", "description", "vendor__store_name")
     filter_horizontal = ("categories",)
@@ -87,6 +87,7 @@ class StorefrontSectionAdmin(admin.ModelAdmin):
     list_display = ("title", "section_type", "vendor", "sort_order", "is_visible")
     list_filter = ("section_type", "is_visible", "vendor")
     search_fields = ("title",)
+    ordering = ("sort_order", "id")
 
 
 class OrderItemInline(admin.TabularInline):
@@ -116,11 +117,12 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     list_display = ("wallet", "transaction_type", "amount", "balance_after", "reference", "created_at")
     list_filter = ("transaction_type", "created_at")
     search_fields = ("wallet__user__phone", "reference")
+    readonly_fields = ("wallet", "transaction_type", "amount", "balance_after", "reference", "note", "metadata", "created_at", "updated_at")
 
 
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
-    list_display = ("code", "discount_percent", "discount_amount", "is_active", "starts_at", "ends_at")
+    list_display = ("code", "discount_percent", "discount_amount", "minimum_order", "usage_limit", "used_count", "is_active", "starts_at", "ends_at")
     list_filter = ("is_active",)
     search_fields = ("code",)
     filter_horizontal = ("assigned_to",)
@@ -128,7 +130,7 @@ class CouponAdmin(admin.ModelAdmin):
 
 @admin.register(VendorPayout)
 class VendorPayoutAdmin(admin.ModelAdmin):
-    list_display = ("vendor", "order", "amount", "status", "created_at")
+    list_display = ("vendor", "vendor_order", "order", "amount", "currency", "status", "reference", "created_at")
     list_filter = ("status", "currency")
     search_fields = ("vendor__store_name", "reference")
 
@@ -175,3 +177,6 @@ class GiftTransferAdmin(admin.ModelAdmin):
     list_filter = ("status", "created_at")
     search_fields = ("sender__phone", "receiver__phone", "receiver_name_snapshot")
     readonly_fields = ("sender", "receiver", "amount", "receiver_name_snapshot", "created_at", "updated_at")
+
+
+from . import admin_marketplace  # noqa: E402,F401
