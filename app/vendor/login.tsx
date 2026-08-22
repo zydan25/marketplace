@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoLogin } from "@/lib/django-api";
@@ -25,7 +25,7 @@ export default function VendorLoginScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F7F7F7]">
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} automaticallyAdjustKeyboardInsets>
         <Text style={styles.kicker}>بوابة الشركاء</Text>
         <Text style={styles.title}>إدارة متجرك</Text>
         <Text style={styles.subtitle}>ادخل إلى لوحة التاجر لمتابعة المنتجات والطلبات والمبيعات.</Text>
@@ -35,13 +35,13 @@ export default function VendorLoginScreen() {
           <Text style={styles.buttonText}>{loading ? "جارٍ الدخول..." : "دخول التاجر"}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.back()} style={styles.back}><Text style={styles.backText}>العودة إلى المتجر</Text></TouchableOpacity>
-      </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, direction: "rtl" },
+  container: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 80, direction: "rtl", maxWidth: 450, width: "100%", alignSelf: "center" },
   kicker: { color: "#E60023", fontSize: 14, fontWeight: "800", textAlign: "right" },
   title: { color: "#151515", fontSize: 34, fontWeight: "900", textAlign: "right", marginTop: 8 },
   subtitle: { color: "#777", fontSize: 15, lineHeight: 25, textAlign: "right", marginTop: 10, marginBottom: 30 },

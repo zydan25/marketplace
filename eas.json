@@ -2,11 +2,17 @@
   "build": {
     "customer": {
       "android": { "buildType": "apk" },
-      "env": { "APP_VARIANT": "customer" }
+      "env": { 
+        "APP_VARIANT": "customer",
+        "EXPO_PUBLIC_DJANGO_API_URL": "https://shopik.alattab.site"
+      }
     },
     "vendor": {
       "android": { "buildType": "apk" },
-      "env": { "APP_VARIANT": "vendor" }
+      "env": { 
+        "APP_VARIANT": "vendor",
+        "EXPO_PUBLIC_DJANGO_API_URL": "https://shopik.alattab.site"
+      }
     }
   }
 }
