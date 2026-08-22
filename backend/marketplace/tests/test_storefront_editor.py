@@ -31,6 +31,29 @@ class StorefrontEditorTests(TestCase):
         self.assertFalse(self.global_section.is_visible)
         self.assertEqual(self.global_section.config["target_url"], "/collection")
 
+    def test_admin_can_create_global_section(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("admin-storefront-section-create"),
+            data=json.dumps({"title": "بنر جديد", "section_type": "banner"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        created = StorefrontSection.objects.get(title="بنر جديد")
+        self.assertIsNone(created.vendor_id)
+        self.assertEqual(created.section_type, "banner")
+
+    def test_vendor_can_create_only_own_section(self):
+        self.client.force_login(self.vendor)
+        response = self.client.post(
+            reverse("admin-storefront-section-create"),
+            data=json.dumps({"title": "قسم متجري", "section_type": "product_grid"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        created = StorefrontSection.objects.get(title="قسم متجري")
+        self.assertEqual(created.vendor_id, self.vendor_profile.id)
+
     def test_vendor_can_update_own_section_only(self):
         self.client.force_login(self.vendor)
         own = self.client.post(
@@ -64,6 +87,15 @@ class StorefrontEditorTests(TestCase):
         response = self.client.post(
             reverse("admin-storefront-section-update", args=[self.global_section.id]),
             data=json.dumps({"config": ["invalid"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_create_rejects_unknown_section_type(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("admin-storefront-section-create"),
+            data=json.dumps({"title": "قسم غير صالح", "section_type": "unknown"}),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
