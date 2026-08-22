@@ -1,4 +1,4 @@
-import { apiCall } from "@/lib/_core/api";
+import { djangoApi } from "@/lib/django-api";
 
 export type StoreProduct = {
   id: string;
@@ -25,7 +25,28 @@ export type StoreProduct = {
   returnPolicy: string;
 };
 
-export type ProductEditorPayload = { productCode?: string; categoryIds?: number[]; keepImageIds?: number[]; name: string; category: string; categories: string[]; description: string; details: string; material: string; price: number; discountPercent: number; shippingNote: string; isTrending: boolean; trendTags: string[]; isPublished: boolean; colors: { name: string; hex: string }[]; sizes: { label: string; stock: number }[]; images?: { dataUrl: string; fileName: string; sortOrder: number }[]; existingImages?: { id?: number; storageKey: string; url: string; sortOrder: number }[]; newImages?: { dataUrl: string; fileName: string; sortOrder: number }[]; };
+export type ProductEditorPayload = {
+  productCode?: string;
+  categoryIds?: number[];
+  keepImageIds?: number[];
+  name: string;
+  category: string;
+  categories: string[];
+  description: string;
+  details: string;
+  material: string;
+  price: number;
+  discountPercent: number;
+  shippingNote: string;
+  isTrending: boolean;
+  trendTags: string[];
+  isPublished: boolean;
+  colors: { name: string; hex: string }[];
+  sizes: { label: string; stock: number }[];
+  images?: { dataUrl: string; fileName: string; sortOrder: number }[];
+  existingImages?: { id?: number; storageKey: string; url: string; sortOrder: number }[];
+  newImages?: { dataUrl: string; fileName: string; sortOrder: number }[];
+};
 
 type DjangoProduct = {
   id: number;
@@ -37,7 +58,6 @@ type DjangoProduct = {
   sale_price?: string | number | null;
   effective_price?: string | number;
   discount_percent?: number;
-  currency?: string;
   stock?: number;
   colors?: Array<{ id?: number; name: string; hex?: string }>;
   sizes?: Array<{ id?: number; label: string; stock?: number }>;
@@ -49,12 +69,10 @@ type DjangoProduct = {
   vendor?: { id?: number; store_name?: string; slug?: string; description?: string; logo_url?: string | null };
   main_image_url?: string | null;
   images?: Array<{ id?: number; url?: string; storageKey?: string; sortOrder?: number } | string>;
-  gallery?: Array<{ id?: number; url?: string; alt?: string; sort_order?: number; is_primary?: boolean }>;
-  brand?: string;
+  gallery?: Array<{ id?: number; url?: string; sort_order?: number; is_primary?: boolean }>;
   material?: string;
   shipping_note?: string;
   return_policy?: string;
-  sold_count?: number;
 };
 
 function detailsText(value: unknown): string {
@@ -107,19 +125,19 @@ function normalizeProduct(product: DjangoProduct): StoreProduct {
     reviews: Number(product.reviews_count ?? 0),
     reviewsList: [],
     vendor: { id: Number(product.vendor?.id ?? 0), name: product.vendor?.store_name ?? "متجر موثوق", slug: product.vendor?.slug ?? "", description: product.vendor?.description ?? "", logoUrl: product.vendor?.logo_url ?? null },
-    returnPolicy: product.return_policy ?? "إرجاع خلال 7 أيام حسب سياسة المتجر",
+    returnPolicy: product.return_policy ?? "إرجاع حسب سياسة المتجر",
   };
 }
 
 export async function getProducts(query = "") {
   const suffix = query ? `?q=${encodeURIComponent(query)}` : "";
-  const response = await apiCall<DjangoProduct[] | { results?: DjangoProduct[]; products?: DjangoProduct[] }>(`/api/products/${suffix}`);
+  const response = await djangoApi<DjangoProduct[] | { results?: DjangoProduct[]; products?: DjangoProduct[] }>(`/api/products/${suffix}`);
   const items = Array.isArray(response) ? response : (response.results ?? response.products ?? []);
   return items.map(normalizeProduct);
 }
 
 export async function getProduct(id: string) {
-  const response = await apiCall<DjangoProduct>(`/api/products/${encodeURIComponent(id)}/`);
+  const response = await djangoApi<DjangoProduct>(`/api/products/${encodeURIComponent(id)}/`);
   return { product: normalizeProduct(response), similar: [] as StoreProduct[] };
 }
 
@@ -146,6 +164,16 @@ function toDjangoPayload(payload: ProductEditorPayload) {
   };
 }
 
-export async function getAdminProducts() { return getProducts(); }
-export async function createProduct(payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>("/api/products/", { method: "POST", body: JSON.stringify(toDjangoPayload(payload)) }); }
-export async function updateProduct(id: string, payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>(`/api/products/${encodeURIComponent(id)}/`, { method: "PATCH", body: JSON.stringify(toDjangoPayload(payload)) }); }
+export async function getAdminProducts() {
+  return getProducts();
+}
+
+export async function createProduct(payload: ProductEditorPayload) {
+  const response = await djangoApi<DjangoProduct>("/api/products/", { method: "POST", body: JSON.stringify(toDjangoPayload(payload)) });
+  return { product: normalizeProduct(response) };
+}
+
+export async function updateProduct(id: string, payload: ProductEditorPayload) {
+  const response = await djangoApi<DjangoProduct>(`/api/products/${encodeURIComponent(id)}/`, { method: "PATCH", body: JSON.stringify(toDjangoPayload(payload)) });
+  return { product: normalizeProduct(response) };
+}
