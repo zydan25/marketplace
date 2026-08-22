@@ -202,12 +202,13 @@ class Order(TimeStampedModel):
         CONFIRMED = "confirmed", "مؤكد"
         PROCESSING = "processing", "قيد التجهيز"
         SHIPPED = "shipped", "تم الشحن"
+        PARTIALLY_FULFILLED = "partially_fulfilled", "منفذ جزئيًا"
         DELIVERED = "delivered", "تم التسليم"
         CANCELLED = "cancelled", "ملغي"
         REFUNDED = "refunded", "مسترد"
     customer = models.ForeignKey(User, on_delete=models.PROTECT, related_name="orders")
     order_number = models.CharField(max_length=40, unique=True)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.PENDING)
     subtotal = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     shipping_fee = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     discount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
