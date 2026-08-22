@@ -8,3 +8,4 @@ class MarketplaceConfig(AppConfig):
     def ready(self):
         from . import marketplace_models  # noqa: F401
         from . import storefront_models  # noqa: F401
+        from . import order_chat_models  # noqa: F401
