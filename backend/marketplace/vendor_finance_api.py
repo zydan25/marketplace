@@ -1,9 +1,9 @@
 from decimal import Decimal
 import uuid
 
-from django.db.models import Q, Sum
+from django.db.models import Sum
 from rest_framework import serializers, status, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -34,28 +34,31 @@ class VendorFinanceViewSet(viewsets.ReadOnlyModelViewSet):
             return qs.filter(vendor__owner=user)
         return qs.none()
 
-    @action(detail=False, methods=["get"])
-    def summary(self, request):
-        if request.user.role != "vendor":
-            if not (request.user.is_staff or request.user.role == "admin"):
-                raise PermissionDenied("المستحقات للتاجر فقط")
-        vendor_id = request.query_params.get("vendor_id")
-        if request.user.role == "vendor":
-            vendor = VendorProfile.objects.filter(owner=request.user).first()
+    def _vendor_for_request(self):
+        user = self.request.user
+        if user.role == "vendor":
+            vendor = VendorProfile.objects.filter(owner=user).first()
         else:
+            vendor_id = self.request.query_params.get("vendor_id")
             vendor = VendorProfile.objects.filter(id=vendor_id).first() if vendor_id else None
         if not vendor:
             raise ValidationError({"vendor_id": "التاجر غير موجود"})
+        return vendor
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        if request.user.role != "vendor" and not (request.user.is_staff or request.user.role == "admin"):
+            raise PermissionDenied("المستحقات للتاجر فقط")
+        vendor = self._vendor_for_request()
         ledger = VendorLedgerEntry.objects.filter(vendor=vendor)
         earned = ledger.filter(entry_type=VendorLedgerEntry.Types.SALE).aggregate(v=Sum("amount"))["v"] or Decimal("0")
-        paid = VendorPayout.objects.filter(vendor=vendor, status=VendorPayout._meta.get_field("status").default or "paid")
         paid_amount = VendorPayout.objects.filter(vendor=vendor, status="paid").aggregate(v=Sum("amount"))["v"] or Decimal("0")
         pending_amount = VendorPayout.objects.filter(vendor=vendor, status__in=["pending", "approved"]).aggregate(v=Sum("amount"))["v"] or Decimal("0")
         available = max(Decimal("0"), earned - paid_amount - pending_amount)
         return Response({
             "vendor": vendor.id,
             "vendor_name": vendor.store_name,
-            "currency": (ledger.order_by("-id").values_list("currency", flat=True).first() or "YER"),
+            "currency": ledger.order_by("-id").values_list("currency", flat=True).first() or "YER",
             "earned": str(earned),
             "paid": str(paid_amount),
             "pending": str(pending_amount),
