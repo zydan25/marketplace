@@ -32,7 +32,8 @@ type DjangoAuthResponse = { token: string; user: DjangoUser };
 
 function baseUrl() {
   const explicit = process.env.EXPO_PUBLIC_DJANGO_API_URL;
-  return (explicit || getApiBaseUrl()).replace(/\/$/, "");
+  const url = explicit || getApiBaseUrl() || "https://shopik.alattab.site";
+  return url.replace(/\/$/, "");
 }
 
 function mapUser(user: DjangoUser): PhoneAuthUser {

@@ -30,6 +30,11 @@ export const API_BASE_URL = env.apiBaseUrl;
  * URL pattern: https://PORT-sandboxid.region.domain
  */
 export function getApiBaseUrl(): string {
+  // If EXPO_PUBLIC_DJANGO_API_URL is set directly in process.env, use it
+  if (process.env.EXPO_PUBLIC_DJANGO_API_URL) {
+    return process.env.EXPO_PUBLIC_DJANGO_API_URL.replace(/\/$/, "");
+  }
+  
   // If API_BASE_URL is set, use it
   if (API_BASE_URL) {
     return API_BASE_URL.replace(/\/$/, "");
@@ -45,8 +50,8 @@ export function getApiBaseUrl(): string {
     }
   }
 
-  // Fallback to empty (will use relative URL)
-  return "";
+  // Fallback to production URL instead of empty relative URL
+  return "https://shopik.alattab.site";
 }
 
 export const SESSION_TOKEN_KEY = "app_session_token";
