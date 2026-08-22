@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoRegister } from "@/lib/django-api";
-import * as Auth from "@/lib/_core/auth";
 
 const governorates = ["أمانة العاصمة", "عدن", "أبين", "البيضاء", "الضالع", "الحديدة", "الجوف", "المهرة", "المحويت", "عمران", "ذمار", "حضرموت", "حجة", "إب", "لحج", "مأرب", "ريمة", "صعدة", "صنعاء", "شبوة", "سقطرى", "تعز"];
 
@@ -41,8 +40,7 @@ export default function RegisterScreen() {
         governorate: value.governorate,
         referral_code: ref,
       });
-      await Auth.setUserInfo({ ...result.user, lastSignedIn: new Date() } as any);
-      router.replace("/profile" as never);
+      router.replace(result.user.role === "vendor" ? "/vendor" as never : "/profile" as never);
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر إنشاء الحساب.");
     } finally {
