@@ -23,7 +23,6 @@ class City(TimeStampedModel):
     class Meta:
         ordering = ["name"]
         indexes = [models.Index(fields=["is_active", "name"])]
-
     name = models.CharField(max_length=120)
     price_group = models.ForeignKey(PriceGroup, on_delete=models.SET_NULL, null=True, blank=True)
     shipping_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -38,15 +37,15 @@ class ProductVariant(TimeStampedModel):
     price_override = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     stock = models.PositiveIntegerField(default=0)
     reserved_stock = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["product", "color", "size"], name="uniq_product_variant_dimensions"),
-        ]
-        indexes = [models.Index(fields=["product", "stock"]), models.Index(fields=["product", "color", "size"])]
+        indexes = [models.Index(fields=["product", "stock"]), models.Index(fields=["product", "color", "size"]), models.Index(fields=["product", "is_active"])]
 
     @property
     def available_stock(self):
+        if not self.is_active:
+            return 0
         return max(0, self.stock - self.reserved_stock)
 
 
