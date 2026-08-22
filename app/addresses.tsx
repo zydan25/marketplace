@@ -1,73 +1,24 @@
-import { useEffect, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Alert, ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import { router } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoApi } from "@/lib/django-api";
 
-type Address = { id: number; title: string; city: { id?: number; name: string }; district: string; street: string; phone: string; is_default: boolean };
-
-export default function AddressesScreen() {
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  async function load() {
-    try {
-      const data = await djangoApi<{ results?: Address[] } | Address[]>("/api/addresses/");
-      setAddresses(Array.isArray(data) ? data : (data.results ?? []));
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function selectAddress(address: Address) {
-    Alert.alert("تم الاختيار", `تم اختيار عنوان: ${address.title}`);
-    router.back();
-  }
-
-  return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F5F5F5]">
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} /></TouchableOpacity>
-        <Text style={styles.title}>عناويني</Text>
-        <TouchableOpacity onPress={() => Alert.alert("قريبًا", "إضافة عنوان جديد ستتوفر في شاشة العناوين") }><MaterialIcons name="add" size={25} color="#E60023" /></TouchableOpacity>
-      </View>
-      <FlatList
-        style={{ flex: 1 }}
-        data={addresses}
-        keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={!loading ? <Text style={styles.empty}>لا توجد عناوين محفوظة.</Text> : <Text style={styles.empty}>جارِ تحميل العناوين...</Text>}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => selectAddress(item)}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              {item.is_default && <View style={styles.badge}><Text style={styles.badgeText}>الافتراضي</Text></View>}
-            </View>
-            <Text style={styles.details}>{item.city?.name ?? ""} - {item.district}</Text>
-            <Text style={styles.details}>{item.street}</Text>
-            <Text style={styles.phone}>{item.phone}</Text>
-          </TouchableOpacity>
-        )}
-      />
-    </ScreenContainer>
-  );
+type Address={id:number;title:string;city:{id?:number;name:string};district:string;street:string;building?:string;phone:string;is_default:boolean};
+type City={id:number;name:string};
+type Draft={title:string;cityId:string;district:string;street:string;building:string;phone:string;is_default:boolean};
+const emptyDraft:Draft={title:"",cityId:"",district:"",street:"",building:"",phone:"",is_default:false};
+export default function AddressesScreen(){
+ const insets=useSafeAreaInsets();
+ const [addresses,setAddresses]=useState<Address[]>([]),[cities,setCities]=useState<City[]>([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[modal,setModal]=useState(false),[editing,setEditing]=useState<number|null>(null),[draft,setDraft]=useState<Draft>(emptyDraft);
+ async function load(){setLoading(true);try{const [a,c]=await Promise.all([djangoApi<{results?:Address[]}|Address[]>("/api/addresses/"),djangoApi<{results?:City[]}|City[]>("/api/cities/")]);setAddresses(Array.isArray(a)?a:(a.results??[]));setCities(Array.isArray(c)?c:(c.results??[]));}catch(error){Alert.alert("تعذر تحميل العناوين",error instanceof Error?error.message:"حاول مرة أخرى.")}finally{setLoading(false)}}
+ useEffect(()=>{load()},[]);
+ function openNew(){setEditing(null);setDraft({...emptyDraft,is_default:addresses.length===0});setModal(true)}
+ function openEdit(address:Address){setEditing(address.id);setDraft({title:address.title,cityId:String(address.city?.id??""),district:address.district,street:address.street,building:address.building??"",phone:address.phone,is_default:address.is_default});setModal(true)}
+ async function save(){if(!draft.title.trim()||!draft.cityId||!draft.phone.trim())return Alert.alert("بيانات ناقصة","أدخل اسم العنوان والمدينة ورقم الجوال.");setSaving(true);try{const payload={title:draft.title.trim(),city:Number(draft.cityId),district:draft.district.trim(),street:draft.street.trim(),building:draft.building.trim(),phone:draft.phone.trim(),is_default:draft.is_default};if(editing){await djangoApi(`/api/addresses/${editing}/`,{method:"PATCH",body:JSON.stringify(payload)})}else{await djangoApi("/api/addresses/",{method:"POST",body:JSON.stringify(payload)})}setModal(false);await load();}catch(error){Alert.alert("تعذر حفظ العنوان",error instanceof Error?error.message:"حاول مرة أخرى.")}finally{setSaving(false)}}
+ async function remove(address:Address){Alert.alert("حذف العنوان",`هل تريد حذف «${address.title}»؟`,[{text:"إلغاء",style:"cancel"},{text:"حذف",style:"destructive",onPress:async()=>{try{await djangoApi(`/api/addresses/${address.id}/`,{method:"DELETE"});await load()}catch(error){Alert.alert("تعذر الحذف",error instanceof Error?error.message:"حاول مرة أخرى.")}}}])}
+ return <ScreenContainer edges={["top","bottom","left","right"]} className="bg-[#F5F5F5]"><View style={styles.header}><TouchableOpacity onPress={()=>router.back()} style={styles.icon}><MaterialIcons name="arrow-forward" size={24} color="#111"/></TouchableOpacity><Text style={styles.title}>عناويني</Text><TouchableOpacity onPress={openNew} style={styles.add}><MaterialIcons name="add" size={22} color="#FFF"/></TouchableOpacity></View>{loading?<View style={styles.center}><ActivityIndicator color="#E60023"/><Text style={styles.muted}>جارٍ تحميل العناوين...</Text></View>:<FlatList data={addresses} keyExtractor={item=>String(item.id)} contentContainerStyle={[styles.list,{paddingBottom:100+insets.bottom}]} renderItem={({item})=><View style={styles.card}><View style={styles.cardTop}><View style={styles.actions}><TouchableOpacity onPress={()=>remove(item)} style={styles.small}><MaterialIcons name="delete-outline" size={18} color="#B42318"/></TouchableOpacity><TouchableOpacity onPress={()=>openEdit(item)} style={styles.small}><MaterialIcons name="edit" size={17} color="#555"/></TouchableOpacity></View><View style={styles.headCopy}><Text style={styles.cardTitle}>{item.title}</Text>{item.is_default?<View style={styles.badge}><Text style={styles.badgeText}>الافتراضي</Text></View>:null}</View></View><Text style={styles.details}>{item.city?.name??""} · {item.district||"بدون حي"}</Text><Text style={styles.details}>{item.street||"بدون شارع"}{item.building?` · مبنى ${item.building}`:""}</Text><Text style={styles.phone}>{item.phone}</Text></View>)} ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="location-off" size={40} color="#AAA"/><Text style={styles.emptyTitle}>لا توجد عناوين محفوظة</Text><Text style={styles.muted}>أضف عنوان التوصيل الذي تريد استخدامه عند إكمال الطلب.</Text><TouchableOpacity onPress={openNew} style={styles.emptyButton}><Text style={styles.emptyButtonText}>إضافة عنوان</Text></TouchableOpacity></View>}/>}<Modal visible={modal} animationType="slide" transparent onRequestClose={()=>setModal(false)}><KeyboardAvoidingView behavior={Platform.OS==="ios"?"padding":"height"} style={styles.modalWrap}><View style={[styles.sheet,{paddingBottom:Math.max(insets.bottom,14)}]}><View style={styles.sheetHead}><TouchableOpacity onPress={()=>setModal(false)}><MaterialIcons name="close" size={22} color="#111"/></TouchableOpacity><Text style={styles.sheetTitle}>{editing?"تعديل العنوان":"إضافة عنوان"}</Text><View style={{width:22}}/></View><TextInput value={draft.title} onChangeText={v=>setDraft({...draft,title:v})} placeholder="اسم العنوان، مثل المنزل" style={styles.input} textAlign="right"/><View style={styles.cityRow}>{cities.map(city=><TouchableOpacity key={city.id} onPress={()=>setDraft({...draft,cityId:String(city.id)})} style={[styles.cityChip,draft.cityId===String(city.id)&&styles.cityChipActive]}><Text style={[styles.cityText,draft.cityId===String(city.id)&&styles.cityTextActive]}>{city.name}</Text></TouchableOpacity>)}</View><TextInput value={draft.district} onChangeText={v=>setDraft({...draft,district:v})} placeholder="الحي" style={styles.input} textAlign="right"/><TextInput value={draft.street} onChangeText={v=>setDraft({...draft,street:v})} placeholder="الشارع" style={styles.input} textAlign="right"/><TextInput value={draft.building} onChangeText={v=>setDraft({...draft,building:v})} placeholder="رقم المبنى / الوصف" style={styles.input} textAlign="right"/><TextInput value={draft.phone} onChangeText={v=>setDraft({...draft,phone:v})} placeholder="رقم الجوال للتوصيل" keyboardType="phone-pad" style={styles.input} textAlign="right"/><TouchableOpacity onPress={()=>setDraft({...draft,is_default:!draft.is_default})} style={styles.defaultRow}><MaterialIcons name={draft.is_default?"check-box":"check-box-outline-blank"} size={23} color={draft.is_default?"#111":"#999"}/><Text style={styles.defaultText}>اجعل هذا العنوان افتراضيًا</Text></TouchableOpacity><TouchableOpacity onPress={save} disabled={saving} style={[styles.save,saving&&styles.disabled]}><Text style={styles.saveText}>{saving?"جارٍ الحفظ...":"حفظ العنوان"}</Text></TouchableOpacity></View></KeyboardAvoidingView></Modal></ScreenContainer>
 }
-
-const styles = StyleSheet.create({
-  header: { padding: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  title: { fontSize: 20, fontWeight: "900" },
-  list: { padding: 14, paddingBottom: 180 },
-  card: { backgroundColor: "#FFF", borderRadius: 10, padding: 16, marginBottom: 12, alignItems: "flex-end" },
-  cardHeader: { flexDirection: "row-reverse", justifyContent: "space-between", width: "100%", marginBottom: 8 },
-  cardTitle: { fontSize: 16, fontWeight: "900" },
-  badge: { backgroundColor: "#E6F4FE", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
-  badgeText: { color: "#0a7ea4", fontSize: 10, fontWeight: "700" },
-  details: { color: "#555", fontSize: 13, marginBottom: 4, textAlign: "right" },
-  phone: { color: "#111", fontSize: 13, fontWeight: "700", marginTop: 4, textAlign: "right", writingDirection: "ltr" },
-  empty: { textAlign: "center", color: "#777", marginTop: 40 },
-});
+const styles=StyleSheet.create({header:{height:58,paddingHorizontal:15,backgroundColor:"#FFF",flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderColor:"#EEE"},icon:{width:38,height:38,alignItems:"center",justifyContent:"center"},add:{width:38,height:38,borderRadius:12,backgroundColor:"#111",alignItems:"center",justifyContent:"center"},title:{fontSize:17,fontWeight:"900",color:"#111"},list:{padding:12},card:{backgroundColor:"#FFF",borderRadius:14,padding:14,marginBottom:10,borderWidth:1,borderColor:"#ECECEC"},cardTop:{flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"flex-start"},actions:{flexDirection:"row",gap:6},small:{width:34,height:34,borderRadius:10,backgroundColor:"#F6F6F6",alignItems:"center",justifyContent:"center"},headCopy:{alignItems:"flex-end",flex:1},cardTitle:{fontSize:15,fontWeight:"900",color:"#111",textAlign:"right"},badge:{marginTop:6,backgroundColor:"#EEF8F1",paddingHorizontal:8,paddingVertical:4,borderRadius:8},badgeText:{fontSize:9,fontWeight:"800",color:"#168451"},details:{fontSize:11,color:"#666",textAlign:"right",marginTop:6},phone:{fontSize:12,fontWeight:"800",color:"#222",textAlign:"right",marginTop:7},empty:{alignItems:"center",padding:45},emptyTitle:{fontSize:15,fontWeight:"900",marginTop:10},muted:{fontSize:11,color:"#888",textAlign:"center",marginTop:5},emptyButton:{marginTop:18,backgroundColor:"#111",paddingHorizontal:22,paddingVertical:11,borderRadius:20},emptyButtonText:{color:"#FFF",fontSize:12,fontWeight:"800"},center:{flex:1,alignItems:"center",justifyContent:"center",gap:8},modalWrap:{flex:1,backgroundColor:"rgba(0,0,0,.35)",justifyContent:"flex-end"},sheet:{backgroundColor:"#FFF",borderTopLeftRadius:22,borderTopRightRadius:22,padding:16,maxHeight:"88%"},sheetHead:{height:42,flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:10},sheetTitle:{fontSize:16,fontWeight:"900"},input:{height:46,borderWidth:1,borderColor:"#E5E5E5",backgroundColor:"#F8F8F9",borderRadius:11,paddingHorizontal:12,fontSize:13,marginBottom:9},cityRow:{flexDirection:"row-reverse",flexWrap:"wrap",gap:7,maxHeight:110,marginBottom:6},cityChip:{paddingHorizontal:10,paddingVertical:8,borderRadius:18,borderWidth:1,borderColor:"#DDD",backgroundColor:"#FFF"},cityChipActive:{backgroundColor:"#111",borderColor:"#111"},cityText:{fontSize:10,color:"#555"},cityTextActive:{color:"#FFF",fontWeight:"800"},defaultRow:{flexDirection:"row-reverse",alignItems:"center",gap:7,marginVertical:8},defaultText:{fontSize:11,color:"#444"},save:{height:46,borderRadius:23,backgroundColor:"#E60023",alignItems:"center",justifyContent:"center",marginTop:4},saveText:{color:"#FFF",fontWeight:"900",fontSize:13},disabled:{opacity:.55}});
