@@ -3,9 +3,9 @@ import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ScreenContainer } from "@/components/screen-container";
-import { ApiClient } from "@/lib/api-client";
+import { djangoApi } from "@/lib/django-api";
 
-type Address = { id: number; title: string; city: { name: string }; district: string; street: string; phone: string; is_default: boolean };
+type Address = { id: number; title: string; city: { id?: number; name: string }; district: string; street: string; phone: string; is_default: boolean };
 
 export default function AddressesScreen() {
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -13,8 +13,8 @@ export default function AddressesScreen() {
 
   async function load() {
     try {
-      const data = await ApiClient.get<{ results: Address[] }>("/api/addresses/");
-      setAddresses(data.results || []);
+      const data = await djangoApi<{ results?: Address[] } | Address[]>("/api/addresses/");
+      setAddresses(Array.isArray(data) ? data : (data.results ?? []));
     } catch (error) {
       console.error(error);
     } finally {
@@ -24,8 +24,7 @@ export default function AddressesScreen() {
 
   useEffect(() => { load(); }, []);
 
-  function selectAddress(address: Address) {
-    // Here we would typically save to context or pass back via router params
+  async function selectAddress(address: Address) {
     Alert.alert("تم الاختيار", `تم اختيار عنوان: ${address.title}`);
     router.back();
   }
@@ -35,22 +34,21 @@ export default function AddressesScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} /></TouchableOpacity>
         <Text style={styles.title}>عناويني</Text>
-        <TouchableOpacity onPress={() => Alert.alert("قريباً", "إضافة عنوان جديد ستتوفر قريباً")}><MaterialIcons name="add" size={25} color="#E60023" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => Alert.alert("قريبًا", "إضافة عنوان جديد ستتوفر في شاشة العناوين") }><MaterialIcons name="add" size={25} color="#E60023" /></TouchableOpacity>
       </View>
-      
       <FlatList
         style={{ flex: 1 }}
         data={addresses}
-        keyExtractor={item => String(item.id)}
+        keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>لا توجد عناوين محفوظة.</Text>}
+        ListEmptyComponent={!loading ? <Text style={styles.empty}>لا توجد عناوين محفوظة.</Text> : <Text style={styles.empty}>جارِ تحميل العناوين...</Text>}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.card} onPress={() => selectAddress(item)}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>{item.title}</Text>
               {item.is_default && <View style={styles.badge}><Text style={styles.badgeText}>الافتراضي</Text></View>}
             </View>
-            <Text style={styles.details}>{item.city.name} - {item.district}</Text>
+            <Text style={styles.details}>{item.city?.name ?? ""} - {item.district}</Text>
             <Text style={styles.details}>{item.street}</Text>
             <Text style={styles.phone}>{item.phone}</Text>
           </TouchableOpacity>
