@@ -34,20 +34,16 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
-TEMPLATES = [
-    {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
-            ],
-        },
-    }
-]
+TEMPLATES = [{
+    "BACKEND": "django.template.backends.django.DjangoTemplates",
+    "DIRS": [],
+    "APP_DIRS": True,
+    "OPTIONS": {"context_processors": [
+        "django.template.context_processors.request",
+        "django.contrib.auth.context_processors.auth",
+        "django.contrib.messages.context_processors.messages",
+    ]},
+}]
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
@@ -92,19 +88,12 @@ if not DEBUG:
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
-        "rest_framework.authentication.SessionAuthentication",
-    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.TokenAuthentication"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 24,
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {
-        "anon": "120/min",
-        "user": "600/min",
-        "auth": "12/min",
-    },
+    "DEFAULT_THROTTLE_RATES": {"anon": "120/min", "user": "600/min", "auth": "12/min"},
 }
