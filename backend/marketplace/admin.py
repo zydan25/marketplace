@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.urls import reverse
+from django.utils.html import format_html
 
 from .models_extra import GiftTransfer, Loan
 from .models_extended import ProductVariant
@@ -84,10 +86,15 @@ class ProductImageAdmin(admin.ModelAdmin):
 
 @admin.register(StorefrontSection)
 class StorefrontSectionAdmin(admin.ModelAdmin):
-    list_display = ("title", "section_type", "vendor", "sort_order", "is_visible")
+    list_display = ("title", "section_type", "vendor", "sort_order", "is_visible", "visual_editor")
     list_filter = ("section_type", "is_visible", "vendor")
     search_fields = ("title",)
     ordering = ("sort_order", "id")
+
+    @admin.display(description="المحرر البصري")
+    def visual_editor(self, obj):
+        url = reverse("admin-storefront-editor")
+        return format_html('<a class="button" href="{}">فتح المحرر</a>', url)
 
 
 class OrderItemInline(admin.TabularInline):
