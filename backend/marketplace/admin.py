@@ -1,10 +1,14 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.db import transaction
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import format_html
 
 from .models_extra import GiftTransfer, Loan
 from .models_extended import ProductVariant
+from .storefront_models import StorefrontMedia
+from .marketplace_models import VendorApplication
 from .models import (
     Category,
     Conversation,
@@ -32,6 +36,53 @@ class MarketplaceUserAdmin(UserAdmin):
     list_filter = ("role", "is_active", "is_phone_verified", "governorate")
     search_fields = ("phone", "first_name", "middle_name", "third_name", "last_name", "email")
     fieldsets = UserAdmin.fieldsets + (("ملف السوق", {"fields": ("phone", "role", "middle_name", "third_name", "governorate", "avatar", "is_phone_verified")}),)
+
+
+@admin.register(VendorApplication)
+class VendorApplicationAdmin(admin.ModelAdmin):
+    list_display = ("store_name", "applicant", "status", "phone", "created_at", "reviewed_by", "reviewed_at")
+    list_filter = ("status", "created_at", "reviewed_at")
+    search_fields = ("store_name", "applicant__phone", "phone", "address")
+    readonly_fields = ("created_at", "updated_at", "reviewed_by", "reviewed_at")
+    actions = ("approve_selected", "reject_selected")
+
+    @admin.action(description="اعتماد طلبات التجار المحددة")
+    @transaction.atomic
+    def approve_selected(self, request, queryset):
+        approved = 0
+        for application in queryset.select_related("applicant"):
+            if application.status != VendorApplication.Status.PENDING:
+                continue
+            user = User.objects.select_for_update().get(pk=application.applicant_id)
+            profile, _ = VendorProfile.objects.get_or_create(
+                owner=user,
+                defaults={
+                    "store_name": application.store_name,
+                    "description": application.description,
+                    "phone": application.phone,
+                    "address": application.address,
+                    "status": "active",
+                },
+            )
+            user.role = User.Roles.VENDOR
+            user.save(update_fields=["role"])
+            profile.status = "active"
+            profile.save(update_fields=["status", "updated_at"])
+            application.status = VendorApplication.Status.APPROVED
+            application.reviewed_by = request.user
+            application.reviewed_at = timezone.now()
+            application.save(update_fields=["status", "reviewed_by", "reviewed_at", "updated_at"])
+            approved += 1
+        self.message_user(request, f"تم اعتماد {approved} طلب/طلبات تاجر.")
+
+    @admin.action(description="رفض طلبات التجار المحددة")
+    def reject_selected(self, request, queryset):
+        updated = queryset.filter(status=VendorApplication.Status.PENDING).update(
+            status=VendorApplication.Status.REJECTED,
+            reviewed_by=request.user,
+            reviewed_at=timezone.now(),
+        )
+        self.message_user(request, f"تم رفض {updated} طلب/طلبات تاجر.")
 
 
 @admin.register(VendorProfile)
@@ -95,6 +146,19 @@ class StorefrontSectionAdmin(admin.ModelAdmin):
     def visual_editor(self, obj):
         url = reverse("admin-storefront-editor")
         return format_html('<a class="button" href="{}">فتح المحرر</a>', url)
+
+
+@admin.register(StorefrontMedia)
+class StorefrontMediaAdmin(admin.ModelAdmin):
+    list_display = ("name", "vendor", "is_active", "target_url", "updated_at")
+    list_filter = ("is_active", "vendor")
+    search_fields = ("name", "alt_text", "target_url", "vendor__store_name")
+    autocomplete_fields = ("vendor",)
+    readonly_fields = ("created_at", "updated_at")
+
+    def save_model(self, request, obj, form, change):
+        obj.full_clean()
+        super().save_model(request, obj, form, change)
 
 
 class OrderItemInline(admin.TabularInline):
