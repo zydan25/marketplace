@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/product-card";
@@ -9,17 +9,13 @@ import { useProducts } from "@/hooks/use-products";
 export default function CategoriesScreen() {
   const { products, loading, refresh } = useProducts();
   const insets = useSafeAreaInsets();
+  const [selected, setSelected] = useState("all");
   const categories = useMemo(() => {
-    const names = [...new Set(products.flatMap((product) =>
-      product.categories?.length ? product.categories : [product.category],
-    ).filter(Boolean))];
+    const names = [...new Set(products.flatMap((product) => product.categories?.length ? product.categories : [product.category]).filter(Boolean))];
     return [{ id: "all", title: "الكل" }, ...names.map((title) => ({ id: title, title }))];
   }, [products]);
-  const [selected] = ["all"];
   const visibleProducts = useMemo(
-    () => selected === "all" ? products : products.filter((product) =>
-      (product.categories?.length ? product.categories : [product.category]).includes(selected),
-    ),
+    () => selected === "all" ? products : products.filter((product) => (product.categories?.length ? product.categories : [product.category]).includes(selected)),
     [products, selected],
   );
 
@@ -41,7 +37,7 @@ export default function CategoriesScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.sideContent}
             renderItem={({ item }) => (
-              <TouchableOpacity style={[styles.sideItem, selected === item.id && styles.sideItemActive]}>
+              <TouchableOpacity onPress={() => setSelected(item.id)} style={[styles.sideItem, selected === item.id && styles.sideItemActive]}>
                 <Text style={[styles.sideText, selected === item.id && styles.sideTextActive]}>{item.title}</Text>
               </TouchableOpacity>
             )}
@@ -52,23 +48,13 @@ export default function CategoriesScreen() {
           keyExtractor={(item) => item.id}
           numColumns={2}
           showsVerticalScrollIndicator={false}
-          columnWrapperStyle={styles.productRow}
+          columnWrapperStyle={visibleProducts.length > 1 ? styles.productRow : undefined}
           contentContainerStyle={[styles.products, { paddingBottom: 120 + insets.bottom }]}
           refreshing={loading}
           onRefresh={refresh}
           renderItem={({ item }) => <ProductCard product={item} />}
-          ListHeaderComponent={
-            <View style={styles.categoryHero}>
-              <Text style={styles.categoryHeroText}>اكتشف منتجاتك حسب الفئة</Text>
-              <Text style={styles.categoryHeroSub}>تصفح المنتجات المنشورة واختر ما يناسبك بسرعة.</Text>
-            </View>
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <MaterialIcons name="category" size={40} color="#9D9D9D" />
-              <Text style={styles.emptyText}>{loading ? "جارٍ تحميل المنتجات" : "لا توجد منتجات في هذه الفئة الآن"}</Text>
-            </View>
-          }
+          ListHeaderComponent={<View style={styles.categoryHero}><Text style={styles.categoryHeroText}>{selected === "all" ? "اكتشف منتجاتك حسب الفئة" : categories.find((item) => item.id === selected)?.title ?? "الفئة"}</Text><Text style={styles.categoryHeroSub}>{selected === "all" ? "تصفح المنتجات المنشورة واختر ما يناسبك بسرعة." : "تصفح المنتجات المرتبطة بهذه الفئة."}</Text></View>}
+          ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="category" size={40} color="#9D9D9D" /><Text style={styles.emptyText}>{loading ? "جارٍ تحميل المنتجات" : "لا توجد منتجات في هذه الفئة الآن"}</Text></View>}
         />
       </View>
     </View>
