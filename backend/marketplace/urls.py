@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
 from .secure_auth import SecureLoginView, SecureRegisterView
+from .secure_cart import SecureCartCalculateView
 from .secure_catalog import (
     SecureCategoryViewSet,
     SecureDesignThemeViewSet,
@@ -15,7 +16,7 @@ from .secure_catalog import (
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
 from .secure_order_api import SecureOrderViewSet
 from .serializers import CouponSerializer
-from .views import AdminDashboardView, CartCalculateView, WalletViewSet, me
+from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
 
 
@@ -65,7 +66,7 @@ urlpatterns = [
     path("auth/login/", SecureLoginView.as_view(), name="login"),
     path("auth/register/", SecureRegisterView.as_view(), name="register"),
     path("auth/me/", me, name="me"),
-    path("cart/calculate/", CartCalculateView.as_view(), name="cart-calculate"),
+    path("cart/calculate/", SecureCartCalculateView.as_view(), name="cart-calculate"),
     path("home/", DynamicHomeView.as_view(), name="home-global"),
     path("stores/<slug:slug>/home/", DynamicHomeView.as_view(), name="home-store"),
     path("admin-dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
