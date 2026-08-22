@@ -11,6 +11,7 @@ from .secure_communication import SecureConversationViewSet, SecureNotificationV
 from .secure_order_v2 import SecureOrderV2ViewSet
 from .secure_vendor import VendorApplicationViewSet
 from .order_chat_api import OrderChatViewSet
+from .vendor_finance_api import VendorFinanceViewSet
 from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
@@ -22,7 +23,6 @@ class PriceGroupSerializer(serializers.ModelSerializer):
 
 class CitySerializer(serializers.ModelSerializer):
     price_group = PriceGroupSerializer(read_only=True)
-
     class Meta:
         model = City
         fields = "__all__"
@@ -33,7 +33,6 @@ class CityViewSet(viewsets.ReadOnlyModelViewSet):
 
 class CouponViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CouponSerializer
-
     def get_queryset(self):
         return CouponModel.objects.filter(is_active=True)
 
@@ -45,6 +44,7 @@ router.register("products", SecureProductViewSet, basename="product")
 router.register("themes", SecureDesignThemeViewSet, basename="theme")
 router.register("storefront-sections", SecureStorefrontSectionViewSet, basename="storefront-section")
 router.register("wallets", WalletViewSet, basename="wallet")
+router.register("vendor-finance", VendorFinanceViewSet, basename="vendor-finance")
 router.register("orders", SecureOrderV2ViewSet, basename="order")
 router.register("notifications", SecureNotificationViewSet, basename="notification")
 router.register("conversations", SecureConversationViewSet, basename="conversation")
