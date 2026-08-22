@@ -1,0 +1,52 @@
+{% extends "admin/base_site.html" %}
+{% block title %}محرر واجهة المتجر{% endblock %}
+{% block extrastyle %}
+<style>
+.editor-shell{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:20px;max-width:1500px;margin:20px auto;padding:0 16px;direction:rtl}
+.panel{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;box-shadow:0 4px 18px rgba(0,0,0,.04)}
+.section-list{display:grid;gap:10px}.section{border:1px solid #e5e7eb;border-radius:12px;padding:14px;cursor:grab;background:#fff}.section.dragging{opacity:.5}.section-head{display:flex;gap:10px;align-items:center;justify-content:space-between}.section-title{font-weight:800}.badge{font-size:11px;padding:4px 8px;border-radius:999px;background:#f3f4f6}.badge.off{background:#fee2e2;color:#991b1b}.fields{display:grid;gap:10px;margin-top:14px}.fields label{font-weight:700;font-size:12px}.fields input,.fields textarea,.fields select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:9px;padding:9px;font:inherit}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{border:0;border-radius:9px;padding:9px 13px;cursor:pointer;background:#111827;color:#fff}.actions button.secondary{background:#e5e7eb;color:#111827}.preview-wrap{display:flex;justify-content:center}.phone{width:min(100%,390px);height:760px;border:10px solid #111827;border-radius:34px;overflow:auto;background:#f8fafc;box-shadow:0 12px 40px rgba(0,0,0,.18)}.phone::-webkit-scrollbar{width:4px}.phone::-webkit-scrollbar-thumb{background:#9ca3af;border-radius:99px}.preview-section{margin:10px;border-radius:14px;overflow:hidden;background:#fff;border:1px solid #e5e7eb}.preview-section img{width:100%;display:block;max-height:220px;object-fit:cover}.preview-content{padding:12px}.preview-title{font-weight:800}.preview-subtitle{color:#6b7280;font-size:12px;margin-top:4px}.preview-button{display:inline-block;margin-top:10px;background:#111827;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px}.help{color:#6b7280;font-size:12px;line-height:1.7}
+@media (max-width:900px){.editor-shell{grid-template-columns:1fr}.phone{height:620px}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="editor-shell">
+  <div class="panel">
+    <h1>محرر واجهة المتجر</h1>
+    <p class="help">اسحب الأقسام لإعادة ترتيبها. اختر قسمًا لتحرير محتواه. التغييرات تُحفظ في Django ويقرأها تطبيق العميل والتاجر دون إصدار نسخة جديدة.</p>
+    <div id="sections" class="section-list">
+      {% for section in sections %}
+      <article class="section" draggable="true" data-id="{{ section.id }}" data-config='{{ section.config|default:"{}"|escapejs }}'>
+        <div class="section-head">
+          <span class="section-title">{{ section.title|default:"قسم بدون عنوان" }}</span>
+          <span class="badge {% if not section.is_visible %}off{% endif %}">{% if section.is_visible %}ظاهر{% else %}مخفي{% endif %}</span>
+        </div>
+        <div class="fields">
+          <label>العنوان</label><input class="js-title" value="{{ section.title|escape }}" maxlength="180">
+          <label>النوع</label><input value="{{ section.section_type }}" disabled>
+          <label>الظهور</label><select class="js-visible"><option value="true" {% if section.is_visible %}selected{% endif %}>ظاهر</option><option value="false" {% if not section.is_visible %}selected{% endif %}>مخفي</option></select>
+          <label>إعدادات القسم JSON</label><textarea class="js-config" rows="9">{{ section.config|default:"{}"|safe }}</textarea>
+        </div>
+        <div class="actions"><button type="button" class="js-save">حفظ القسم</button><button type="button" class="secondary js-preview">معاينة</button></div>
+      </article>
+      {% empty %}<p>لا توجد أقسام بعد. أنشئ قسمًا من Storefront Sections ثم عد إلى هنا.</p>{% endfor %}
+    </div>
+  </div>
+  <div class="panel">
+    <h2>معاينة الهاتف</h2>
+    <p class="help">هذه معاينة تقريبية للعرض المتجاوب. الاختبار النهائي يتم على Web ثم على Android قبل الإصدار.</p>
+    <div class="preview-wrap"><div id="phone" class="phone"></div></div>
+  </div>
+</div>
+<script>
+(function(){
+  const csrftoken=(document.cookie.match(/(?:^|; )csrftoken=([^;]+)/)||[])[1];
+  const list=document.getElementById('sections'); const phone=document.getElementById('phone'); let drag=null;
+  function configOf(card){try{return JSON.parse(card.querySelector('.js-config').value||'{}')}catch(e){alert('إعدادات JSON غير صالحة');return null}}
+  function sectionPayload(card){return {title:card.querySelector('.js-title').value,sort_order:[...list.querySelectorAll('.section')].indexOf(card),is_visible:card.querySelector('.js-visible').value==='true',config:configOf(card)}}
+  async function save(card){const config=configOf(card); if(!config)return; const r=await fetch('{% url "admin-storefront-section-update" 0 %}'.replace('/0/','/'+card.dataset.id+'/'),{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken||''},body:JSON.stringify(sectionPayload(card))});const data=await r.json(); if(!r.ok) throw new Error(data.detail||'تعذر الحفظ'); card.dataset.config=JSON.stringify(data.config||{}); card.querySelector('.section-title').textContent=data.title||'قسم بدون عنوان'; alert('تم الحفظ'); render();}
+  function render(){phone.innerHTML='';[...list.querySelectorAll('.section')].forEach(card=>{const cfg=configOf(card)||{};if(card.querySelector('.js-visible').value!=='true')return;const box=document.createElement('div');box.className='preview-section';if(cfg.image_url||cfg.imageUrl){const img=document.createElement('img');img.src=cfg.image_url||cfg.imageUrl;box.appendChild(img)}const body=document.createElement('div');body.className='preview-content';const h=document.createElement('div');h.className='preview-title';h.textContent=card.querySelector('.js-title').value;body.appendChild(h);if(cfg.subtitle){const p=document.createElement('div');p.className='preview-subtitle';p.textContent=cfg.subtitle;body.appendChild(p)}if(cfg.button_label||cfg.ctaLabel){const a=document.createElement('span');a.className='preview-button';a.textContent=cfg.button_label||cfg.ctaLabel;body.appendChild(a)}box.appendChild(body);phone.appendChild(box)})}
+  list.addEventListener('dragstart',e=>{drag=e.target.closest('.section');drag&&drag.classList.add('dragging')});list.addEventListener('dragend',()=>{drag&&drag.classList.remove('dragging');drag=null;render()});list.addEventListener('dragover',e=>{e.preventDefault();const target=e.target.closest('.section');if(!drag||!target||target===drag)return;const r=target.getBoundingClientRect();if(e.clientY<r.top+r.height/2)list.insertBefore(drag,target);else list.insertBefore(drag,target.nextSibling)});
+  list.querySelectorAll('.js-save').forEach(btn=>btn.addEventListener('click',()=>save(btn.closest('.section')).catch(err=>alert(err.message))));list.querySelectorAll('.js-preview').forEach(btn=>btn.addEventListener('click',render));list.addEventListener('input',render);list.addEventListener('change',render);render();
+})();
+</script>
+{% endblock %}
