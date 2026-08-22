@@ -1,8 +1,7 @@
-from django.conf import settings
+from decimal import Decimal
+
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.utils import timezone
-from decimal import Decimal
 
 
 class VendorOrder(models.Model):
@@ -122,3 +121,16 @@ class VendorLedgerEntry(models.Model):
     currency = models.CharField(max_length=6, default="YER")
     reference = models.CharField(max_length=160, unique=True)
     metadata = models.JSONField(default=dict, blank=True)
+
+
+class CouponRedemption(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    coupon = models.ForeignKey("marketplace.Coupon", on_delete=models.PROTECT, related_name="redemptions")
+    order = models.OneToOneField("marketplace.Order", on_delete=models.PROTECT, related_name="coupon_redemption")
+    user = models.ForeignKey("marketplace.User", on_delete=models.PROTECT, related_name="coupon_redemptions")
+    code_snapshot = models.CharField(max_length=50)
+    discount_amount = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(0)])
+    currency = models.CharField(max_length=6, default="YER")
+
+    class Meta:
+        indexes = [models.Index(fields=["coupon", "user"]), models.Index(fields=["created_at"])]
