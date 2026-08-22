@@ -50,7 +50,7 @@ export default function BagScreen() {
         ListHeaderComponent={<View><View style={styles.header}><View><Text style={styles.title}>حقيبة التسوق</Text><Text style={styles.countText}>{itemCount} منتج</Text></View><MaterialIcons name="shopping-bag" size={23} color="#111" /></View><View style={styles.delivery}><MaterialIcons name="local-shipping" size={18} color="#168451" /><Text style={styles.deliveryText}>راجع اختياراتك ثم أكمل عملية الدفع بأمان.</Text></View></View>}
         ListFooterComponent={<View style={styles.footerHint}><MaterialIcons name="lock-outline" size={16} color="#777" /><Text style={styles.footerHintText}>الإجمالي الظاهر هنا تقديري؛ يتم اعتماد السعر النهائي من الخادم عند الدفع.</Text></View>}
       />
-      <View style={[styles.bottomBar, { bottom: Platform.OS === "web" ? 68 : Math.max(insets.bottom, 8) }]}>
+      <View style={[styles.bottomBar, { bottom: Platform.OS === "web" ? 78 : Math.max(insets.bottom, 8) + 60 }]}>
         <TouchableOpacity style={styles.selectAll} onPress={toggleAll}><MaterialIcons name={allSelected ? "check-box" : "check-box-outline-blank"} size={22} color="#171717" /><Text style={styles.selectAllText}>الكل</Text></TouchableOpacity>
         <View style={styles.totalBox}><Text style={styles.saved}>{saved ? `وفّرت ${formatYER(saved)}` : "إجمالي المنتجات المحددة"}</Text><Text style={styles.total}>{formatYER(subtotal)}</Text></View>
         <TouchableOpacity style={[styles.checkout, !selectedItems.length && styles.checkoutDisabled]} onPress={checkout}><Text style={styles.checkoutText}>إكمال الدفع ({selectedQuantity})</Text></TouchableOpacity>
