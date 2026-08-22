@@ -238,6 +238,7 @@ class OrderItem(TimeStampedModel):
 
 class VendorPayout(TimeStampedModel):
     vendor = models.ForeignKey(VendorProfile, on_delete=models.PROTECT, related_name="payouts")
+    vendor_order = models.ForeignKey("marketplace.VendorOrder", on_delete=models.PROTECT, related_name="payouts", null=True, blank=True)
     order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payouts", null=True, blank=True)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     currency = models.CharField(max_length=6, default="YER")
@@ -280,6 +281,7 @@ class Referral(TimeStampedModel):
     reward_paid = models.BooleanField(default=False)
 
 from .marketplace_models import (  # noqa: E402,F401
+    CouponRedemption,
     InventoryReservation,
     Payment,
     Shipment,
