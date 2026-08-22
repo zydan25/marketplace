@@ -6,48 +6,37 @@ from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
 from .secure_auth import SecureLoginView, SecureRegisterView
 from .secure_cart import SecureCartCalculateView
-from .secure_catalog import (
-    SecureCategoryViewSet,
-    SecureDesignThemeViewSet,
-    SecureProductViewSet,
-    SecureStorefrontSectionViewSet,
-    SecureVendorViewSet,
-)
+from .secure_catalog import SecureCategoryViewSet, SecureDesignThemeViewSet, SecureProductViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
 from .secure_order_v2 import SecureOrderV2ViewSet
+from .secure_vendor import VendorApplicationViewSet
 from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
-
 
 class PriceGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = PriceGroup
         fields = "__all__"
 
-
 class CitySerializer(serializers.ModelSerializer):
     price_group = PriceGroupSerializer(read_only=True)
-
     class Meta:
         model = City
         fields = "__all__"
-
 
 class CityViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = City.objects.filter(is_active=True)
     serializer_class = CitySerializer
 
-
 class CouponViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CouponSerializer
-
     def get_queryset(self):
         return CouponModel.objects.filter(is_active=True)
 
-
 router = DefaultRouter()
 router.register("vendors", SecureVendorViewSet, basename="vendor")
+router.register("vendor-applications", VendorApplicationViewSet, basename="vendor-application")
 router.register("categories", SecureCategoryViewSet, basename="category")
 router.register("products", SecureProductViewSet, basename="product")
 router.register("themes", SecureDesignThemeViewSet, basename="theme")
