@@ -1,4 +1,3 @@
-import "./_core/auth";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import * as Auth from "@/lib/_core/auth";
@@ -11,6 +10,7 @@ export type MarketplaceUser = {
   middle_name: string;
   third_name: string;
   last_name: string;
+  email?: string | null;
   governorate: string;
   role: MarketplaceRole;
   avatar: string | null;
@@ -25,16 +25,33 @@ function baseUrl() {
 }
 
 async function getToken() {
-  const sharedToken = await Auth.getSessionToken();
-  if (sharedToken) return sharedToken;
-  if (Platform.OS === "web") return typeof localStorage !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
-  return SecureStore.getItemAsync(TOKEN_KEY);
+  return Auth.getSessionToken();
 }
 
 async function saveToken(token: string) {
   await Auth.setSessionToken(token);
-  if (Platform.OS === "web") localStorage.setItem(TOKEN_KEY, token);
-  else await SecureStore.setItemAsync(TOKEN_KEY, token);
+}
+
+function toAuthUser(user: MarketplaceUser): Auth.User {
+  const name = [user.first_name, user.middle_name, user.third_name, user.last_name]
+    .filter(Boolean)
+    .join(" ") || user.phone || "مستخدم";
+
+  return {
+    id: user.id,
+    openId: String(user.id),
+    name,
+    email: user.email ?? null,
+    phone: user.phone ?? null,
+    governorate: user.governorate ?? null,
+    loginMethod: "phone",
+    role: user.role,
+    lastSignedIn: new Date(),
+  };
+}
+
+async function persistAuthenticatedUser(user: MarketplaceUser) {
+  await Auth.setUserInfo(toAuthUser(user));
 }
 
 export async function djangoApi<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -52,7 +69,9 @@ export async function djangoApi<T>(path: string, init: RequestInit = {}): Promis
     data = contentType.includes("application/json") ? JSON.parse(text) : { detail: text.slice(0, 300) };
   }
   if (!response.ok) {
-    const detail = typeof data === "object" && data !== null && "detail" in data ? String((data as { detail?: unknown }).detail ?? "") : "";
+    const detail = typeof data === "object" && data !== null && "detail" in data
+      ? String((data as { detail?: unknown }).detail ?? "")
+      : "";
     throw new Error(detail || `تعذر الاتصال بخادم المنصة (${response.status})`);
   }
   return data as T;
@@ -64,6 +83,7 @@ export async function djangoLogin(phone: string, password: string) {
     body: JSON.stringify({ phone, password }),
   });
   await saveToken(result.token);
+  await persistAuthenticatedUser(result.user);
   return result;
 }
 
@@ -73,16 +93,17 @@ export async function djangoRegister(input: Record<string, unknown>) {
     body: JSON.stringify(input),
   });
   await saveToken(result.token);
+  await persistAuthenticatedUser(result.user);
   return result;
 }
 
 export async function djangoLogout() {
   await Auth.removeSessionToken();
   await Auth.clearUserInfo();
-  if (Platform.OS === "web") localStorage.removeItem(TOKEN_KEY);
-  else await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
 export function getDjangoTokenKey() {
   return TOKEN_KEY;
 }
+
+export { toAuthUser };
