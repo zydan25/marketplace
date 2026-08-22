@@ -63,6 +63,7 @@ export default function OrderChatScreen() {
       </View>
 
       <FlatList
+        style={{ flex: 1 }}
         data={conversation?.messages || []}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.list}
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: { padding: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#EEE" },
   headerTitle: { fontSize: 16, fontWeight: "900" },
-  list: { padding: 14, gap: 10 },
+  list: { padding: 14, paddingBottom: 40, gap: 10 },
   bubbleWrapper: { width: "100%", flexDirection: "row", marginBottom: 10 },
   ownWrapper: { justifyContent: "flex-start" },
   otherWrapper: { justifyContent: "flex-end" },

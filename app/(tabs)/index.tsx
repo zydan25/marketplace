@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/product-card";
 import { ShopHeader } from "@/components/shop-header";
 import { useProducts } from "@/hooks/use-products";
 import { useStorefront } from "@/hooks/use-storefront";
+import { useCategories } from "@/hooks/use-categories";
 import type { StorefrontTab } from "@/lib/storefront-api";
 import { isAllStoreTab, shouldShowStoreProduct } from "@/lib/storefront-filter";
 
@@ -15,17 +16,18 @@ const { width } = Dimensions.get("window");
 export default function StoreScreen() {
   const { products, loading: productsLoading, refresh: refreshProducts } = useProducts();
   const { tabs, loading: storefrontLoading, refresh: refreshStorefront } = useStorefront();
+  const { categories, loading: categoriesLoading, refresh: refreshCategories } = useCategories();
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [activeCircleId, setActiveCircleId] = useState<string | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [filterMode, setFilterMode] = useState<"for_you" | "new" | "deals" | "bestsellers">("for_you");
   const fallbackTabs = useMemo<StorefrontTab[]>(() => {
-    const categoryNames = Array.from(new Set(products.flatMap((product) => product.categories))).filter(Boolean).slice(0, 12);
+    const categoryNames = Array.from(new Set([...categories.map((category) => category.name), ...products.flatMap((product) => product.categories)])).filter(Boolean).slice(0, 12);
     const firstImage = products[0]?.images[0]?.url || "";
     const allTab: StorefrontTab = { id: "fallback-all", title: "الكل", searchPlaceholder: "ابحثي عن منتج أو متجر", isActive: true, sortOrder: 0, slides: firstImage ? [{ id: "fallback-hero", title: "اختيارات تناسبك", subtitle: "تسوّقي أحدث المنتجات", ctaLabel: "تسوّقي الآن", imageUrl: firstImage, storageKey: "", isActive: true, sortOrder: 0 }] : [], circles: categoryNames.map((name, index) => ({ id: `fallback-circle-${index}`, title: name, targetCategory: name, imageUrl: products.find((product) => product.categories.includes(name))?.images[0]?.url || "", storageKey: "", isActive: true, sortOrder: index })) };
     return [allTab, ...categoryNames.map((name, index) => ({ id: `fallback-category-${index}`, title: name, searchPlaceholder: `ابحثي في ${name}`, isActive: true, sortOrder: index + 1, slides: [], circles: [] }))];
-  }, [products]);
-  const displayTabs = useMemo<StorefrontTab[]>(() => { const base: StorefrontTab[] = tabs.length ? tabs : fallbackTabs; const existing = new Set(base.map(tab => tab.title)); const categories = Array.from(new Set(products.flatMap(product => product.categories))).filter(name => name && !existing.has(name)).slice(0, 12); return [...base, ...categories.map((name, index) => ({ id: `auto-category-${index}-${name}`, title: name, searchPlaceholder: `ابحثي في ${name}`, isActive: true, sortOrder: base.length + index, slides: [], circles: [] }))]; }, [fallbackTabs, products, tabs]);
+  }, [categories, products]);
+  const displayTabs = useMemo<StorefrontTab[]>(() => {     const base: StorefrontTab[] = tabs.length ? tabs : fallbackTabs; const existing = new Set(base.map(tab => tab.title)); const categoryNames = Array.from(new Set([...categories.map((category) => category.name), ...products.flatMap(product => product.categories)])).filter(name => name && !existing.has(name)).slice(0, 12); return [...base, ...categoryNames.map((name, index) => ({ id: `auto-category-${index}-${name}`, title: name, searchPlaceholder: `ابحثي في ${name}`, isActive: true, sortOrder: base.length + index, slides: [], circles: [] }))];   }, [categories, fallbackTabs, products, tabs]);
 
   useEffect(() => {
     if (!activeTabId && displayTabs[0]) setActiveTabId(displayTabs[0].id);
@@ -51,7 +53,7 @@ export default function StoreScreen() {
   const visibleProducts = useMemo(() => products.filter((product) => { if (!shouldShowStoreProduct(product, activeTab, activeCircle)) return false; if (filterMode === "deals") return product.discountPercent > 0; if (filterMode === "bestsellers") return product.reviews > 0 || product.rating >= 4; return true; }), [activeCircle, activeTab, filterMode, products]);
 
   const refresh = async () => {
-    await Promise.all([refreshProducts(), refreshStorefront()]);
+    await Promise.all([refreshProducts(), refreshStorefront(), refreshCategories()]);
   };
 
   return (
@@ -79,7 +81,7 @@ export default function StoreScreen() {
         showsVerticalScrollIndicator={true}
         columnWrapperStyle={visibleProducts.length > 1 ? styles.productRow : undefined}
         contentContainerStyle={styles.listContent}
-        refreshing={productsLoading || storefrontLoading}
+        refreshing={productsLoading || storefrontLoading || categoriesLoading}
         onRefresh={refresh}
         renderItem={({ item }) => <ProductCard product={item} />}
         ListHeaderComponent={

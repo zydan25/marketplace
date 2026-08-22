@@ -25,7 +25,7 @@ export type StoreProduct = {
   returnPolicy: string;
 };
 
-export type ProductEditorPayload = { productCode?: string; name: string; category: string; categories: string[]; description: string; details: string; material: string; price: number; discountPercent: number; shippingNote: string; isTrending: boolean; trendTags: string[]; isPublished: boolean; colors: { name: string; hex: string }[]; sizes: { label: string; stock: number }[]; images?: { dataUrl: string; fileName: string; sortOrder: number }[]; existingImages?: { storageKey: string; url: string; sortOrder: number }[]; newImages?: { dataUrl: string; fileName: string; sortOrder: number }[]; };
+export type ProductEditorPayload = { productCode?: string; categoryIds?: number[]; keepImageIds?: number[]; name: string; category: string; categories: string[]; description: string; details: string; material: string; price: number; discountPercent: number; shippingNote: string; isTrending: boolean; trendTags: string[]; isPublished: boolean; colors: { name: string; hex: string }[]; sizes: { label: string; stock: number }[]; images?: { dataUrl: string; fileName: string; sortOrder: number }[]; existingImages?: { id?: number; storageKey: string; url: string; sortOrder: number }[]; newImages?: { dataUrl: string; fileName: string; sortOrder: number }[]; };
 
 type DjangoProduct = {
   id: number;
@@ -123,6 +123,29 @@ export async function getProduct(id: string) {
   return { product: normalizeProduct(response), similar: [] as StoreProduct[] };
 }
 
+function toDjangoPayload(payload: ProductEditorPayload) {
+  const imageDataUrls = [...(payload.images ?? []), ...(payload.newImages ?? [])].map((image) => image.dataUrl).filter(Boolean);
+  return {
+    sku: payload.productCode,
+    name: payload.name,
+    description: payload.description,
+    details: payload.details,
+    material: payload.material,
+    price: payload.price,
+    sale_price: payload.discountPercent > 0 ? Math.round(payload.price * (1 - payload.discountPercent / 100) * 100) / 100 : null,
+    stock: payload.sizes.length ? payload.sizes.reduce((total, size) => total + size.stock, 0) : 0,
+    shipping_note: payload.shippingNote,
+    hashtags: payload.trendTags,
+    colors: payload.colors,
+    sizes: payload.sizes,
+    is_trending: payload.isTrending,
+    is_published: payload.isPublished,
+    ...(payload.categoryIds?.length ? { category_ids: payload.categoryIds } : {}),
+    ...(payload.keepImageIds ? { keep_image_ids: payload.keepImageIds } : {}),
+    ...(imageDataUrls.length ? { image_data_urls: imageDataUrls } : {}),
+  };
+}
+
 export async function getAdminProducts() { return getProducts(); }
-export async function createProduct(payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>("/api/products/", { method: "POST", body: JSON.stringify(payload) }); }
-export async function updateProduct(id: string, payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>(`/api/products/${encodeURIComponent(id)}/`, { method: "PATCH", body: JSON.stringify(payload) }); }
+export async function createProduct(payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>("/api/products/", { method: "POST", body: JSON.stringify(toDjangoPayload(payload)) }); }
+export async function updateProduct(id: string, payload: ProductEditorPayload) { return apiCall<{ product: StoreProduct }>(`/api/products/${encodeURIComponent(id)}/`, { method: "PATCH", body: JSON.stringify(toDjangoPayload(payload)) }); }

@@ -10,23 +10,21 @@ import { createOrder } from "@/lib/order-api";
 import { useEffect } from "react";
 
 export default function CheckoutScreen() {
-  const { items, removeItem } = useCart(); const { lines } = useLocalSearchParams<{ lines?: string }>(); const [submitting, setSubmitting] = useState(false); const selectedIds = new Set((lines ?? "").split(",").filter(Boolean)); const orderItems = selectedIds.size ? items.filter((item) => selectedIds.has(item.lineId)) : items; const subtotal = orderItems.reduce((total, item) => total + item.product.price * item.quantity, 0); const totalQuantity = orderItems.reduce((total, item) => total + item.quantity, 0);
+  const { items, removeItem, validateCartWithServer } = useCart(); const { lines } = useLocalSearchParams<{ lines?: string }>(); const [submitting, setSubmitting] = useState(false); const selectedIds = new Set((lines ?? "").split(",").filter(Boolean)); const orderItems = selectedIds.size ? items.filter((item) => selectedIds.has(item.lineId)) : items; const subtotal = orderItems.reduce((total, item) => total + item.product.price * item.quantity, 0); const totalQuantity = orderItems.reduce((total, item) => total + item.quantity, 0);
   const [serverData, setServerData] = useState<any>(null);
   
   useEffect(() => {
-    if (orderItems.length > 0 && useCart().validateCartWithServer) {
-      useCart().validateCartWithServer?.()
-        .then(setServerData)
-        .catch(() => undefined);
+    if (orderItems.length > 0 && validateCartWithServer) {
+      validateCartWithServer().then(setServerData).catch(() => undefined);
     }
-  }, []);
+  }, [orderItems.length, validateCartWithServer]);
 
   const submit = async () => { 
     if (!orderItems.length) { Alert.alert("الحقيبة فارغة", "أضيفي منتجًا واحدًا على الأقل قبل إكمال الطلب."); return; } 
     try { 
       setSubmitting(true); 
       // Call validation first to ensure prices and stock are up to date
-      const validation = await useCart().validateCartWithServer?.();
+      const validation = await validateCartWithServer?.();
       if (!validation?.valid) {
         Alert.alert("تحديث في السلة", validation?.errors?.join("\n") || "تغيرت بعض المنتجات أو الأسعار.");
         setServerData(validation);
@@ -42,7 +40,7 @@ export default function CheckoutScreen() {
       setSubmitting(false); 
     } 
   };
-  return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F6F6F6]"><View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="close" size={24} color="#171717" /></TouchableOpacity><Text style={styles.headerTitle}>مراجعة الطلب</Text><View style={{ width: 24 }} /></View><ScrollView contentContainerStyle={styles.content}><View style={styles.card}><Text style={styles.cardTitle}>الأصناف المحددة ({totalQuantity})</Text>{orderItems.map((item) => <View key={item.lineId} style={styles.itemLine}><Text style={styles.lineValue}>{formatYER(item.product.price * item.quantity)}</Text><View style={styles.lineCopy}><Text style={styles.lineLabel}>{item.quantity} × {item.product.name}</Text><Text style={styles.variant}>{item.color} · {item.size}</Text></View></View>)}<View style={styles.divider} /><View style={styles.itemLine}><Text style={styles.total}>{serverData ? formatYER(serverData.total) : formatYER(subtotal)}</Text><Text style={styles.totalLabel}>الإجمالي النهائي</Text></View></View><View style={styles.card}><Text style={styles.cardTitle}>طريقة إتمام الطلب</Text><View style={styles.method}><MaterialIcons name="chat-bubble-outline" size={23} color="#E60023" /><View style={styles.methodCopy}><Text style={styles.methodTitle}>دردشة خاصة لطلبك</Text><Text style={styles.methodText}>بعد التأكيد ستفتح لك محادثة لإرسال إشعار الدفع ومتابعة الشحن مع الإدارة.</Text></View></View></View>
+  return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F6F6F6]"><View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="close" size={24} color="#171717" /></TouchableOpacity><Text style={styles.headerTitle}>مراجعة الطلب</Text><View style={{ width: 24 }} /></View><ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}><View style={styles.card}><Text style={styles.cardTitle}>الأصناف المحددة ({totalQuantity})</Text>{orderItems.map((item) => <View key={item.lineId} style={styles.itemLine}><Text style={styles.lineValue}>{formatYER(item.product.price * item.quantity)}</Text><View style={styles.lineCopy}><Text style={styles.lineLabel}>{item.quantity} × {item.product.name}</Text><Text style={styles.variant}>{item.color} · {item.size}</Text></View></View>)}<View style={styles.divider} /><View style={styles.itemLine}><Text style={styles.total}>{serverData ? formatYER(serverData.total) : formatYER(subtotal)}</Text><Text style={styles.totalLabel}>الإجمالي النهائي</Text></View></View><View style={styles.card}><Text style={styles.cardTitle}>طريقة إتمام الطلب</Text><View style={styles.method}><MaterialIcons name="chat-bubble-outline" size={23} color="#E60023" /><View style={styles.methodCopy}><Text style={styles.methodTitle}>دردشة خاصة لطلبك</Text><Text style={styles.methodText}>بعد التأكيد ستفتح لك محادثة لإرسال إشعار الدفع ومتابعة الشحن مع الإدارة.</Text></View></View></View>
 <View style={styles.card}><Text style={styles.cardTitle}>عنوان التوصيل</Text><TouchableOpacity style={styles.method} onPress={() => router.push("/addresses" as never)}><MaterialIcons name="location-on" size={23} color="#E60023" /><View style={styles.methodCopy}><Text style={styles.methodTitle}>اختر عنوان التوصيل</Text><Text style={styles.methodText}>اضغط هنا لاختيار أو إضافة عنوان جديد لحساب رسوم الشحن بدقة.</Text></View></TouchableOpacity></View>
 </ScrollView><View style={styles.bottom}><TouchableOpacity style={[styles.submit, submitting && styles.submitDisabled]} disabled={submitting} onPress={submit}><Text style={styles.submitText}>{submitting ? "جارِ إنشاء الدردشة..." : "تأكيد وإنشاء الطلب"}</Text><MaterialIcons name="arrow-back" size={21} color="#FFFFFF" /></TouchableOpacity></View></ScreenContainer>;
 }

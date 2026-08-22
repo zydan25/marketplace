@@ -39,6 +39,7 @@ export default function AddressesScreen() {
       </View>
       
       <FlatList
+        style={{ flex: 1 }}
         data={addresses}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.list}
@@ -62,13 +63,13 @@ export default function AddressesScreen() {
 const styles = StyleSheet.create({
   header: { padding: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 20, fontWeight: "900" },
-  list: { padding: 14 },
+  list: { padding: 14, paddingBottom: 180 },
   card: { backgroundColor: "#FFF", borderRadius: 10, padding: 16, marginBottom: 12, alignItems: "flex-end" },
   cardHeader: { flexDirection: "row-reverse", justifyContent: "space-between", width: "100%", marginBottom: 8 },
   cardTitle: { fontSize: 16, fontWeight: "900" },
   badge: { backgroundColor: "#E6F4FE", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
   badgeText: { color: "#0a7ea4", fontSize: 10, fontWeight: "700" },
   details: { color: "#555", fontSize: 13, marginBottom: 4, textAlign: "right" },
-  phone: { color: "#111", fontSize: 13, fontWeight: "700", marginTop: 4, textAlign: "right", direction: "ltr" },
+  phone: { color: "#111", fontSize: 13, fontWeight: "700", marginTop: 4, textAlign: "right", writingDirection: "ltr" },
   empty: { textAlign: "center", color: "#777", marginTop: 40 },
 });

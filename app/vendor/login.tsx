@@ -41,7 +41,7 @@ export default function VendorLoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 80, direction: "rtl", maxWidth: 450, width: "100%", alignSelf: "center" },
+  container: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 80, maxWidth: 450, width: "100%", alignSelf: "center" },
   kicker: { color: "#E60023", fontSize: 14, fontWeight: "800", textAlign: "right" },
   title: { color: "#151515", fontSize: 34, fontWeight: "900", textAlign: "right", marginTop: 8 },
   subtitle: { color: "#777", fontSize: 15, lineHeight: 25, textAlign: "right", marginTop: 10, marginBottom: 30 },
