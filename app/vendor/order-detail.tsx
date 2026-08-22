@@ -7,7 +7,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { djangoApi } from "@/lib/django-api";
 
 type Item = { id:number; product_id:number; name:string; sku:string; quantity:number; unit_price:string; color:string; size:string; total:string; image?:string|null };
-type Details = { id:number; order_number:string; parent_order_number:string; status:string; subtotal:string; shipping_fee:string; discount:string; total:string; commission:string; vendor_net:string; currency:string; customer:{name:string;phone:string}; shipping_address:Record<string, any>; payment_method:string; payment_status:string; shipment:{carrier:string;tracking_number:string;status:string}; items:Item[] };
+type Details = { id:number; order_id:number; order_number:string; parent_order_number:string; status:string; subtotal:string; shipping_fee:string; discount:string; total:string; commission:string; vendor_net:string; currency:string; customer:{name:string;phone:string}; shipping_address:Record<string, any>; payment_method:string; payment_status:string; shipment:{carrier:string;tracking_number:string;status:string}; items:Item[] };
 
 const statuses = ["pending","confirmed","processing","shipped","delivered","cancelled"];
 const shipmentStatuses = ["pending","ready","shipped","in_transit","delivered","returned","cancelled"];
@@ -23,7 +23,7 @@ export default function VendorOrderDetail(){
 
   async function load(){ try{ const result=await djangoApi<Details>(`/api/orders/${id}/vendor_detail/`); setData(result); setCarrier(result.shipment?.carrier??""); setTracking(result.shipment?.tracking_number??""); }catch(error){Alert.alert("تعذر تحميل الطلب",error instanceof Error?error.message:"حاولي مجددًا")}finally{setLoading(false)} }
   useEffect(()=>{ if(id) load(); },[id]);
-  async function updateStatus(status:string){ if(!data)return; setBusy(true); try{ await djangoApi(`/api/orders/${data.order_number.includes("-") ? data.parent_order_number : id}/update_status/`,{method:"POST",body:JSON.stringify({status})}); await load(); }catch(error){Alert.alert("تعذر تحديث الحالة",error instanceof Error?error.message:"حاولي مجددًا")}finally{setBusy(false)} }
+  async function updateStatus(status:string){ if(!data)return; setBusy(true); try{ await djangoApi(`/api/orders/${data.order_id}/update_status/`,{method:"POST",body:JSON.stringify({status})}); await load(); }catch(error){Alert.alert("تعذر تحديث الحالة",error instanceof Error?error.message:"حاولي مجددًا")}finally{setBusy(false)} }
   async function saveShipment(status=data?.shipment.status||"pending"){ if(!data)return; setBusy(true); try{ const result=await djangoApi<Details>("/api/orders/update_shipment/",{method:"POST",body:JSON.stringify({vendor_order_id:data.id,carrier,tracking_number:tracking,status})}); setData(result); Alert.alert("تم الحفظ","تم تحديث بيانات الشحن بنجاح."); }catch(error){Alert.alert("تعذر تحديث الشحن",error instanceof Error?error.message:"حاولي مجددًا")}finally{setBusy(false)} }
   if(loading)return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E60023"/></View></ScreenContainer>;
   if(!data)return <ScreenContainer><View style={styles.center}><Text>الطلب غير متاح.</Text></View></ScreenContainer>;
