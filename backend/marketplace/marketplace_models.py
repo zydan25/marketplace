@@ -13,7 +13,6 @@ class VendorOrder(models.Model):
         DELIVERED = "delivered", "تم التسليم"
         CANCELLED = "cancelled", "ملغي"
         REFUNDED = "refunded", "مسترد"
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     order = models.ForeignKey("marketplace.Order", on_delete=models.CASCADE, related_name="vendor_orders")
@@ -27,7 +26,6 @@ class VendorOrder(models.Model):
     commission = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(0)])
     vendor_net = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(0)])
     currency = models.CharField(max_length=6, default="YER")
-
     class Meta:
         ordering = ["-created_at"]
         constraints = [models.UniqueConstraint(fields=["order", "vendor"], name="uniq_vendor_order_per_vendor")]
@@ -48,7 +46,6 @@ class Payment(models.Model):
         REFUNDED = "refunded", "مسترد"
         PARTIALLY_REFUNDED = "partially_refunded", "مسترد جزئيًا"
         CANCELLED = "cancelled", "ملغي"
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     order = models.OneToOneField("marketplace.Order", on_delete=models.PROTECT, related_name="payment")
@@ -72,7 +69,6 @@ class Shipment(models.Model):
         DELIVERED = "delivered", "تم التسليم"
         RETURNED = "returned", "مرتجع"
         CANCELLED = "cancelled", "ملغي"
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     vendor_order = models.OneToOneField(VendorOrder, on_delete=models.PROTECT, related_name="shipment")
@@ -90,18 +86,17 @@ class InventoryReservation(models.Model):
         COMMITTED = "committed", "مثبت"
         RELEASED = "released", "محرر"
         EXPIRED = "expired", "منتهي"
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     expires_at = models.DateTimeField()
     order = models.ForeignKey("marketplace.Order", on_delete=models.CASCADE, related_name="inventory_reservations")
+    order_item = models.ForeignKey("marketplace.OrderItem", on_delete=models.PROTECT, null=True, blank=True, related_name="inventory_reservations")
     product = models.ForeignKey("marketplace.Product", on_delete=models.PROTECT, null=True, blank=True, related_name="inventory_reservations")
     variant = models.ForeignKey("marketplace.ProductVariant", on_delete=models.PROTECT, null=True, blank=True, related_name="inventory_reservations")
     quantity = models.PositiveIntegerField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
-
     class Meta:
-        indexes = [models.Index(fields=["order", "status"]), models.Index(fields=["expires_at", "status"])]
+        indexes = [models.Index(fields=["order", "status"]), models.Index(fields=["order_item", "status"]), models.Index(fields=["expires_at", "status"])]
 
 
 class VendorLedgerEntry(models.Model):
@@ -111,7 +106,6 @@ class VendorLedgerEntry(models.Model):
         REFUND = "refund", "استرداد"
         PAYOUT = "payout", "سحب"
         ADJUSTMENT = "adjustment", "تسوية"
-
     created_at = models.DateTimeField(auto_now_add=True)
     vendor = models.ForeignKey("marketplace.VendorProfile", on_delete=models.PROTECT, related_name="ledger_entries")
     vendor_order = models.ForeignKey(VendorOrder, on_delete=models.PROTECT, null=True, blank=True, related_name="ledger_entries")
@@ -131,6 +125,5 @@ class CouponRedemption(models.Model):
     code_snapshot = models.CharField(max_length=50)
     discount_amount = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(0)])
     currency = models.CharField(max_length=6, default="YER")
-
     class Meta:
         indexes = [models.Index(fields=["coupon", "user"]), models.Index(fields=["created_at"])]
