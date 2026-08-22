@@ -5,7 +5,9 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 
-from .models import StorefrontSection
+from .models import StorefrontSection, VendorProfile
+
+ALLOWED_SECTION_TYPES = {"hero", "category", "product_grid", "trend", "banner", "tab"}
 
 
 def _is_admin(user):
@@ -32,7 +34,44 @@ def visual_editor(request):
     if not (_is_admin(request.user) or getattr(request.user, "role", None) == "vendor"):
         return JsonResponse({"detail": "لا تملك صلاحية محرر المتجر."}, status=403)
     sections = _visible_sections_for_editor(request.user)
-    return render(request, "admin/marketplace/storefront_editor.html", {"sections": sections, "is_admin": _is_admin(request.user)})
+    return render(request, "admin/marketplace/storefront_editor.html", {"sections": sections, "is_admin": _is_admin(request.user), "section_types": sorted(ALLOWED_SECTION_TYPES)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_section(request):
+    if not (_is_admin(request.user) or getattr(request.user, "role", None) == "vendor"):
+        return JsonResponse({"detail": "لا تملك صلاحية إنشاء قسم."}, status=403)
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "JSON غير صالح."}, status=400)
+    section_type = str(payload.get("section_type", "banner"))
+    if section_type not in ALLOWED_SECTION_TYPES:
+        return JsonResponse({"detail": "نوع القسم غير مسموح."}, status=400)
+    if _is_admin(request.user):
+        vendor = None
+        owner = request.user
+    else:
+        try:
+            vendor = VendorProfile.objects.get(owner=request.user)
+        except VendorProfile.DoesNotExist:
+            return JsonResponse({"detail": "لا يوجد متجر مرتبط بالحساب."}, status=400)
+        if vendor.status != "active":
+            return JsonResponse({"detail": "لا يمكن تعديل متجر غير نشط."}, status=403)
+        owner = request.user
+    last = StorefrontSection.objects.filter(vendor=vendor).order_by("-sort_order", "-id").first()
+    next_order = (last.sort_order + 1) if last else 0
+    section = StorefrontSection.objects.create(
+        owner=owner,
+        vendor=vendor,
+        title=str(payload.get("title", "قسم جديد"))[:180],
+        section_type=section_type,
+        sort_order=next_order,
+        is_visible=True,
+        config={"subtitle": "", "image_url": "", "button_label": "", "target_url": "", "cards": [], "__editor_version": 1},
+    )
+    return JsonResponse({"ok": True, "id": section.id, "title": section.title, "section_type": section.section_type})
 
 
 @login_required
