@@ -17,7 +17,6 @@ from .models_extended import City, ProductVariant
 from .serializers import OrderSerializer
 from .services import PricingEngine
 
-
 SUPPORTED_CURRENCIES = {"YER", "SAR", "USD"}
 
 
@@ -75,6 +74,32 @@ class SecureOrderViewSet(viewsets.ModelViewSet):
             order.save(update_fields=["status", "updated_at"])
             OrderStatusHistory.objects.create(order=order, old_status=old_status, new_status=parent, changed_by=None)
 
+    @staticmethod
+    def _commit_vendor_order_inventory(vendor_order):
+        for link in vendor_order.items.select_related("order_item__product").all():
+            item = link.order_item
+            reservation = InventoryReservation.objects.filter(order=item.order, product=item.product, status="active", quantity=item.quantity).first()
+            if reservation:
+                if reservation.variant_id:
+                    variant = reservation.variant
+                    variant.reserved_stock = max(0, variant.reserved_stock - reservation.quantity)
+                    variant.stock = max(0, variant.stock - reservation.quantity)
+                    variant.save(update_fields=["reserved_stock", "stock", "updated_at"])
+                reservation.status = "committed"
+                reservation.save(update_fields=["status", "updated_at"])
+            elif item.product:
+                variant = None
+                # Variant stock is committed by reservation. Non-variant COD inventory was already decremented at checkout.
+                try:
+                    variant = ProductVariant.objects.get(product=item.product, sku=item.sku_snapshot)
+                except ProductVariant.DoesNotExist:
+                    pass
+                if variant:
+                    variant.stock = max(0, variant.stock - item.quantity)
+                    variant.save(update_fields=["stock", "updated_at"])
+            item.product.sold_count += item.quantity
+            item.product.save(update_fields=["sold_count", "updated_at"])
+
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         if request.user.role != "customer":
@@ -92,10 +117,11 @@ class SecureOrderViewSet(viewsets.ModelViewSet):
         currency = str(request.data.get("currency", "YER")).upper()
         if currency not in SUPPORTED_CURRENCIES:
             raise ValidationError({"currency": "العملة غير مدعومة"})
+        payment_method = str(request.data.get("payment_method", "cash_on_delivery"))
+        requires_payment = payment_method != "cash_on_delivery"
 
         groups = defaultdict(lambda: {"vendor": None, "items": [], "subtotal": Decimal("0.00")})
         subtotal = Decimal("0.00")
-
         for row in rows:
             if not isinstance(row, dict):
                 raise ValidationError({"items": "صيغة عنصر السلة غير صالحة"})
@@ -106,11 +132,8 @@ class SecureOrderViewSet(viewsets.ModelViewSet):
                 raise ValidationError({"items": "product_id وquantity مطلوبان بشكل صحيح"})
             if quantity < 1:
                 raise ValidationError({"items": "الكمية يجب أن تكون 1 أو أكثر"})
-
             try:
-                product = Product.objects.select_for_update().select_related("vendor").get(
-                    pk=product_id, is_published=True, vendor__status="active"
-                )
+                product = Product.objects.select_for_update().select_related("vendor").get(pk=product_id, is_published=True, vendor__status="active")
             except Product.DoesNotExist:
                 raise ValidationError({"items": f"المنتج {product_id} غير موجود أو غير متاح"})
 
@@ -120,8 +143,7 @@ class SecureOrderViewSet(viewsets.ModelViewSet):
                     variant = ProductVariant.objects.select_for_update().get(id=int(row["variant_id"]), product=product)
                 except (ProductVariant.DoesNotExist, TypeError, ValueError):
                     raise ValidationError({"items": f"الخيار المحدد للمنتج {product.name} غير صالح"})
-
-            available = variant.available_stock if variant else product.stock
+            available = variant.available_stock if variant else product.available_stock
             if available < quantity:
                 raise ValidationError({"items": f"الكمية غير متاحة للمنتج {product.name}"})
 
@@ -134,18 +156,17 @@ class SecureOrderViewSet(viewsets.ModelViewSet):
             groups[product.vendor_id]["subtotal"] += line_total
 
         shipping_fee = city.shipping_fee if city else Decimal("0.00")
-        discount = Decimal("0.00")
         total = subtotal + shipping_fee
         order = Order.objects.create(
             customer=request.user,
             order_number=f"ORD-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}",
             subtotal=subtotal,
             shipping_fee=shipping_fee,
-            discount=discount,
+            discount=Decimal("0.00"),
             total=total,
             currency=currency,
             shipping_address=address,
-            payment_method=str(request.data.get("payment_method", "cash_on_delivery")),
+            payment_method=payment_method,
             payment_status="pending",
             metadata={"pricing_source": "server", "api_version": "v1"},
         )
@@ -169,40 +190,43 @@ class SecureOrderViewSet(viewsets.ModelViewSet):
                 currency=currency,
             )
             Shipment.objects.create(vendor_order=vendor_order)
-
             for product, variant, quantity, row, unit_price, line_total in group["items"]:
                 item_commission = (line_total * vendor.commission_percent / Decimal("100")).quantize(Decimal("0.01"))
                 order_item = OrderItem.objects.create(
-                    order=order,
-                    vendor=vendor,
-                    product=product,
+                    order=order, vendor=vendor, product=product,
                     name_snapshot=product.name,
                     sku_snapshot=variant.sku if variant else product.sku,
-                    quantity=quantity,
-                    unit_price=unit_price,
+                    quantity=quantity, unit_price=unit_price,
                     color=variant.color if variant else str(row.get("color", "")),
                     size=variant.size if variant else str(row.get("size", "")),
-                    vendor_total=line_total,
-                    commission=item_commission,
+                    vendor_total=line_total, commission=item_commission,
                     vendor_net=line_total - item_commission,
                 )
                 VendorOrderItem.objects.create(vendor_order=vendor_order, order_item=order_item)
 
-                if variant is not None:
-                    variant.reserved_stock += quantity
-                    variant.save(update_fields=["reserved_stock", "updated_at"])
-                    InventoryReservation.objects.create(order=order, variant=variant, quantity=quantity, expires_at=timezone.now() + timedelta(minutes=30))
+                if requires_payment:
+                    InventoryReservation.objects.create(
+                        order=order, variant=variant, product=None if variant else product,
+                        quantity=quantity, expires_at=timezone.now() + timedelta(minutes=30),
+                    )
+                    if variant:
+                        variant.reserved_stock += quantity
+                        variant.save(update_fields=["reserved_stock", "updated_at"])
+                    else:
+                        product.reserved_stock += quantity
+                        product.save(update_fields=["reserved_stock", "updated_at"])
                 else:
-                    product.stock -= quantity
-                    product.save(update_fields=["stock", "updated_at"])
-                    InventoryReservation.objects.create(order=order, product=product, quantity=quantity, expires_at=timezone.now() + timedelta(minutes=30))
-                product.sold_count += quantity
-                product.save(update_fields=["sold_count", "updated_at"])
+                    if variant:
+                        variant.stock -= quantity
+                        variant.save(update_fields=["stock", "updated_at"])
+                    else:
+                        product.stock -= quantity
+                        product.save(update_fields=["stock", "updated_at"])
 
         Payment.objects.create(
             order=order,
-            provider="manual" if request.data.get("payment_method", "cash_on_delivery") == "cash_on_delivery" else "pending",
-            method=str(request.data.get("payment_method", "cash_on_delivery")),
+            provider="manual" if payment_method == "cash_on_delivery" else payment_method,
+            method=payment_method,
             amount=total,
             currency=currency,
             status=Payment.Status.PENDING,
@@ -223,8 +247,11 @@ class SecureOrderViewSet(viewsets.ModelViewSet):
             allowed = {"confirmed", "processing", "shipped", "delivered", "cancelled"}
             if new_status not in allowed:
                 raise ValidationError({"status": "حالة التاجر غير صالحة"})
+            old_status = vendor_order.status
             vendor_order.status = new_status
             vendor_order.save(update_fields=["status", "updated_at"])
+            if new_status == "delivered" and old_status != "delivered":
+                self._commit_vendor_order_inventory(vendor_order)
             self._sync_parent_status(order)
             return Response({"vendor_order_id": vendor_order.id, "status": vendor_order.status})
 
@@ -238,14 +265,14 @@ class SecureOrderViewSet(viewsets.ModelViewSet):
         OrderStatusHistory.objects.create(order=order, old_status=old_status, new_status=new_status, changed_by=user)
         if new_status in {"cancelled", "refunded"}:
             for reservation in order.inventory_reservations.select_for_update().filter(status="active"):
-                if reservation.variant_id:
-                    variant = reservation.variant
+                product = reservation.product
+                variant = reservation.variant
+                if variant_id := reservation.variant_id:
                     variant.reserved_stock = max(0, variant.reserved_stock - reservation.quantity)
                     variant.save(update_fields=["reserved_stock", "updated_at"])
-                elif reservation.product_id:
-                    product = reservation.product
-                    product.stock += reservation.quantity
-                    product.save(update_fields=["stock", "updated_at"])
+                elif product:
+                    product.reserved_stock = max(0, product.reserved_stock - reservation.quantity)
+                    product.save(update_fields=["reserved_stock", "updated_at"])
                 reservation.status = "released"
                 reservation.save(update_fields=["status", "updated_at"])
         return Response(OrderSerializer(order, context={"request": request}).data)
