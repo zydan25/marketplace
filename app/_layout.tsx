@@ -1,7 +1,7 @@
-import { Stack } from "expo-router";
+import { Stack, type ErrorBoundaryProps } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import { I18nManager, Platform } from "react-native";
+import { I18nManager, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useCallback, useEffect, useState } from "react";
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -22,6 +22,20 @@ function DocumentDirection() {
     }
   }, []);
   return null;
+}
+
+export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
+  return (
+    <View style={styles.errorRoot}>
+      <View style={styles.errorCard}>
+        <Text style={styles.errorTitle}>تعذر عرض هذه الصفحة</Text>
+        <Text style={styles.errorText}>حدث خطأ مؤقت أثناء تجهيز الشاشة. يمكنك إعادة المحاولة دون فقدان جلسة الدخول.</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => void retry()}>
+          <Text style={styles.retryText}>إعادة المحاولة</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
 
 export default function RootLayout() {
@@ -64,3 +78,12 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  errorRoot: { flex: 1, backgroundColor: "#F7F7F7", justifyContent: "center", alignItems: "center", padding: 24 },
+  errorCard: { width: "100%", maxWidth: 420, backgroundColor: "#FFF", borderRadius: 18, padding: 24, alignItems: "center", borderWidth: 1, borderColor: "#E8E8E8" },
+  errorTitle: { fontSize: 19, fontWeight: "900", color: "#111", textAlign: "center" },
+  errorText: { marginTop: 10, fontSize: 12, lineHeight: 20, color: "#777", textAlign: "center" },
+  retryButton: { marginTop: 20, minWidth: 150, height: 46, paddingHorizontal: 22, borderRadius: 23, backgroundColor: "#111", justifyContent: "center", alignItems: "center" },
+  retryText: { color: "#FFF", fontSize: 13, fontWeight: "800" },
+});
