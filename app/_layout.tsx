@@ -33,7 +33,7 @@ export default function RootLayout() {
           <Stack.Screen name="admin/storefront" />
           <Stack.Screen name="product/[id]" />
           <Stack.Screen name="search" />
-          <Stack.Screen name="checkout" options={{ presentation: "modal" }} />
+          <Stack.Screen name="checkout" options={{ presentation: "fullScreenModal" }} />
           <Stack.Screen name="orders" />
           <Stack.Screen name="order/[id]" />
           <Stack.Screen name="notifications" />
