@@ -1,11 +1,81 @@
+import base64
+import binascii
+import hashlib
+
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.conf import settings
 from django.db.models import Q
-from rest_framework import viewsets
+from rest_framework import serializers, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .api_policy import IsAdminOrReadOnly, IsVendorOrAdmin
 from .models import Category, DesignTheme, Product, StorefrontSection, VendorProfile
-from .serializers import CategorySerializer, DesignThemeSerializer, ProductSerializer, StorefrontSectionSerializer, VendorSerializer
+from .serializers import CategorySerializer, DesignThemeSerializer, ProductSerializer, VendorSerializer
+
+
+def _persist_storefront_data_urls(value, section_id):
+    """Replace data:image URLs in storefront JSON with durable /media/ URLs.
+
+    Storefront configuration is JSON, so images selected in Expo must be persisted
+    before the section is saved. Existing http(s)/relative URLs are kept unchanged.
+    """
+    if isinstance(value, list):
+        return [_persist_storefront_data_urls(item, section_id) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    result = dict(value)
+    for key, item in list(result.items()):
+        if key in {"imageUrl", "image_url"} and isinstance(item, str) and item.startswith("data:image/") and ";base64," in item:
+            try:
+                header, encoded = item.split(";base64,", 1)
+                mime = header.split("/", 1)[1].split(";", 1)[0].lower() or "jpeg"
+                if mime == "jpeg": extension = "jpg"
+                elif mime in {"png", "webp", "gif"}: extension = mime
+                else: extension = "jpg"
+                raw = base64.b64decode(encoded, validate=True)
+                digest = hashlib.sha256(raw).hexdigest()[:20]
+                name = f"storefront/{section_id}/{digest}.{extension}"
+                if not default_storage.exists(name):
+                    default_storage.save(name, ContentFile(raw))
+                url = default_storage.url(name)
+                request = getattr(_persist_storefront_data_urls, "request", None)
+                if request and url.startswith("/"):
+                    url = request.build_absolute_uri(url)
+                result[key] = url
+            except (ValueError, binascii.Error, TypeError):
+                # Keep the original value so a malformed upload is not silently lost.
+                pass
+        else:
+            result[key] = _persist_storefront_data_urls(item, section_id)
+    return result
+
+
+class MediaStorefrontSectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StorefrontSection
+        fields = ["id", "title", "section_type", "vendor", "config", "sort_order", "is_visible"]
+        read_only_fields = ["id"]
+
+    def _config(self, value, section_id):
+        request = self.context.get("request")
+        previous = getattr(_persist_storefront_data_urls, "request", None)
+        _persist_storefront_data_urls.request = request
+        try:
+            return _persist_storefront_data_urls(value or {}, section_id)
+        finally:
+            _persist_storefront_data_urls.request = previous
+
+    def create(self, validated_data):
+        validated_data["config"] = self._config(validated_data.get("config", {}), "new")
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if "config" in validated_data:
+            validated_data["config"] = self._config(validated_data["config"], instance.pk)
+        return super().update(instance, validated_data)
 
 
 class SecureCategoryViewSet(viewsets.ModelViewSet):
@@ -173,7 +243,7 @@ class SecureDesignThemeViewSet(viewsets.ModelViewSet):
 
 
 class SecureStorefrontSectionViewSet(viewsets.ModelViewSet):
-    serializer_class = StorefrontSectionSerializer
+    serializer_class = MediaStorefrontSectionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
