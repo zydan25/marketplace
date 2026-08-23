@@ -14,7 +14,8 @@ export default function LoginScreen() {
   const goAfterLogin = (role: "customer" | "vendor" | "admin") => {
     if (role === "vendor") return router.replace("/vendor" as never);
     if (role === "admin") return router.replace("/admin" as never);
-    return router.replace("/(tabs)/" as never);
+    // Use the concrete web/native root route instead of the route-group name.
+    return router.replace("/" as never);
   };
 
   const submit = async () => {
@@ -27,10 +28,13 @@ export default function LoginScreen() {
       setLoading(true);
       const result = await djangoLogin(normalizedPhone, password);
       await Auth.setUserInfo(toAuthUser(result.user));
+
+      // Verify the token that the Web/native storage layer can actually read back.
       const storedToken = await Auth.getSessionToken();
       if (!storedToken || storedToken !== result.token) {
-        throw new Error("تعذر حفظ جلسة الدخول في المتصفح.");
+        throw new Error("تعذر حفظ جلسة الدخول. حاول تعطيل حظر التخزين للموقع ثم أعد المحاولة.");
       }
+
       goAfterLogin(result.user.role);
     } catch (e) {
       Alert.alert("تعذر الدخول", e instanceof Error ? e.message : "حاول مرة أخرى.");
