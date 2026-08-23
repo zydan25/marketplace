@@ -1,13 +1,18 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
 import { I18nManager, Platform } from "react-native";
-import { useEffect } from "react";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useCallback, useEffect, useState } from "react";
+import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context";
 
+import { WelcomeScreen } from "@/components/welcome-screen";
 import { CartProvider } from "@/lib/cart-context";
 import { ThemeProvider } from "@/lib/theme-provider";
 
 I18nManager.allowRTL(true);
+
+SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ duration: 450, fade: true });
 
 function DocumentDirection() {
   useEffect(() => {
@@ -20,8 +25,19 @@ function DocumentDirection() {
 }
 
 export default function RootLayout() {
+  const [welcomeVisible, setWelcomeVisible] = useState(true);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      SplashScreen.hideAsync().catch(() => undefined);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const finishWelcome = useCallback(() => setWelcomeVisible(false), []);
+
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <ThemeProvider>
         <CartProvider>
           <DocumentDirection />
@@ -42,6 +58,7 @@ export default function RootLayout() {
             <Stack.Screen name="settings" />
             <Stack.Screen name="support" />
           </Stack>
+          {welcomeVisible ? <WelcomeScreen onFinished={finishWelcome} /> : null}
         </CartProvider>
       </ThemeProvider>
     </SafeAreaProvider>
