@@ -22,7 +22,7 @@ export default function ProfileScreen() {
   const admin = user?.role === "admin";
   return (
     <ScreenContainer edges={["top", "left", "right"]} className="bg-[#F6F6F7]">
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
+      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
         <View style={s.head}>
           <View style={s.headActions}><TouchableOpacity style={s.iconButton} onPress={() => router.push("/settings" as never)}><MaterialIcons name="settings" size={22} color="#111" /></TouchableOpacity><TouchableOpacity style={s.iconButton} onPress={() => later("رمز حسابي")}><MaterialIcons name="qr-code-scanner" size={22} color="#111" /></TouchableOpacity></View>
           <View style={s.identity}><View style={s.avatar}><Text style={s.avatarText}>{name.slice(0, 1)}</Text></View><View><Text style={s.name}>{name}</Text><Text style={s.personal}>حسابي الشخصي · <MaterialIcons name="edit" size={12} color="#777" /></Text></View></View>
@@ -58,7 +58,8 @@ function Action({ icon, label, onPress }: { icon: string; label: string; onPress
 function Panel({ title, action, onAction, children }: { title: string; action: string; onAction: () => void; children: React.ReactNode }) { return <View style={s.orders}><View style={s.panelTop}><TouchableOpacity onPress={onAction}><Text style={s.all}>{action} ←</Text></TouchableOpacity><Text style={s.panelTitle}>{title}</Text></View><View style={s.actions}>{children}</View></View>; }
 
 const s = StyleSheet.create({
-  content: { paddingBottom: 120 },
+  scroll: { flex: 1, minHeight: 0 },
+  content: { paddingBottom: 120, flexGrow: 1 },
   head: { backgroundColor: "#FFF", padding: 14, paddingTop: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#F0F0F0" },
   headActions: { flexDirection: "row-reverse", gap: 5 },
   iconButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#F7F7F7" },
