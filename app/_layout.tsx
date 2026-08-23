@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { I18nManager, Platform } from "react-native";
 import { useEffect } from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { CartProvider } from "@/lib/cart-context";
 import { ThemeProvider } from "@/lib/theme-provider";
@@ -20,27 +21,29 @@ function DocumentDirection() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <CartProvider>
-        <DocumentDirection />
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, animation: "slide_from_left" }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ presentation: "fullScreenModal" }} />
-          <Stack.Screen name="register" options={{ presentation: "fullScreenModal" }} />
-          <Stack.Screen name="admin/index" />
-          <Stack.Screen name="admin/products" />
-          <Stack.Screen name="admin/storefront" />
-          <Stack.Screen name="product/[id]" />
-          <Stack.Screen name="search" />
-          <Stack.Screen name="checkout" options={{ presentation: "fullScreenModal" }} />
-          <Stack.Screen name="orders" />
-          <Stack.Screen name="order/[id]" />
-          <Stack.Screen name="notifications" />
-          <Stack.Screen name="settings" />
-          <Stack.Screen name="support" />
-        </Stack>
-      </CartProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <CartProvider>
+          <DocumentDirection />
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false, animation: "slide_from_left" }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="login" options={{ presentation: "fullScreenModal" }} />
+            <Stack.Screen name="register" options={{ presentation: "fullScreenModal" }} />
+            <Stack.Screen name="admin/index" />
+            <Stack.Screen name="admin/products" />
+            <Stack.Screen name="admin/storefront" />
+            <Stack.Screen name="product/[id]" />
+            <Stack.Screen name="search" />
+            <Stack.Screen name="checkout" options={{ presentation: "fullScreenModal" }} />
+            <Stack.Screen name="orders" />
+            <Stack.Screen name="order/[id]" />
+            <Stack.Screen name="notifications" />
+            <Stack.Screen name="settings" />
+            <Stack.Screen name="support" />
+          </Stack>
+        </CartProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
