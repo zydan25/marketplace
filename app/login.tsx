@@ -4,25 +4,35 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoLogin } from "@/lib/django-api";
+import * as Auth from "@/lib/_core/auth";
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const goAfterLogin = (role: "customer" | "vendor" | "admin") => {
+    if (role === "vendor") return router.replace("/vendor" as never);
+    if (role === "admin") return router.replace("/admin" as never);
+    return router.replace("/(tabs)/" as never);
+  };
+
   const submit = async () => {
-    if (!phone.trim() || !password) {
+    const normalizedPhone = phone.trim();
+    if (!normalizedPhone || !password) {
       Alert.alert("بيانات ناقصة", "أدخل رقم الجوال وكلمة المرور.");
       return;
     }
     try {
       setLoading(true);
-      const result = await djangoLogin(phone.trim(), password);
-      if (result.user.role === "vendor") {
-        router.replace("/vendor" as never);
-      } else {
-        router.replace("/profile" as never);
+      const result = await djangoLogin(normalizedPhone, password);
+      const userInfo = { ...result.user, lastSignedIn: new Date() } as Auth.User;
+      await Auth.setUserInfo(userInfo);
+      const storedToken = await Auth.getSessionToken();
+      if (!storedToken || storedToken !== result.token) {
+        throw new Error("تعذر حفظ جلسة الدخول في المتصفح.");
       }
+      goAfterLogin(result.user.role);
     } catch (e) {
       Alert.alert("تعذر الدخول", e instanceof Error ? e.message : "حاول مرة أخرى.");
     } finally {
