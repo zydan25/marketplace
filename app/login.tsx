@@ -3,7 +3,7 @@ import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 import { router } from "expo-router";
 import { useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
-import { djangoLogin } from "@/lib/django-api";
+import { djangoLogin, toAuthUser } from "@/lib/django-api";
 import * as Auth from "@/lib/_core/auth";
 
 export default function LoginScreen() {
@@ -26,8 +26,7 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       const result = await djangoLogin(normalizedPhone, password);
-      const userInfo = { ...result.user, lastSignedIn: new Date() } as Auth.User;
-      await Auth.setUserInfo(userInfo);
+      await Auth.setUserInfo(toAuthUser(result.user));
       const storedToken = await Auth.getSessionToken();
       if (!storedToken || storedToken !== result.token) {
         throw new Error("تعذر حفظ جلسة الدخول في المتصفح.");
