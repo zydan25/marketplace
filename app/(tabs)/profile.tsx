@@ -1,5 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
@@ -9,14 +9,41 @@ import { djangoApi } from "@/lib/django-api";
 const later = (title: string) => Alert.alert(title, "ستتوفر هذه الميزة ضمن حسابك قريبًا.");
 
 export default function ProfileScreen() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
   const [walletBalance, setWalletBalance] = useState("0");
-  useEffect(() => { if (user?.role === "vendor") router.replace("/vendor" as never); }, [user?.role]);
+
+  useEffect(() => {
+    if (user?.role === "vendor") router.replace("/vendor" as never);
+  }, [user?.role]);
+
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "customer") return;
     djangoApi<any>("/api/wallets/").then((response) => setWalletBalance(String(response.results?.[0]?.balance ?? response.balance ?? "0"))).catch(() => undefined);
   }, [isAuthenticated, user?.role]);
-  if (user?.role === "vendor") return null;
+
+  if (authLoading) {
+    return (
+      <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F6F6F7]">
+        <View style={s.loading}>
+          <ActivityIndicator size="large" color="#E60023" />
+          <Text style={s.loadingText}>جارٍ تجهيز حسابك...</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Never leave the route blank while the vendor redirect is being committed.
+  if (user?.role === "vendor") {
+    return (
+      <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F6F6F7]">
+        <View style={s.loading}>
+          <ActivityIndicator size="small" color="#E60023" />
+          <Text style={s.loadingText}>جارٍ فتح لوحة التاجر...</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   if (!isAuthenticated) return <Guest />;
   const name = user?.name?.trim() || "شبيك";
   const admin = user?.role === "admin";
@@ -60,6 +87,8 @@ function Panel({ title, action, onAction, children }: { title: string; action: s
 const s = StyleSheet.create({
   scroll: { flex: 1, minHeight: 0 },
   content: { paddingBottom: 120, flexGrow: 1 },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
+  loadingText: { fontSize: 12, color: "#777" },
   head: { backgroundColor: "#FFF", padding: 14, paddingTop: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#F0F0F0" },
   headActions: { flexDirection: "row-reverse", gap: 5 },
   iconButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#F7F7F7" },
