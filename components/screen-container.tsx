@@ -10,6 +10,11 @@ export interface ScreenContainerProps extends ViewProps {
   safeAreaClassName?: string;
 }
 
+/**
+ * Root page wrapper used by nearly every mobile route.
+ * Keep the sizing contract explicit instead of relying only on NativeWind's
+ * `flex-1`, because ScrollView/FlatList children require a bounded parent.
+ */
 export function ScreenContainer({
   children,
   edges = ["top", "left", "right"],
@@ -21,18 +26,18 @@ export function ScreenContainer({
 }: ScreenContainerProps) {
   return (
     <View
-      className={cn("flex-1", "bg-background", containerClassName)}
-      style={[{ minHeight: 0 }, style]}
+      className={cn("bg-background", containerClassName)}
+      style={[{ flex: 1, minHeight: 0, width: "100%" }, style]}
       {...props}
     >
       <SafeAreaView
         edges={edges}
-        className={cn("flex-1", safeAreaClassName)}
-        style={{ minHeight: 0 }}
+        className={cn("bg-background", safeAreaClassName)}
+        style={{ flex: 1, minHeight: 0, width: "100%" }}
       >
         <View
-          className={cn("flex-1", className)}
-          style={{ minHeight: 0, width: "100%" }}
+          className={cn(className)}
+          style={{ flex: 1, minHeight: 0, width: "100%" }}
         >
           {children}
         </View>
