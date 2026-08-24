@@ -15,7 +15,7 @@ export default function ExtraFeaturesScreen() {
   const [loading, setLoading] = useState(false);
 
   async function requestGiftConfirmation() {
-    if (!phone.trim() || !amount.trim()) return Alert.alert("بيانات ناقصة", "أدخلي رقم هاتف المستلم والمبلغ.");
+    if (!phone.trim() || !amount.trim()) return Alert.alert("بيانات ناقصة", "أدخل رقم هاتف المستلم والمبلغ.");
     setLoading(true);
     try {
       const result = await ApiClient.post<GiftPreview & { message?: string }>("/api/gifts/", { receiver_phone: phone.trim(), amount: amount.trim(), message: message.trim() });
@@ -61,7 +61,7 @@ export default function ExtraFeaturesScreen() {
         <Text style={styles.title}>إرسال هدية</Text>
         <View style={{ width: 25 }} />
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
         <View style={styles.intro}>
           <MaterialIcons name="card-giftcard" size={30} color="#E60023" />
           <Text style={styles.introTitle}>تحويل رصيد كهدية</Text>
@@ -92,9 +92,10 @@ export default function ExtraFeaturesScreen() {
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1, minHeight: 0 },
   header: { padding: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#EAEAEA" },
   title: { fontSize: 20, fontWeight: "900", color: "#171717" },
-  content: { padding: 14, paddingBottom: 40 },
+  content: { padding: 14, paddingBottom: 40, flexGrow: 1 },
   intro: { backgroundColor: "#FFF8F8", borderWidth: 1, borderColor: "#F2D7D7", borderRadius: 12, padding: 16, alignItems: "flex-end", marginBottom: 14 },
   introTitle: { fontSize: 17, fontWeight: "900", color: "#171717", marginTop: 8, textAlign: "right" },
   introText: { fontSize: 12, lineHeight: 20, color: "#686868", textAlign: "right", marginTop: 5 },
