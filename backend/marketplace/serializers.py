@@ -80,7 +80,7 @@ class ProductSerializer(serializers.ModelSerializer):
   if not product.main_image and product.image_items.exists(): product.main_image=product.image_items.first().image; product.save(update_fields=["main_image","updated_at"])
  @transaction.atomic
  def create(self,validated_data):
-  urls=validated_data.pop("image_data_urls",[]); main_url=validated_data.pop("main_image_data_url",""); variants_data=validated_data.pop("variants",[]); self._validate_variant_rows(variants_data); product=super().create(validated_data)
+  urls=validated_data.pop("image_data_urls",[]); main_url=validated_data.pop("main_image_data_url",""); validated_data.pop("keep_image_ids",None); validated_data.pop("delete_image_ids",None); variants_data=validated_data.pop("variants",[]); self._validate_variant_rows(variants_data); product=super().create(validated_data)
   for row in variants_data: ProductVariant.objects.create(product=product,**row)
   self._save_data_images(product,([main_url] if main_url else [])+urls); return product
  @transaction.atomic
