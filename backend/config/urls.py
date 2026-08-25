@@ -9,7 +9,9 @@ from marketplace.visual_storefront import create_section, update_section, visual
 
 urlpatterns = [
     path("", landing_page, name="landing-page"),
-    path("admin/", admin.site.urls),
+
+    # Custom marketplace dashboard routes must come before Django Admin's
+    # catch-all /admin/ route, otherwise Django Admin captures these paths.
     path("admin/dashboard/login/", dashboard_login, name="admin-dashboard-login"),
     path("admin/dashboard/logout/", dashboard_logout, name="admin-dashboard-logout"),
     path("admin/dashboard/", dashboard, name="admin-dashboard"),
@@ -23,6 +25,10 @@ urlpatterns = [
     path("admin/marketplace/storefront-editor/", visual_editor, name="admin-storefront-editor"),
     path("admin/marketplace/storefront-editor/section/create/", create_section, name="admin-storefront-section-create"),
     path("admin/marketplace/storefront-editor/section/<int:pk>/", update_section, name="admin-storefront-section-update"),
+
+    # Keep Django's standard administration site at /admin/.
+    path("admin/", admin.site.urls),
+
     path("api/", include("marketplace.urls")),
 ]
 
