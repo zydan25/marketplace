@@ -2,12 +2,17 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from marketplace.dashboard import dashboard, dashboard_icon, dashboard_manifest, dashboard_worker
 from marketplace.root_views import landing_page
 from marketplace.visual_storefront import create_section, update_section, visual_editor
 
 urlpatterns = [
     path("", landing_page, name="landing-page"),
     path("admin/", admin.site.urls),
+    path("admin/dashboard/", dashboard, name="admin-dashboard"),
+    path("admin/dashboard/manifest.json", dashboard_manifest, name="admin-dashboard-manifest"),
+    path("admin/dashboard/sw.js", dashboard_worker, name="admin-dashboard-sw"),
+    path("admin/dashboard/icon.svg", dashboard_icon, name="admin-dashboard-icon"),
     path("admin/marketplace/storefront-editor/", visual_editor, name="admin-storefront-editor"),
     path("admin/marketplace/storefront-editor/section/create/", create_section, name="admin-storefront-section-create"),
     path("admin/marketplace/storefront-editor/section/<int:pk>/", update_section, name="admin-storefront-section-update"),
