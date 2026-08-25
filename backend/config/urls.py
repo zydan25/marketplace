@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.urls import include, path
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
+from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
 from marketplace.root_views import landing_page
 from marketplace.visual_storefront import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
@@ -25,6 +26,7 @@ urlpatterns = [
     path("admin/marketplace/storefront-editor/section/<int:pk>/", update_section, name="admin-storefront-section-update"),
     path("admin/marketplace/storefront-editor/upload-image/", upload_storefront_image, name="admin-storefront-image-upload"),
     path("admin/marketplace/storefront-editor/reorder/", reorder_sections, name="admin-storefront-section-reorder"),
+    path("admin/marketplace/<slug:resource>/", legacy_resource_redirect, name="admin-legacy-resource"),
     path("admin/", admin.site.urls),
     path("api/", include("marketplace.urls")),
 ]
