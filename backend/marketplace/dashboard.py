@@ -1,13 +1,25 @@
 from decimal import Decimal
+from functools import wraps
 
-from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
+from django.contrib.auth.views import redirect_to_login
 
 from .marketplace_models import Payment, VendorApplication, VendorLedgerEntry, VendorOrder
 from .models import Category, Notification, Order, Product, StorefrontSection, User, VendorPayout, VendorProfile, Wallet
+
+
+def dashboard_access_required(view):
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect_to_login(request.get_full_path())
+        if not (request.user.is_staff or getattr(request.user, "role", None) == "admin"):
+            return HttpResponse("ليس لديك صلاحية الوصول إلى لوحة الإدارة.", status=403)
+        return view(request, *args, **kwargs)
+    return wrapped
 
 
 def _dashboard_context():
@@ -58,12 +70,12 @@ def _dashboard_context():
     }
 
 
-@staff_member_required
+@dashboard_access_required
 def dashboard(request):
     return render(request, "admin/dashboard.html", _dashboard_context())
 
 
-@staff_member_required
+@dashboard_access_required
 def dashboard_manifest(request):
     return JsonResponse({
         "name": "سوقيك — لوحة الإدارة",
@@ -79,7 +91,7 @@ def dashboard_manifest(request):
     })
 
 
-@staff_member_required
+@dashboard_access_required
 def dashboard_worker(request):
     js = """
 self.addEventListener('install', e => { self.skipWaiting(); });
@@ -92,7 +104,7 @@ self.addEventListener('fetch', e => {
     return HttpResponse(js, content_type="application/javascript")
 
 
-@staff_member_required
+@dashboard_access_required
 def dashboard_icon(request):
     svg = """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='#111827'/><path d='M117 156h278v55H117zm32 88h214v130H149zm44 37v50h126v-50z' fill='white'/></svg>"""
     return HttpResponse(svg, content_type="image/svg+xml")
