@@ -27,7 +27,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class ProductVariantSerializer(serializers.ModelSerializer):
  id=serializers.IntegerField(required=False); available_stock=serializers.IntegerField(read_only=True); effective_price=serializers.SerializerMethodField()
  class Meta:
-  model=ProductVariant; fields=["id","sku","color","size","price_override","available_stock","stock","reserved_stock","is_active","effective_price"]; read_only_fields=["available_stock","effective_price","reserved_stock"]
+  model=ProductVariant; fields=["id","sku","color","size","price_override","available_stock","stock","reserved_stock","is_active","effective_price"]; read_only_fields=["id","sku","available_stock","effective_price","reserved_stock"]
  def validate(self,attrs):
   stock=attrs.get("stock"); variant_id=attrs.get("id")
   if stock is not None and variant_id:
