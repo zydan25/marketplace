@@ -4,7 +4,6 @@ import hashlib
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.conf import settings
 from django.db.models import Q
 from rest_framework import serializers, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -16,11 +15,7 @@ from .serializers import CategorySerializer, DesignThemeSerializer, ProductSeria
 
 
 def _persist_storefront_data_urls(value, section_id):
-    """Replace data:image URLs in storefront JSON with durable /media/ URLs.
-
-    Storefront configuration is JSON, so images selected in Expo must be persisted
-    before the section is saved. Existing http(s)/relative URLs are kept unchanged.
-    """
+    """Replace data:image URLs in storefront JSON with durable /media/ URLs."""
     if isinstance(value, list):
         return [_persist_storefront_data_urls(item, section_id) for item in value]
     if not isinstance(value, dict):
@@ -32,9 +27,7 @@ def _persist_storefront_data_urls(value, section_id):
             try:
                 header, encoded = item.split(";base64,", 1)
                 mime = header.split("/", 1)[1].split(";", 1)[0].lower() or "jpeg"
-                if mime == "jpeg": extension = "jpg"
-                elif mime in {"png", "webp", "gif"}: extension = mime
-                else: extension = "jpg"
+                extension = "jpg" if mime == "jpeg" else mime if mime in {"png", "webp", "gif"} else "jpg"
                 raw = base64.b64decode(encoded, validate=True)
                 digest = hashlib.sha256(raw).hexdigest()[:20]
                 name = f"storefront/{section_id}/{digest}.{extension}"
@@ -42,11 +35,8 @@ def _persist_storefront_data_urls(value, section_id):
                     default_storage.save(name, ContentFile(raw))
                 url = default_storage.url(name)
                 request = getattr(_persist_storefront_data_urls, "request", None)
-                if request and url.startswith("/"):
-                    url = request.build_absolute_uri(url)
-                result[key] = url
+                result[key] = request.build_absolute_uri(url) if request and url.startswith("/") else url
             except (ValueError, binascii.Error, TypeError):
-                # Keep the original value so a malformed upload is not silently lost.
                 pass
         else:
             result[key] = _persist_storefront_data_urls(item, section_id)
@@ -169,16 +159,37 @@ class SecureProductViewSet(viewsets.ModelViewSet):
 
     def _vendor_for_write(self):
         user = self.request.user
+        requested_id = self.request.data.get("vendor_id")
+        own_vendor = VendorProfile.objects.filter(owner=user, status="active").first()
+
+        if requested_id:
+            vendor = VendorProfile.objects.filter(id=requested_id, status="active").first()
+            if not vendor:
+                raise ValidationError({"vendor_id": "المتجر المحدد غير موجود أو غير نشط."})
+            if not (user.is_staff or user.role == "admin") and vendor.owner_id != user.id:
+                raise PermissionDenied("لا يمكنك إنشاء منتج لمتجر آخر")
+            return vendor
+
+        # Preserve the common flow where an account was promoted from vendor to admin.
+        if own_vendor:
+            return own_vendor
+
         if user.is_staff or user.role == "admin":
-            vendor_id = self.request.data.get("vendor_id")
-            return VendorProfile.objects.filter(id=vendor_id, status="active").first() if vendor_id else None
-        return VendorProfile.objects.filter(owner=user, status="active").first()
+            active = VendorProfile.objects.filter(status="active").order_by("id")
+            if active.count() == 1:
+                return active.first()
+            raise ValidationError({"vendor_id": "حدد المتجر الذي سيُضاف إليه المنتج."})
+
+        return None
 
     def perform_create(self, serializer):
         vendor = self._vendor_for_write()
         if not vendor:
-            raise ValidationError({"vendor_id": "لا يوجد متجر نشط مرتبط بالحساب"})
-        serializer.save(vendor=vendor)
+            raise ValidationError({"vendor_id": "لا يوجد متجر نشط مرتبط بالحساب."})
+        try:
+            serializer.save(vendor=vendor)
+        except Exception as exc:
+            raise ValidationError({"detail": f"تعذر إنشاء المنتج: {exc}"}) from exc
 
     def _owns(self, instance):
         user = self.request.user
@@ -187,7 +198,10 @@ class SecureProductViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         if not self._owns(serializer.instance):
             raise PermissionDenied("لا يمكنك تعديل منتج متجر آخر")
-        serializer.save(vendor=serializer.instance.vendor)
+        try:
+            serializer.save(vendor=serializer.instance.vendor)
+        except Exception as exc:
+            raise ValidationError({"detail": f"تعذر تحديث المنتج: {exc}"}) from exc
 
     def perform_destroy(self, instance):
         if not self._owns(instance):
@@ -217,7 +231,8 @@ class SecureDesignThemeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         if user.is_staff or user.role == "admin":
-            serializer.save(owner=user, is_global=True, vendor=None)
+            own_vendor = VendorProfile.objects.filter(owner=user, status="active").first()
+            serializer.save(owner=user, is_global=not bool(own_vendor), vendor=own_vendor)
         elif user.role == "vendor":
             serializer.save(owner=user, vendor=self._vendor(), is_global=False)
         else:
@@ -258,8 +273,10 @@ class SecureStorefrontSectionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         if user.is_staff or user.role == "admin":
-            vendor_id = self.request.data.get("vendor_id")
-            vendor = VendorProfile.objects.filter(id=vendor_id).first() if vendor_id else None
+            requested_id = self.request.data.get("vendor_id")
+            vendor = VendorProfile.objects.filter(id=requested_id).first() if requested_id else VendorProfile.objects.filter(owner=user, status="active").first()
+            if requested_id and not vendor:
+                raise ValidationError({"vendor_id": "المتجر المحدد غير موجود."})
             serializer.save(owner=user, vendor=vendor)
             return
         if user.role != "vendor":
