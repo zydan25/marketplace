@@ -5,9 +5,9 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .dashboard import dashboard_access_required
-from .models import Category, Coupon, DesignTheme, Notification, Order, Product, StorefrontSection, User, VendorProfile
+from .models import Category, Coupon, DesignTheme, Notification, Order, Product, StorefrontSection, User, VendorProfile, VendorPayout
 from .models_extended import City, PriceGroup, ProductVariant
-from .marketplace_models import Payment, Shipment, VendorApplication, VendorLedgerEntry, VendorPayout
+from .marketplace_models import Payment, Shipment, VendorApplication, VendorLedgerEntry
 
 
 class JsonTextarea(forms.Textarea):
