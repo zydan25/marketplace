@@ -85,14 +85,14 @@ def visual_editor(request):
         "products": [{"id": p.id, "name": p.name, "vendor": p.vendor.store_name} for p in products],
     }
     defaults = _default_config()
-    return render(request, "admin/marketplace/storefront_editor_full.html", {
+    return render(request, "admin/marketplace/storefront_editor_v4.html", {
         "sections": sections,
         "is_admin": _is_admin(request.user),
         "section_types": ALLOWED_SECTION_TYPES,
         "categories": categories,
         "products": products,
-        "catalog_json": json.dumps(catalog, ensure_ascii=False),
-        "editor_defaults_json": json.dumps(defaults, ensure_ascii=False),
+        "catalog_json": catalog,
+        "editor_defaults_json": defaults,
     })
 
 
