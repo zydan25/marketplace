@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -91,7 +92,7 @@ class Product(TimeStampedModel):
     categories = models.ManyToManyField(Category, related_name="products", blank=True)
     sku = models.CharField(max_length=80, unique=True)
     name = models.CharField(max_length=220)
-    slug = models.SlugField(max_length=240, unique=True)
+    slug = models.SlugField(max_length=240, unique=True, blank=True)
     description = models.TextField(blank=True)
     brand = models.CharField(max_length=120, blank=True)
     material = models.CharField(max_length=180, blank=True)
@@ -127,6 +128,19 @@ class Product(TimeStampedModel):
         if not self.sale_price or self.price <= 0 or self.sale_price >= self.price:
             return 0
         return round((1 - self.sale_price / self.price) * 100)
+    def save(self, *args, **kwargs):
+        if not self.slug and self.name:
+            base_slug = slugify(self.name, allow_unicode=True)
+            if not base_slug:
+                base_slug = f"product-{uuid.uuid4().hex[:8]}"
+            slug = base_slug[:240]
+            counter = 2
+            while Product.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                suffix = f"-{counter}"
+                slug = f"{base_slug[:240 - len(suffix)]}{suffix}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
     def __str__(self):
         return f"{self.name} ({self.sku})"
 
