@@ -1,11 +1,13 @@
 from decimal import Decimal
 from functools import wraps
 
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import Permission
+from django.contrib.auth.views import redirect_to_login
 from django.db.models import Sum
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.contrib.auth.views import redirect_to_login
 
 from .marketplace_models import Payment, VendorApplication, VendorLedgerEntry, VendorOrder
 from .models import Category, Notification, Order, Product, StorefrontSection, User, VendorPayout, VendorProfile, Wallet
@@ -15,11 +17,37 @@ def dashboard_access_required(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect_to_login(request.get_full_path())
+            return redirect_to_login(request.get_full_path(), login_url="/admin/dashboard/login/")
         if not (request.user.is_staff or getattr(request.user, "role", None) == "admin"):
             return HttpResponse("ليس لديك صلاحية الوصول إلى لوحة الإدارة.", status=403)
         return view(request, *args, **kwargs)
     return wrapped
+
+
+def dashboard_login(request):
+    if request.user.is_authenticated and (request.user.is_staff or getattr(request.user, "role", None) == "admin"):
+        return redirect("admin-dashboard")
+    error = None
+    if request.method == "POST":
+        phone = str(request.POST.get("phone", "")).strip()
+        password = str(request.POST.get("password", ""))
+        user = User.objects.filter(phone=phone).first() if phone else None
+        authenticated = authenticate(request, username=phone, password=password) if user else None
+        if authenticated and authenticated.is_active and (authenticated.is_staff or authenticated.role == "admin"):
+            login(request, authenticated)
+            if not authenticated.is_staff:
+                authenticated.is_staff = True
+                authenticated.save(update_fields=["is_staff"])
+            perms = Permission.objects.filter(content_type__app_label="marketplace")
+            authenticated.user_permissions.set(perms)
+            return redirect("admin-dashboard")
+        error = "بيانات الدخول غير صحيحة أو لا يملك الحساب صلاحية الإدارة."
+    return render(request, "admin/dashboard_login.html", {"error": error})
+
+
+def dashboard_logout(request):
+    logout(request)
+    return redirect("admin-dashboard-login")
 
 
 def _dashboard_context():
@@ -78,8 +106,8 @@ def dashboard(request):
 @dashboard_access_required
 def dashboard_manifest(request):
     return JsonResponse({
-        "name": "سوقيك — لوحة الإدارة",
-        "short_name": "سوقيك",
+        "name": "سوقيك — مركز إدارة المنصة",
+        "short_name": "سوقيك Admin",
         "lang": "ar",
         "dir": "rtl",
         "start_url": "/admin/dashboard/",
@@ -91,20 +119,16 @@ def dashboard_manifest(request):
     })
 
 
-@dashboard_access_required
 def dashboard_worker(request):
     js = """
-self.addEventListener('install', e => { self.skipWaiting(); });
-self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
-self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-});
+const CACHE='shabik-admin-v2';
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/admin/dashboard/','/admin/dashboard/icon.svg'])).then(()=>self.skipWaiting())));
+self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
+self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).then(r=>{const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return r}).catch(()=>caches.match(e.request)))});
 """
     return HttpResponse(js, content_type="application/javascript")
 
 
-@dashboard_access_required
 def dashboard_icon(request):
     svg = """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='#111827'/><path d='M117 156h278v55H117zm32 88h214v130H149zm44 37v50h126v-50z' fill='white'/></svg>"""
     return HttpResponse(svg, content_type="image/svg+xml")
