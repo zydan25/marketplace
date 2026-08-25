@@ -6,7 +6,7 @@ from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_log
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
 from marketplace.dashboard_v2 import dashboard_v2
 from marketplace.root_views import landing_page
-from marketplace.visual_storefront import create_section, update_section, visual_editor
+from marketplace.visual_storefront import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
 
 urlpatterns = [
     path("", landing_page, name="landing-page"),
@@ -23,6 +23,8 @@ urlpatterns = [
     path("admin/marketplace/storefront-editor/", visual_editor, name="admin-storefront-editor"),
     path("admin/marketplace/storefront-editor/section/create/", create_section, name="admin-storefront-section-create"),
     path("admin/marketplace/storefront-editor/section/<int:pk>/", update_section, name="admin-storefront-section-update"),
+    path("admin/marketplace/storefront-editor/upload-image/", upload_storefront_image, name="admin-storefront-image-upload"),
+    path("admin/marketplace/storefront-editor/reorder/", reorder_sections, name="admin-storefront-section-reorder"),
     path("admin/", admin.site.urls),
     path("api/", include("marketplace.urls")),
 ]
