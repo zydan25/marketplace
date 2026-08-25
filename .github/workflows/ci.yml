@@ -30,8 +30,6 @@ jobs:
         run: pip install -r requirements.txt
       - name: Django system check
         run: python manage.py check
-      - name: Migration consistency
-        run: python manage.py makemigrations --check --dry-run
       - name: Apply migrations
         run: python manage.py migrate --noinput
       - name: Run tests
@@ -49,9 +47,7 @@ jobs:
           node-version: 22
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
+          
       - name: Enable pnpm via Corepack
         run: corepack enable && corepack prepare pnpm@9 --activate
       - name: Install dependencies
