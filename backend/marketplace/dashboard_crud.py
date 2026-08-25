@@ -5,9 +5,9 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .dashboard import dashboard_access_required
-from .models import Category, Coupon, DesignTheme, Notification, Order, Product, StorefrontSection, User, VendorProfile, VendorPayout
+from .models import Conversation, Category, Coupon, DesignTheme, Notification, Order, Product, StorefrontSection, User, VendorProfile, VendorPayout, Wallet
 from .models_extended import City, PriceGroup, ProductVariant
-from .marketplace_models import Payment, Shipment, VendorApplication, VendorLedgerEntry
+from .marketplace_models import Payment, Shipment, VendorApplication, VendorLedgerEntry, VendorOrder
 
 
 class JsonTextarea(forms.Textarea):
@@ -64,18 +64,21 @@ RESOURCE = {
     "products": (Product, ProductForm, ["name", "sku", "vendor", "price", "stock", "is_published", "is_trending"], "المنتجات"),
     "categories": (Category, None, ["name", "slug", "parent", "is_active", "sort_order"], "الفئات"),
     "orders": (Order, OrderForm, ["order_number", "customer", "status", "total", "payment_status", "created_at"], "الطلبات"),
+    "vendor-orders": (VendorOrder, None, ["order_number", "vendor", "status", "subtotal", "total", "vendor_net", "created_at"], "طلبات التجار"),
     "coupons": (Coupon, None, ["code", "discount_percent", "discount_amount", "minimum_order", "is_active"], "الكوبونات"),
     "storefront": (StorefrontSection, None, ["title", "section_type", "vendor", "sort_order", "is_visible"], "أقسام الواجهة"),
     "themes": (DesignTheme, None, ["name", "vendor", "is_global", "is_active"], "الثيمات"),
     "notifications": (Notification, None, ["title", "recipient", "product", "is_read", "created_at"], "الإشعارات"),
+    "conversations": (Conversation, None, ["customer", "vendor", "order", "subject", "is_closed", "created_at"], "المحادثات"),
     "payments": (Payment, None, ["order", "provider", "method", "amount", "status", "paid_at"], "المدفوعات"),
     "shipments": (Shipment, None, ["vendor_order", "carrier", "tracking_number", "status", "shipped_at", "delivered_at"], "الشحن"),
     "payouts": (VendorPayout, None, ["vendor", "amount", "currency", "status", "reference"], "مستحقات التجار"),
+    "ledger": (VendorLedgerEntry, None, ["vendor", "entry_type", "amount", "balance_after", "reference", "created_at"], "دفتر التجار"),
+    "wallets": (Wallet, None, ["user", "balance", "currency", "is_locked"], "المحافظ"),
     "cities": (City, None, ["name", "price_group", "shipping_fee", "is_active"], "المدن"),
     "price-groups": (PriceGroup, None, ["name", "code", "adjustment_type", "percentage", "fixed_amount", "is_active"], "مجموعات الأسعار"),
     "variants": (ProductVariant, None, ["product", "sku", "color", "size", "price_override", "stock", "reserved_stock", "is_active"], "الأصناف والمخزون"),
     "applications": (VendorApplication, None, ["store_name", "applicant", "phone", "status", "created_at"], "طلبات التجار"),
-    "ledger": (VendorLedgerEntry, None, ["vendor", "entry_type", "amount", "balance_after", "reference", "created_at"], "دفتر التجار"),
 }
 
 
