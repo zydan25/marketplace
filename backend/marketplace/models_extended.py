@@ -1,6 +1,8 @@
 from decimal import Decimal
 from django.db import models
 from django.conf import settings
+from django.utils.text import slugify
+import uuid
 
 
 class TimeStampedModel(models.Model):
@@ -31,7 +33,7 @@ class City(TimeStampedModel):
 
 class ProductVariant(TimeStampedModel):
     product = models.ForeignKey("marketplace.Product", on_delete=models.CASCADE, related_name="variants")
-    sku = models.CharField(max_length=80, unique=True)
+    sku = models.CharField(max_length=80, unique=True, blank=True)
     color = models.CharField(max_length=80, blank=True)
     size = models.CharField(max_length=80, blank=True)
     price_override = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -47,6 +49,23 @@ class ProductVariant(TimeStampedModel):
         if not self.is_active:
             return 0
         return max(0, self.stock - self.reserved_stock)
+
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            product_sku = getattr(self.product, "sku", "") or "PRODUCT"
+            color = slugify(self.color, allow_unicode=False).replace("-", "")[:20].upper()
+            size = slugify(self.size, allow_unicode=False).replace("-", "")[:20].upper()
+            dimensions = "-".join(part for part in (color, size) if part)
+            base = f"{product_sku}-{dimensions}" if dimensions else f"{product_sku}-VAR"
+            base = base[:70]
+            candidate = base
+            counter = 2
+            while ProductVariant.objects.filter(sku=candidate).exclude(pk=self.pk).exists():
+                suffix = f"-{counter}"
+                candidate = f"{base[:80-len(suffix)]}{suffix}"
+                counter += 1
+            self.sku = candidate or f"VAR-{uuid.uuid4().hex[:12].upper()}"
+        super().save(*args, **kwargs)
 
 
 class OrderStatusHistory(TimeStampedModel):
