@@ -10,8 +10,8 @@ from .models import Category, DesignTheme, Order, Product, User, VendorProfile
 class MarketplaceApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.customer = User.objects.create_user(phone="700000001", username="700000001", password="secret123", role="customer")
-        self.vendor_user = User.objects.create_user(phone="700000002", username="700000002", password="secret123", role="vendor")
+        self.customer = User.objects.create_user(phone="700000001", username="700000001", password="SafePass123!", role="customer")
+        self.vendor_user = User.objects.create_user(phone="700000002", username="700000002", password="SafePass123!", role="vendor")
         self.vendor = VendorProfile.objects.create(owner=self.vendor_user, store_name="متجر الاختبار", slug="test-store", status="active")
         self.category = Category.objects.create(name="فساتين", slug="dresses")
         self.product = Product.objects.create(vendor=self.vendor, sku="SKU-1", name="فستان اختبار", slug="test-dress", price=Decimal("100.00"), stock=4, is_published=True)
@@ -22,7 +22,7 @@ class MarketplaceApiTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
 
     def test_customer_registration_returns_token_and_wallet(self):
-        response = self.client.post("/api/auth/register/", {"phone": "700000003", "password": "secret123", "first_name": "عميل"}, format="json")
+        response = self.client.post("/api/auth/register/", {"phone": "700000003", "password": "NewSafePass456!", "first_name": "عميل"}, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertTrue(response.data["token"])
         self.assertTrue(User.objects.get(phone="700000003").wallet)
@@ -61,7 +61,7 @@ class MarketplaceApiTests(TestCase):
         self.assertFalse(Product.objects.filter(sku="SKU-SUSP").exists())
 
     def test_vendor_cannot_update_another_vendor_product(self):
-        other_user = User.objects.create_user(phone="700000004", username="700000004", password="secret123", role="vendor")
+        other_user = User.objects.create_user(phone="700000004", username="700000004", password="SafePass123!", role="vendor")
         other_vendor = VendorProfile.objects.create(owner=other_user, store_name="متجر ثانٍ", slug="second-store", status="active")
         other_product = Product.objects.create(vendor=other_vendor, sku="SKU-OTHER", name="منتج آخر", slug="other-product", price=Decimal("30.00"), stock=3)
         self.authenticate(self.vendor_user)
@@ -71,7 +71,7 @@ class MarketplaceApiTests(TestCase):
         self.assertEqual(other_product.name, "منتج آخر")
 
     def test_admin_role_with_own_vendor_can_create_without_vendor_id(self):
-        admin_user = User.objects.create_user(phone="700000005", username="700000005", password="secret123", role="admin")
+        admin_user = User.objects.create_user(phone="700000005", username="700000005", password="SafePass123!", role="admin")
         admin_vendor = VendorProfile.objects.create(owner=admin_user, store_name="متجر المدير", slug="admin-store", status="active")
         self.authenticate(admin_user)
         response = self.client.post("/api/products/", {"name": "منتج المدير", "sku": "SKU-ADMIN", "slug": "admin-product", "price": "50", "stock": 2}, format="json")
