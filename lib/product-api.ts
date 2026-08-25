@@ -181,10 +181,18 @@ export async function getProduct(id: string) {
   return { product: normalizeProduct(response), similar: [] as StoreProduct[] };
 }
 
+function buildProductSku(productCode?: string, productName?: string) {
+  const explicitSku = productCode?.trim();
+  if (explicitSku) return explicitSku;
+  const compactName = productName?.trim().replace(/\s+/g, "-").slice(0, 24);
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`.toUpperCase();
+  return `PRD-${compactName ? `${compactName}-` : ""}${suffix}`.slice(0, 80);
+}
+
 function toDjangoPayload(payload: ProductEditorPayload) {
   const imageDataUrls = [...(payload.images ?? []), ...(payload.newImages ?? [])].map((image) => image.dataUrl).filter(Boolean);
   return {
-    sku: payload.productCode,
+    sku: buildProductSku(payload.productCode, payload.name),
     name: payload.name,
     description: payload.description,
     details: payload.details,
