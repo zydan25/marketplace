@@ -3,7 +3,7 @@ from functools import wraps
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import Permission
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -34,10 +34,10 @@ def dashboard_login(request):
         return redirect(ADMIN_DASHBOARD_HOME)
     error = None
     if request.method == "POST":
-        phone = str(request.POST.get("phone", "")).strip()
+        identifier = str(request.POST.get("identifier", request.POST.get("phone", ""))).strip()
         password = str(request.POST.get("password", ""))
-        user = User.objects.filter(phone=phone).first() if phone else None
-        authenticated = authenticate(request, username=phone, password=password) if user else None
+        user = User.objects.filter(Q(username__iexact=identifier) | Q(phone=identifier)).first() if identifier else None
+        authenticated = authenticate(request, username=user.username, password=password) if user else None
         if authenticated and authenticated.is_active and (authenticated.is_staff or authenticated.role == "admin"):
             login(request, authenticated)
             if not authenticated.is_staff:
@@ -45,8 +45,11 @@ def dashboard_login(request):
                 authenticated.save(update_fields=["is_staff"])
             perms = Permission.objects.filter(content_type__app_label="marketplace")
             authenticated.user_permissions.set(perms)
-            return redirect(ADMIN_DASHBOARD_HOME)
-        error = "بيانات الدخول غير صحيحة أو لا يملك الحساب صلاحية الإدارة."
+            next_url = request.GET.get("next") or request.POST.get("next") or ADMIN_DASHBOARD_HOME
+            if not next_url.startswith("/admin/dashboard/"):
+                next_url = ADMIN_DASHBOARD_HOME
+            return redirect(next_url)
+        error = "اسم المستخدم أو رقم الهاتف أو كلمة المرور غير صحيحة، أو لا يملك الحساب صلاحية الإدارة."
     return render(request, "admin/dashboard_login.html", {"error": error})
 
 
