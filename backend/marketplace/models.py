@@ -90,7 +90,7 @@ class Category(TimeStampedModel):
 class Product(TimeStampedModel):
     vendor = models.ForeignKey(VendorProfile, on_delete=models.CASCADE, related_name="products")
     categories = models.ManyToManyField(Category, related_name="products", blank=True)
-    sku = models.CharField(max_length=80, unique=True)
+    sku = models.CharField(max_length=80, unique=True, blank=True)
     name = models.CharField(max_length=220)
     slug = models.SlugField(max_length=240, unique=True, blank=True)
     description = models.TextField(blank=True)
@@ -140,6 +140,18 @@ class Product(TimeStampedModel):
                 slug = f"{base_slug[:240 - len(suffix)]}{suffix}"
                 counter += 1
             self.slug = slug
+        if not self.sku:
+            base_sku = slugify(self.name, allow_unicode=False).replace("-", "")[:55].upper()
+            if not base_sku:
+                base_sku = "PRODUCT"
+            base_sku = f"SKU-{base_sku}"
+            candidate = base_sku[:80]
+            counter = 2
+            while Product.objects.filter(sku=candidate).exclude(pk=self.pk).exists():
+                suffix = f"-{counter}"
+                candidate = f"{base_sku[:80 - len(suffix)]}{suffix}"
+                counter += 1
+            self.sku = candidate
         super().save(*args, **kwargs)
     def __str__(self):
         return f"{self.name} ({self.sku})"
