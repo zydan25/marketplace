@@ -100,3 +100,5 @@ class OrderChatMessageAdmin(admin.ModelAdmin):
     list_filter = ("is_read", "created_at")
     search_fields = ("chat__order__order_number", "sender__phone", "body")
     readonly_fields = ("chat", "sender", "created_at")
+
+from . import admin_catalog  # noqa: E402,F401
