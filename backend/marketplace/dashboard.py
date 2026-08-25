@@ -3,7 +3,6 @@ from functools import wraps
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import Permission
-from django.contrib.auth.views import redirect_to_login
 from django.db.models import Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -13,11 +12,17 @@ from .marketplace_models import Payment, VendorApplication, VendorLedgerEntry, V
 from .models import Category, Notification, Order, Product, StorefrontSection, User, VendorPayout, VendorProfile, Wallet
 
 
+ADMIN_DASHBOARD_LOGIN = "/admin/dashboard/login/"
+ADMIN_DASHBOARD_HOME = "/admin/dashboard/"
+
+
 def dashboard_access_required(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect_to_login(request.get_full_path(), login_url="/admin/dashboard/login/")
+            next_url = request.get_full_path()
+            separator = "&" if "?" in ADMIN_DASHBOARD_LOGIN else "?"
+            return redirect(f"{ADMIN_DASHBOARD_LOGIN}?next={next_url}")
         if not (request.user.is_staff or getattr(request.user, "role", None) == "admin"):
             return HttpResponse("ليس لديك صلاحية الوصول إلى لوحة الإدارة.", status=403)
         return view(request, *args, **kwargs)
@@ -26,7 +31,7 @@ def dashboard_access_required(view):
 
 def dashboard_login(request):
     if request.user.is_authenticated and (request.user.is_staff or getattr(request.user, "role", None) == "admin"):
-        return redirect("admin-dashboard")
+        return redirect(ADMIN_DASHBOARD_HOME)
     error = None
     if request.method == "POST":
         phone = str(request.POST.get("phone", "")).strip()
@@ -40,14 +45,14 @@ def dashboard_login(request):
                 authenticated.save(update_fields=["is_staff"])
             perms = Permission.objects.filter(content_type__app_label="marketplace")
             authenticated.user_permissions.set(perms)
-            return redirect("admin-dashboard")
+            return redirect(ADMIN_DASHBOARD_HOME)
         error = "بيانات الدخول غير صحيحة أو لا يملك الحساب صلاحية الإدارة."
     return render(request, "admin/dashboard_login.html", {"error": error})
 
 
 def dashboard_logout(request):
     logout(request)
-    return redirect("admin-dashboard-login")
+    return redirect(ADMIN_DASHBOARD_LOGIN)
 
 
 def _dashboard_context():
@@ -110,7 +115,7 @@ def dashboard_manifest(request):
         "short_name": "سوقيك Admin",
         "lang": "ar",
         "dir": "rtl",
-        "start_url": "/admin/dashboard/",
+        "start_url": ADMIN_DASHBOARD_HOME,
         "scope": "/admin/",
         "display": "standalone",
         "background_color": "#f4f7fb",
