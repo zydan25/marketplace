@@ -1,7 +1,8 @@
-from django.conf import settings
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from urllib.parse import quote
+
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Category, StorefrontSection, VendorProfile
 from .storefront_models import StorefrontMedia
@@ -24,18 +25,45 @@ class DynamicHomeView(APIView):
             categories = list(Category.objects.filter(is_active=True).order_by("sort_order", "name"))
             media = list(StorefrontMedia.objects.filter(vendor__isnull=True, is_active=True).order_by("updated_at", "id"))
 
-        # A section is public when it is visible and published. Missing legacy publish metadata is treated as published.
         sections = [section for section in raw_sections if (section.config or {}).get("published", True)]
-
         data = []
         for section in sections:
+            config = dict(section.config or {})
+            if section.section_type == "category":
+                category_ids = []
+                for value in config.get("category_ids", []):
+                    try:
+                        category_ids.append(int(value))
+                    except (TypeError, ValueError):
+                        continue
+                selected = Category.objects.filter(id__in=category_ids, is_active=True).order_by("sort_order", "name")
+                by_id = {item.id: item for item in selected}
+                ordered = [by_id[item_id] for item_id in category_ids if item_id in by_id]
+                config["circles"] = [
+                    {
+                        "id": item.id,
+                        "title": item.name,
+                        "name": item.name,
+                        "targetCategory": item.slug,
+                        "categorySlug": item.slug,
+                        # The current collection screen filters by category NAME,
+                        # so use the category name for the public route.
+                        "url": f"/collection?category={quote(item.name)}",
+                        "route": f"/collection?category={quote(item.name)}",
+                        "imageUrl": request.build_absolute_uri(item.image.url) if item.image else "",
+                        "visible": True,
+                        "sortOrder": index,
+                    }
+                    for index, item in enumerate(ordered)
+                ]
+                config["category_ids"] = [item.id for item in ordered]
             data.append({
                 "id": section.id,
                 "type": section.section_type,
                 "title": section.title,
                 "sort_order": section.sort_order,
                 "is_visible": section.is_visible,
-                "config": section.config or {},
+                "config": config,
             })
 
         if categories and not any(item["type"] == "category" for item in data):
@@ -50,8 +78,11 @@ class DynamicHomeView(APIView):
                         {
                             "id": category.id,
                             "title": category.name,
+                            "name": category.name,
                             "targetCategory": category.slug,
-                            "url": f"/collection?category={category.slug}",
+                            "categorySlug": category.slug,
+                            "url": f"/collection?category={quote(category.name)}",
+                            "route": f"/collection?category={quote(category.name)}",
                             "imageUrl": request.build_absolute_uri(category.image.url) if category.image else "",
                             "visible": True,
                             "sortOrder": index,
