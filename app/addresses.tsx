@@ -1,75 +1,10 @@
-import { useEffect, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { ApiClient } from "@/lib/api-client";
+import { djangoApi } from "@/lib/django-api";
 
-type Address = { id: number; title: string; city: { name: string }; district: string; street: string; phone: string; is_default: boolean };
-
-export default function AddressesScreen() {
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  async function load() {
-    try {
-      const data = await ApiClient.get<{ results: Address[] }>("/api/addresses/");
-      setAddresses(data.results || []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { load(); }, []);
-
-  function selectAddress(address: Address) {
-    // Here we would typically save to context or pass back via router params
-    Alert.alert("تم الاختيار", `تم اختيار عنوان: ${address.title}`);
-    router.back();
-  }
-
-  return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F5F5F5]">
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} /></TouchableOpacity>
-        <Text style={styles.title}>عناويني</Text>
-        <TouchableOpacity onPress={() => Alert.alert("قريباً", "إضافة عنوان جديد ستتوفر قريباً")}><MaterialIcons name="add" size={25} color="#E60023" /></TouchableOpacity>
-      </View>
-      
-      <FlatList
-        style={{ flex: 1 }}
-        data={addresses}
-        keyExtractor={item => String(item.id)}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>لا توجد عناوين محفوظة.</Text>}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => selectAddress(item)}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              {item.is_default && <View style={styles.badge}><Text style={styles.badgeText}>الافتراضي</Text></View>}
-            </View>
-            <Text style={styles.details}>{item.city.name} - {item.district}</Text>
-            <Text style={styles.details}>{item.street}</Text>
-            <Text style={styles.phone}>{item.phone}</Text>
-          </TouchableOpacity>
-        )}
-      />
-    </ScreenContainer>
-  );
-}
-
-const styles = StyleSheet.create({
-  header: { padding: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  title: { fontSize: 20, fontWeight: "900" },
-  list: { padding: 14, paddingBottom: 180 },
-  card: { backgroundColor: "#FFF", borderRadius: 10, padding: 16, marginBottom: 12, alignItems: "flex-end" },
-  cardHeader: { flexDirection: "row-reverse", justifyContent: "space-between", width: "100%", marginBottom: 8 },
-  cardTitle: { fontSize: 16, fontWeight: "900" },
-  badge: { backgroundColor: "#E6F4FE", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
-  badgeText: { color: "#0a7ea4", fontSize: 10, fontWeight: "700" },
-  details: { color: "#555", fontSize: 13, marginBottom: 4, textAlign: "right" },
-  phone: { color: "#111", fontSize: 13, fontWeight: "700", marginTop: 4, textAlign: "right", writingDirection: "ltr" },
-  empty: { textAlign: "center", color: "#777", marginTop: 40 },
-});
+type City={id:number;name:string}; type Address={id:number;title:string;city:{id:number;name:string};district:string;street:string;phone:string;is_default:boolean};
+export default function AddressesScreen(){const [addresses,setAddresses]=useState<Address[]>([]);const[cities,setCities]=useState<City[]>([]);const[open,setOpen]=useState(false);const[district,setDistrict]=useState("");const[street,setStreet]=useState("");const[city,setCity]=useState<number|null>(null);const[loading,setLoading]=useState(true);async function load(){try{const[a,c]=await Promise.all([djangoApi<Address[]|{results?:Address[]}>('/api/addresses/'),djangoApi<City[]|{results?:City[]}>('/api/cities/')]);setAddresses(Array.isArray(a)?a:a.results??[]);setCities(Array.isArray(c)?c:c.results??[])}catch(e){Alert.alert('تعذر تحميل العناوين',e instanceof Error?e.message:'حاول مرة أخرى')}finally{setLoading(false)}}useEffect(()=>{load()},[]);async function save(){if(!city)return Alert.alert('بيانات ناقصة','اختر المدينة.');try{await djangoApi('/api/addresses/',{method:'POST',body:JSON.stringify({city,district,street,is_default:addresses.length===0})});setOpen(false);setDistrict('');setStreet('');setCity(null);load()}catch(e){Alert.alert('تعذر حفظ العنوان',e instanceof Error?e.message:'حاول مرة أخرى')}}return <ScreenContainer className="bg-[#F6F6F6]"><View style={styles.header}><Pressable onPress={()=>router.back()}><MaterialIcons name="arrow-forward" size={24}/></Pressable><Text style={styles.title}>عناويني</Text><Pressable onPress={()=>setOpen(true)}><MaterialIcons name="add" size={24} color="#111"/></Pressable></View>{loading?<Text style={styles.empty}>جارٍ التحميل...</Text>:<ScrollView contentContainerStyle={styles.list}>{addresses.map(a=><View key={a.id} style={styles.card}><View style={styles.row}><Text style={styles.cardTitle}>{a.city.name}</Text>{a.is_default&&<Text style={styles.badge}>الافتراضي</Text>}</View><Text style={styles.detail}>{a.district||'بدون مديرية/حي'}</Text><Text style={styles.detail}>{a.street||'بدون شارع'}</Text></View>)}</ScrollView>}<Modal visible={open} transparent animationType="slide" onRequestClose={()=>setOpen(false)}><View style={styles.overlay}><View style={styles.sheet}><View style={styles.row}><Pressable onPress={()=>setOpen(false)}><MaterialIcons name="close" size={22}/></Pressable><Text style={styles.sheetTitle}>إضافة عنوان</Text><View style={{width:22}}/></View><ScrollView><Text style={styles.label}>المدينة</Text><View style={styles.chips}>{cities.map(c=><Pressable key={c.id} onPress={()=>setCity(c.id)} style={[styles.chip,city===c.id&&styles.chipActive]}><Text style={[styles.chipText,city===c.id&&styles.chipTextActive]}>{c.name}</Text></Pressable>)}</View><TextInput value={district} onChangeText={setDistrict} placeholder="المديرية / الحي" style={styles.input} textAlign="right"/><TextInput value={street} onChangeText={setStreet} placeholder="اسم الشارع" style={styles.input} textAlign="right"/><Pressable onPress={save} style={styles.save}><Text style={styles.saveText}>حفظ العنوان</Text></Pressable></ScrollView></View></View></Modal></ScreenContainer>}
+const styles=StyleSheet.create({header:{height:58,paddingHorizontal:14,backgroundColor:'#FFF',flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderColor:'#EEE'},title:{fontSize:17,fontWeight:'900'},list:{padding:12,paddingBottom:100},card:{backgroundColor:'#FFF',borderRadius:14,padding:14,marginBottom:10},row:{flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center'},cardTitle:{fontSize:14,fontWeight:'900'},detail:{fontSize:11,color:'#666',textAlign:'right',marginTop:6},badge:{fontSize:9,color:'#168451',backgroundColor:'#EEF8F1',paddingHorizontal:8,paddingVertical:4,borderRadius:8},empty:{textAlign:'center',marginTop:40,color:'#888'},overlay:{flex:1,backgroundColor:'rgba(0,0,0,.35)',justifyContent:'flex-end'},sheet:{backgroundColor:'#FFF',padding:16,borderTopLeftRadius:22,borderTopRightRadius:22,maxHeight:'85%'},sheetTitle:{fontSize:16,fontWeight:'900'},label:{fontSize:11,fontWeight:'800',textAlign:'right',marginTop:14,marginBottom:7},chips:{flexDirection:'row-reverse',flexWrap:'wrap',gap:7},chip:{paddingHorizontal:11,paddingVertical:8,borderRadius:18,borderWidth:1,borderColor:'#DDD'},chipActive:{backgroundColor:'#111',borderColor:'#111'},chipText:{fontSize:10,color:'#555'},chipTextActive:{color:'#FFF',fontWeight:'800'},input:{height:46,borderWidth:1,borderColor:'#E4E4E4',backgroundColor:'#F8F8F8',borderRadius:11,paddingHorizontal:12,marginTop:9,fontSize:12},save:{height:46,borderRadius:23,backgroundColor:'#111',alignItems:'center',justifyContent:'center',marginTop:16,marginBottom:20},saveText:{color:'#FFF',fontWeight:'900',fontSize:12}});
