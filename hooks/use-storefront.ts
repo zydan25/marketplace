@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-
-import { getStorefront, type StorefrontTab } from "@/lib/storefront-api";
+import { getStorefront, type StorefrontTab, type StorefrontTheme } from "@/lib/storefront-api";
 
 export function useStorefront() {
   const [tabs, setTabs] = useState<StorefrontTab[]>([]);
+  const [theme, setTheme] = useState<StorefrontTheme | null>(null);
   const [loading, setLoading] = useState(true);
-  const refresh = useCallback(async () => { try { setLoading(true); setTabs(await getStorefront()); } catch { setTabs([]); } finally { setLoading(false); } }, []);
-  useEffect(() => { refresh(); }, [refresh]);
-  return { tabs, loading, refresh };
+  const refresh = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await getStorefront();
+      setTabs(result.tabs);
+      setTheme(result.theme);
+    } catch {
+      setTabs([]);
+      setTheme(null);
+    } finally { setLoading(false); }
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+  return { tabs, theme, loading, refresh };
 }
