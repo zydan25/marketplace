@@ -1,7 +1,6 @@
 from django.urls import include, path
 from rest_framework import serializers, viewsets
 from rest_framework.routers import DefaultRouter
-
 from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
 from .secure_auth import SecureLoginView, SecureRegisterView
@@ -16,16 +15,14 @@ from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
 from .service_api import ServiceCategoryViewSet, ServiceViewSet, ServiceSubmissionViewSet
+from .engagement_api import FavoriteViewSet, ProductCommentViewSet
+from .password_reset_api import PasswordResetWhatsAppRequestView, PasswordResetConfirmView
 
 class PriceGroupSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PriceGroup
-        fields = "__all__"
+    class Meta: model = PriceGroup; fields = "__all__"
 class CitySerializer(serializers.ModelSerializer):
     price_group = PriceGroupSerializer(read_only=True)
-    class Meta:
-        model = City
-        fields = "__all__"
+    class Meta: model = City; fields = "__all__"
 class CityViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = City.objects.filter(is_active=True); serializer_class = CitySerializer
 class CouponViewSet(viewsets.ReadOnlyModelViewSet):
@@ -53,11 +50,15 @@ router.register("gifts", GiftTransferViewSet, basename="gift")
 router.register("service-categories", ServiceCategoryViewSet, basename="service-category")
 router.register("services", ServiceViewSet, basename="service")
 router.register("service-submissions", ServiceSubmissionViewSet, basename="service-submission")
+router.register("favorites", FavoriteViewSet, basename="favorite")
+router.register("product-comments", ProductCommentViewSet, basename="product-comment")
 
 urlpatterns = [
     path("auth/login/", SecureLoginView.as_view(), name="login"),
     path("auth/register/", SecureRegisterView.as_view(), name="register"),
     path("auth/me/", me, name="me"),
+    path("auth/password-reset/whatsapp/", PasswordResetWhatsAppRequestView.as_view(), name="password-reset-whatsapp"),
+    path("auth/reset-password/<str:token>/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
     path("cart/calculate/", SecureCartCalculateView.as_view(), name="cart-calculate"),
     path("home/", DynamicHomeView.as_view(), name="home-global"),
     path("stores/<slug:slug>/home/", DynamicHomeView.as_view(), name="home-store"),
