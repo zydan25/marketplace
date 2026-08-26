@@ -9,3 +9,10 @@ class MarketplaceConfig(AppConfig):
         from . import marketplace_models  # noqa: F401
         from . import storefront_models  # noqa: F401
         from . import order_chat_models  # noqa: F401
+        from . import secure_catalog
+        from .secure_vendor_catalog import VendorDesignThemeViewSet, VendorProductViewSet, VendorStorefrontSectionViewSet
+
+        # Replace the compatibility classes before Django URL configuration imports them.
+        secure_catalog.SecureProductViewSet = VendorProductViewSet
+        secure_catalog.SecureDesignThemeViewSet = VendorDesignThemeViewSet
+        secure_catalog.SecureStorefrontSectionViewSet = VendorStorefrontSectionViewSet
