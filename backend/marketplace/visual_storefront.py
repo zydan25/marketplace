@@ -28,55 +28,57 @@ def visual_editor(request):
  return render(request,"admin/marketplace/storefront_builder_v4.html",{"sections":sections,"section_types":ALLOWED_SECTION_TYPES,"catalog_json":json.dumps(catalog,ensure_ascii=False),"defaults_json":json.dumps(defaults(),ensure_ascii=False),"type_help":TYPE_HELP})
 @require_http_methods(["POST"])
 def create_section(request):
- v,owner=scope(request.user)
- if v is False:return JsonResponse({"detail":"التاجر غير نشط أو لا يملك متجرًا."},status=403)
- try:d=json.loads(request.body or "{}")
+ vendor,owner=scope(request.user)
+ if vendor is False:return JsonResponse({"detail":"التاجر غير نشط أو لا يملك متجرًا."},status=403)
+ try:data=json.loads(request.body or "{}")
  except json.JSONDecodeError:return JsonResponse({"detail":"بيانات غير صالحة."},status=400)
- k=d.get("section_type","banner")
- if k not in ALLOWED_SECTION_TYPES:return JsonResponse({"detail":"نوع القسم غير صالح."},status=400)
- last=StorefrontSection.objects.filter(vendor=v).order_by("-sort_order","-id").first()
- try:r=int(d.get("sort_order") or 0)
- except: r=0
- s=StorefrontSection.objects.create(owner=owner,vendor=v,title=str(d.get("title") or ALLOWED_SECTION_TYPES[k])[:180],section_type=k,sort_order=r if r>0 else (last.sort_order+1 if last else 1),is_visible=False,config=defaults())
+ kind=data.get("section_type","banner")
+ if kind not in ALLOWED_SECTION_TYPES:return JsonResponse({"detail":"نوع القسم غير صالح."},status=400)
+ last=StorefrontSection.objects.filter(vendor=vendor).order_by("-sort_order","-id").first()
+ try:req=int(data.get("sort_order") or 0)
+ except (TypeError,ValueError):req=0
+ order=req if req>0 else (last.sort_order+1 if last else 1)
+ s=StorefrontSection.objects.create(owner=owner,vendor=vendor,title=str(data.get("title") or ALLOWED_SECTION_TYPES[kind])[:180],section_type=kind,sort_order=order,is_visible=False,config=defaults())
  return JsonResponse({"ok":True,"id":s.id})
 @require_http_methods(["POST"])
 def update_section(request,pk):
  s=get_object_or_404(StorefrontSection.objects.select_related("vendor"),pk=pk)
  if not can_edit(request.user,s):return JsonResponse({"detail":"لا تملك صلاحية هذا القسم."},status=403)
- try:d=json.loads(request.POST.get("payload","{}")) if request.content_type.startswith("multipart/") else json.loads(request.body or "{}")
+ try:data=json.loads(request.POST.get("payload","{}")) if request.content_type.startswith("multipart/") else json.loads(request.body or "{}")
  except json.JSONDecodeError:return JsonResponse({"detail":"بيانات غير صالحة."},status=400)
- a=d.get("action","save")
- if a=="delete":s.delete();return JsonResponse({"ok":True})
- if a=="duplicate":
+ action=data.get("action","save")
+ if action=="delete":s.delete();return JsonResponse({"ok":True})
+ if action=="duplicate":
   c=copy.deepcopy(config(s));c["published"]=False;n=s.sort_order+1
   for x in StorefrontSection.objects.filter(vendor=s.vendor,sort_order__gte=n).order_by("-sort_order"):x.sort_order+=1;x.save(update_fields=["sort_order","updated_at"])
   clone=StorefrontSection.objects.create(owner=request.user,vendor=s.vendor,title=f"{s.title} — نسخة",section_type=s.section_type,sort_order=n,is_visible=False,config=c);return JsonResponse({"ok":True,"id":clone.id})
- if a in {"publish","unpublish"}:
-  val=a=="publish";c=config(s);c["published"]=val;s.config=c;s.is_visible=val;s.save(update_fields=["config","is_visible","updated_at"]);return JsonResponse({"ok":True,"published":val})
- k=d.get("section_type",s.section_type)
- try:o=max(1,int(d.get("sort_order",s.sort_order)))
- except:return JsonResponse({"detail":"رقم الترتيب غير صالح."},status=400)
- c=defaults();c.update(d.get("config") or {})
+ if action in {"publish","unpublish"}:
+  val=action=="publish";c=config(s);c["published"]=val;s.config=c;s.is_visible=val;s.save(update_fields=["config","is_visible","updated_at"]);return JsonResponse({"ok":True,"published":val})
+ kind=data.get("section_type",s.section_type)
+ if kind not in ALLOWED_SECTION_TYPES:return JsonResponse({"detail":"نوع القسم غير صالح."},status=400)
+ try:order=max(1,int(data.get("sort_order",s.sort_order)))
+ except (TypeError,ValueError):return JsonResponse({"detail":"رقم الترتيب غير صالح."},status=400)
+ c=defaults();c.update(data.get("config") or {})
  for name,key,pathkey in (("image","image_url","image_path"),("mobile_image","mobile_image_url","mobile_image_path")):
   f=request.FILES.get(name)
   if f:
    if f.size>8*1024*1024:return JsonResponse({"detail":"حجم الصورة أكبر من 8 ميجابايت."},status=400)
    p=upload_file(f);c[pathkey]=p;c[key]=default_storage.url(p)
- s.title=str(d.get("title",s.title))[:180];s.section_type=k;s.sort_order=o;s.is_visible=bool(d.get("is_visible",s.is_visible));s.config=c;s.save(update_fields=["title","section_type","sort_order","is_visible","config","updated_at"])
- return JsonResponse({"ok":True,"config":c,"order":o})
+ s.title=str(data.get("title",s.title))[:180];s.section_type=kind;s.sort_order=order;s.is_visible=bool(data.get("is_visible",s.is_visible));s.config=c;s.save(update_fields=["title","section_type","sort_order","is_visible","config","updated_at"])
+ return JsonResponse({"ok":True,"config":c,"order":order})
 @require_http_methods(["POST"])
 def reorder_sections(request):
  try:items=json.loads(request.body or "{}").get("items",[])
- except:return JsonResponse({"detail":"بيانات الترتيب غير صالحة."},status=400)
+ except (json.JSONDecodeError,TypeError):return JsonResponse({"detail":"بيانات الترتيب غير صالحة."},status=400)
  ids=[];orders=[]
- for x in items:
-  try:i,n=int(x["id"]),int(x["order"])
-  except:return JsonResponse({"detail":"كل عنصر يحتاج رقمًا صحيحًا."},status=400)
+ for item in items:
+  try:i,n=int(item["id"]),int(item["order"])
+  except (KeyError,TypeError,ValueError):return JsonResponse({"detail":"كل عنصر يحتاج رقمًا صحيحًا."},status=400)
   ids.append(i);orders.append(n)
  if len(ids)!=len(set(ids)) or len(orders)!=len(set(orders)) or any(n<1 for n in orders):return JsonResponse({"detail":"أرقام الترتيب يجب أن تكون موجبة وفريدة."},status=400)
  rows={x.id:x for x in StorefrontSection.objects.filter(id__in=ids).select_related("vendor")}
  if set(ids)!=set(rows) or any(not can_edit(request.user,x) for x in rows.values()):return JsonResponse({"detail":"لا يمكنك ترتيب هذه الأقسام."},status=403)
- for x in items:rows[int(x["id"])].sort_order=int(x["order"]);rows[int(x["id"])].save(update_fields=["sort_order","updated_at"])
+ for item in items: rows[int(item["id"])].sort_order=int(item["order"]);rows[int(item["id"])].save(update_fields=["sort_order","updated_at"])
  return JsonResponse({"ok":True})
 @require_http_methods(["POST"])
 def upload_storefront_image(request):
