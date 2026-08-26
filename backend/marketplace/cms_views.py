@@ -16,13 +16,16 @@ class DynamicHomeView(APIView):
             vendor = VendorProfile.objects.filter(slug=slug, status="active").first()
             if not vendor:
                 return Response({"detail": "المتجر غير موجود"}, status=404)
-            sections = list(StorefrontSection.objects.filter(vendor=vendor, is_visible=True).order_by("sort_order", "id"))
+            raw_sections = StorefrontSection.objects.filter(vendor=vendor, is_visible=True).order_by("sort_order", "id")
             categories = []
             media = list(StorefrontMedia.objects.filter(vendor=vendor, is_active=True).order_by("updated_at", "id"))
         else:
-            sections = list(StorefrontSection.objects.filter(vendor__isnull=True, is_visible=True).order_by("sort_order", "id"))
+            raw_sections = StorefrontSection.objects.filter(vendor__isnull=True, is_visible=True).order_by("sort_order", "id")
             categories = list(Category.objects.filter(is_active=True).order_by("sort_order", "name"))
             media = list(StorefrontMedia.objects.filter(vendor__isnull=True, is_active=True).order_by("updated_at", "id"))
+
+        # A section is public when it is visible and published. Missing legacy publish metadata is treated as published.
+        sections = [section for section in raw_sections if (section.config or {}).get("published", True)]
 
         data = []
         for section in sections:
@@ -35,7 +38,6 @@ class DynamicHomeView(APIView):
                 "config": section.config or {},
             })
 
-        # Legacy/admin categories are projected into the same visual format consumed by the app.
         if categories and not any(item["type"] == "category" for item in data):
             data.append({
                 "id": "system-categories",
@@ -59,7 +61,6 @@ class DynamicHomeView(APIView):
                 },
             })
 
-        # Media created from Django Admin is projected into a hero/banner section.
         if media and not any(item["type"] in {"hero", "banner"} for item in data):
             data.append({
                 "id": "system-media",
