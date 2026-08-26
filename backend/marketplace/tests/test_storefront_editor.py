@@ -6,7 +6,8 @@ from django.test import TestCase
 from django.urls import reverse
 from PIL import Image
 
-from marketplace.models import StorefrontSection, User, VendorProfile
+from marketplace.models import Product, ProductVariant, StorefrontSection, User, VendorProfile
+from marketplace.secure_vendor_catalog import VendorProductSerializer
 
 
 class StorefrontEditorTests(TestCase):
@@ -150,3 +151,25 @@ class StorefrontEditorTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("غير مدعوم", response.json().get("detail", ""))
+
+    def test_vendor_product_edit_accepts_existing_variant_sku_without_id(self):
+        product = Product.objects.create(
+            vendor=self.vendor_profile,
+            name="منتج اختبار",
+            sku="PRODUCT-1",
+            price=100,
+            stock=10,
+            is_published=True,
+        )
+        ProductVariant.objects.create(product=product, sku="PRODUCT-1-BLUE-S", color="أزرق", size="S", stock=5)
+        payload = {
+            "variants": [{"sku": "PRODUCT-1-BLUE-S", "color": "أزرق", "size": "S", "stock": 7}],
+            "name": "منتج اختبار محدث",
+        }
+        serializer = VendorProductSerializer(instance=product, data=payload, partial=True)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        updated = serializer.save()
+        self.assertEqual(updated.name, "منتج اختبار محدث")
+        variant = updated.variants.get(sku="PRODUCT-1-BLUE-S")
+        self.assertEqual(variant.stock, 7)
+        self.assertEqual(updated.variants.count(), 1)
