@@ -10,27 +10,34 @@ from .serializers import ProductSerializer
 
 
 class VendorProductSerializer(ProductSerializer):
-    """Accept legacy/edit forms that identify variants by SKU instead of id."""
+    """Keep vendor product edits backward-compatible when the client identifies variants by SKU."""
 
-    def update(self, instance, validated_data):
-        variants = validated_data.get("variants")
-        if variants is not None:
+    def to_internal_value(self, data):
+        """Inject existing variant ids before nested validation runs.
+
+        The previous implementation tried to add ids in ``update()``, but DRF
+        validates nested ProductVariant rows before calling ``update``. An edit
+        therefore failed with a 400 when an unchanged variant reused its own SKU.
+        """
+        if self.instance is not None and isinstance(data, dict) and "variants" in data and isinstance(data.get("variants"), list):
             existing_by_sku = {
                 str(variant.sku).strip(): variant.id
-                for variant in instance.variants.all()
+                for variant in self.instance.variants.all()
                 if variant.sku
             }
-            normalized = []
-            for row in variants:
-                item = dict(row)
-                if not item.get("id"):
-                    sku = str(item.get("sku", "")).strip()
+            normalized_rows = []
+            for raw_row in data["variants"]:
+                row = dict(raw_row) if isinstance(raw_row, dict) else raw_row
+                if isinstance(row, dict) and not row.get("id"):
+                    sku = str(row.get("sku", "")).strip()
                     existing_id = existing_by_sku.get(sku)
                     if existing_id:
-                        item["id"] = existing_id
-                normalized.append(item)
-            validated_data["variants"] = normalized
-        return super().update(instance, validated_data)
+                        row["id"] = existing_id
+                normalized_rows.append(row)
+            payload = dict(data)
+            payload["variants"] = normalized_rows
+            data = payload
+        return super().to_internal_value(data)
 
 
 class VendorProductViewSet(SecureProductViewSet):
@@ -93,7 +100,6 @@ class VendorStorefrontSectionViewSet(SecureStorefrontSectionViewSet):
         if user.is_staff or user.role == "admin":
             return qs
         if user.role == "vendor":
-            # Include the vendor's own drafts/hidden sections too.
             return qs.filter(vendor__owner=user)
         return qs.filter(vendor__isnull=True, is_visible=True)
 
