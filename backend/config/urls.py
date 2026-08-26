@@ -7,7 +7,7 @@ from marketplace.dashboard_crud import resource_create, resource_delete, resourc
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
 from marketplace.root_views import landing_page
-from marketplace.visual_storefront import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
+from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
 
 urlpatterns = [
     path("", landing_page, name="landing-page"),
@@ -29,7 +29,7 @@ urlpatterns = [
     path("admin/marketplace/storefront-editor/upload-image/", upload_storefront_image, name="admin-storefront-image-upload"),
     path("admin/marketplace/storefront-editor/reorder/", reorder_sections, name="admin-storefront-section-reorder"),
 
-    # Compatibility aliases used by the current builder JavaScript.
+    # Compatibility aliases used by the editor JavaScript.
     path("admin/marketplace/storefront-builder/create/", create_section, name="admin-storefront-builder-create"),
     path("admin/marketplace/storefront-builder/<int:pk>/save/", update_section, name="admin-storefront-builder-save"),
     path("admin/marketplace/storefront-builder/<int:pk>/delete/", update_section, name="admin-storefront-builder-delete"),
