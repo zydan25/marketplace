@@ -139,7 +139,7 @@ class StorefrontEditorTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.global_section.refresh_from_db()
-        self.assertTrue(self.global_section.config["slides"][0]["imageUrl"].startswith("/"))
+        self.assertTrue(self.global_section.config["slides"][0]["imageUrl"].startswith("http://testserver/"))
 
     def test_unsupported_image_type_is_rejected_cleanly(self):
         self.client.force_login(self.admin)
