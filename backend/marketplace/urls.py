@@ -15,26 +15,22 @@ from .vendor_finance_api import VendorFinanceViewSet
 from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
+from .service_api import ServiceCategoryViewSet, ServiceViewSet, ServiceSubmissionViewSet
 
 class PriceGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = PriceGroup
         fields = "__all__"
-
 class CitySerializer(serializers.ModelSerializer):
     price_group = PriceGroupSerializer(read_only=True)
     class Meta:
         model = City
         fields = "__all__"
-
 class CityViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = City.objects.filter(is_active=True)
-    serializer_class = CitySerializer
-
+    queryset = City.objects.filter(is_active=True); serializer_class = CitySerializer
 class CouponViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CouponSerializer
-    def get_queryset(self):
-        return CouponModel.objects.filter(is_active=True)
+    def get_queryset(self): return CouponModel.objects.filter(is_active=True)
 
 router = DefaultRouter()
 router.register("vendors", SecureVendorViewSet, basename="vendor")
@@ -54,6 +50,9 @@ router.register("cities", CityViewSet, basename="city")
 router.register("addresses", AddressViewSet, basename="address")
 router.register("loans", LoanViewSet, basename="loan")
 router.register("gifts", GiftTransferViewSet, basename="gift")
+router.register("service-categories", ServiceCategoryViewSet, basename="service-category")
+router.register("services", ServiceViewSet, basename="service")
+router.register("service-submissions", ServiceSubmissionViewSet, basename="service-submission")
 
 urlpatterns = [
     path("auth/login/", SecureLoginView.as_view(), name="login"),
