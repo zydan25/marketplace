@@ -13,6 +13,8 @@ from .service_api import ServiceCategoryViewSet, ServiceViewSet, ServiceSubmissi
 from .category_api import CategoryViewSet
 from .wallet_order_api import WalletOrderViewSet
 from .shipping_api import VendorCityShippingViewSet, MarketplaceOfficeViewSet
+from .engagement_api import FavoriteViewSet, ProductCommentViewSet
+from .password_reset_api import PasswordResetWhatsAppRequestView, PasswordResetConfirmView
 
 class PriceGroupSerializer(serializers.ModelSerializer):
     class Meta: model=PriceGroup; fields="__all__"
@@ -45,7 +47,11 @@ router.register("services",ServiceViewSet,basename="service")
 router.register("service-submissions",ServiceSubmissionViewSet,basename="service-submission")
 router.register("vendor-city-shipping",VendorCityShippingViewSet,basename="vendor-city-shipping")
 router.register("marketplace-offices",MarketplaceOfficeViewSet,basename="marketplace-office")
+router.register("favorites",FavoriteViewSet,basename="favorite")
+router.register("product-comments",ProductCommentViewSet,basename="product-comment")
 
 urlpatterns=[
-    path("auth/login/",SecureLoginView.as_view(),name="login"),path("auth/register/",SecureRegisterView.as_view(),name="register"),path("auth/me/",me,name="me"),path("cart/calculate/",CartCalculateView.as_view(),name="cart-calculate"),path("home/",DynamicHomeView.as_view(),name="home-global"),path("stores/<slug:slug>/home/",DynamicHomeView.as_view(),name="home-store"),path("admin-dashboard/",AdminDashboardView.as_view(),name="admin-dashboard"),path("",include(router.urls)),
+    path("auth/login/",SecureLoginView.as_view(),name="login"),path("auth/register/",SecureRegisterView.as_view(),name="register"),path("auth/me/",me,name="me"),
+    path("auth/password-reset/whatsapp/",PasswordResetWhatsAppRequestView.as_view(),name="password-reset-whatsapp"),path("auth/reset-password/<str:token>/",PasswordResetConfirmView.as_view(),name="password-reset-confirm"),
+    path("cart/calculate/",CartCalculateView.as_view(),name="cart-calculate"),path("home/",DynamicHomeView.as_view(),name="home-global"),path("stores/<slug:slug>/home/",DynamicHomeView.as_view(),name="home-store"),path("admin-dashboard/",AdminDashboardView.as_view(),name="admin-dashboard"),path("",include(router.urls)),
 ]
