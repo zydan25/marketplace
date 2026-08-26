@@ -1,7 +1,10 @@
+import io
 import json
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
+from PIL import Image
 
 from marketplace.models import StorefrontSection, User, VendorProfile
 
@@ -17,6 +20,11 @@ class StorefrontEditorTests(TestCase):
         self.global_section = StorefrontSection.objects.create(owner=self.admin, title="الرئيسية", section_type="hero", vendor=None, config={"subtitle": "مرحبا"}, sort_order=0, is_visible=True)
         self.vendor_section = StorefrontSection.objects.create(owner=self.vendor, title="متجري", section_type="hero", vendor=self.vendor_profile, config={}, sort_order=0, is_visible=True)
         self.other_section = StorefrontSection.objects.create(owner=self.other_vendor_user, title="متجر آخر", section_type="hero", vendor=self.other_profile, config={}, sort_order=0, is_visible=True)
+
+    def _png_upload(self, name="test.png"):
+        buffer = io.BytesIO()
+        Image.new("RGB", (2, 2), "white").save(buffer, format="PNG")
+        return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
 
     def test_admin_can_update_global_section(self):
         self.client.force_login(self.admin)
@@ -99,3 +107,46 @@ class StorefrontEditorTests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_publish_action_publishes_and_returns_config(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("admin-storefront-section-update", args=[self.global_section.id]),
+            data=json.dumps({"action": "publish"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.global_section.refresh_from_db()
+        self.assertTrue(self.global_section.is_visible)
+        self.assertTrue(self.global_section.config["published"])
+        self.assertIn("config", response.json())
+
+    def test_nested_slide_image_is_saved(self):
+        self.client.force_login(self.admin)
+        payload = {
+            "action": "save",
+            "title": "عرض",
+            "section_type": "hero",
+            "sort_order": 1,
+            "is_visible": True,
+            "config": {
+                "slides": [{"id": "slide-1", "title": "صيف", "imageUrl": "", "visible": True, "isActive": True, "sortOrder": 0}]
+            },
+        }
+        response = self.client.post(
+            reverse("admin-storefront-section-update", args=[self.global_section.id]),
+            data={"payload": json.dumps(payload), "asset:slides:0:image": self._png_upload()},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.global_section.refresh_from_db()
+        self.assertTrue(self.global_section.config["slides"][0]["imageUrl"].startswith("/"))
+
+    def test_unsupported_image_type_is_rejected_cleanly(self):
+        self.client.force_login(self.admin)
+        payload = {"action": "save", "title": "عرض", "section_type": "hero", "sort_order": 1, "is_visible": True, "config": {}}
+        response = self.client.post(
+            reverse("admin-storefront-section-update", args=[self.global_section.id]),
+            data={"payload": json.dumps(payload), "image": SimpleUploadedFile("test.bmp", b"not-an-image", content_type="image/bmp")},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("غير مدعوم", response.json().get("detail", ""))
