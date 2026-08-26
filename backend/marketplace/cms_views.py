@@ -4,8 +4,46 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Category, StorefrontSection, VendorProfile
+from .models import Category, StorefrontSection, VendorProfile, Product
 from .storefront_models import StorefrontMedia
+
+
+def absolute(request, value):
+    if not value:
+        return ""
+    text = str(value)
+    if text.startswith(("http://", "https://")):
+        return text
+    return request.build_absolute_uri(text) if text.startswith("/") else text
+
+
+def normalize_section_config(request, section):
+    config = dict(section.config or {})
+    if section.section_type in {"hero", "banner"} and not config.get("slides") and config.get("image_url"):
+        target_type = config.get("target_type") or "none"
+        target_id = config.get("target_id")
+        url = config.get("target_url") or ""
+        if target_type == "category" and target_id:
+            category = Category.objects.filter(pk=target_id, is_active=True).first()
+            if category:
+                url = f"/collection?category={quote(category.name)}"
+        elif target_type == "product" and target_id:
+            product = Product.objects.filter(pk=target_id, is_published=True).first()
+            if product:
+                url = f"/product/{product.pk}"
+        config["slides"] = [{
+            "id": f"{section.id}-main",
+            "title": config.get("title") or section.title,
+            "subtitle": config.get("subtitle") or "",
+            "ctaLabel": config.get("button_label") or "",
+            "url": url,
+            "imageUrl": absolute(request, config.get("image_url")),
+            "mobileImageUrl": absolute(request, config.get("mobile_image_url")),
+            "visible": True,
+            "isActive": True,
+            "sortOrder": 0,
+        }]
+    return config
 
 
 class DynamicHomeView(APIView):
@@ -28,7 +66,7 @@ class DynamicHomeView(APIView):
         sections = [section for section in raw_sections if (section.config or {}).get("published", True)]
         data = []
         for section in sections:
-            config = dict(section.config or {})
+            config = normalize_section_config(request, section)
             if section.section_type == "category":
                 category_ids = []
                 for value in config.get("category_ids", []):
@@ -46,11 +84,9 @@ class DynamicHomeView(APIView):
                         "name": item.name,
                         "targetCategory": item.slug,
                         "categorySlug": item.slug,
-                        # The current collection screen filters by category NAME,
-                        # so use the category name for the public route.
                         "url": f"/collection?category={quote(item.name)}",
                         "route": f"/collection?category={quote(item.name)}",
-                        "imageUrl": request.build_absolute_uri(item.image.url) if item.image else "",
+                        "imageUrl": absolute(request, item.image.url) if item.image else "",
                         "visible": True,
                         "sortOrder": index,
                     }
@@ -83,7 +119,7 @@ class DynamicHomeView(APIView):
                             "categorySlug": category.slug,
                             "url": f"/collection?category={quote(category.name)}",
                             "route": f"/collection?category={quote(category.name)}",
-                            "imageUrl": request.build_absolute_uri(category.image.url) if category.image else "",
+                            "imageUrl": absolute(request, category.image.url) if category.image else "",
                             "visible": True,
                             "sortOrder": index,
                         }
@@ -96,7 +132,7 @@ class DynamicHomeView(APIView):
             data.append({
                 "id": "system-media",
                 "type": "banner",
-                "title": "مميز لدينا",
+                "title": "محتوى عام",
                 "sort_order": -800,
                 "is_visible": True,
                 "config": {
@@ -105,9 +141,9 @@ class DynamicHomeView(APIView):
                             "id": media_item.id,
                             "title": media_item.name,
                             "subtitle": media_item.alt_text,
-                            "ctaLabel": "استكشف الآن",
+                            "ctaLabel": "استكشف الآن" if media_item.target_url else "",
                             "url": media_item.target_url or "",
-                            "imageUrl": request.build_absolute_uri(media_item.image.url) if media_item.image else "",
+                            "imageUrl": absolute(request, media_item.image.url) if media_item.image else "",
                             "visible": True,
                             "sortOrder": index,
                         }
