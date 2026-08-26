@@ -7,10 +7,12 @@ from .secure_auth import SecureLoginView, SecureRegisterView
 from .secure_cart import SecureCartCalculateView
 from .secure_catalog import SecureCategoryViewSet, SecureDesignThemeViewSet, SecureProductViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
-from .secure_order_v2 import SecureOrderV2ViewSet
 from .secure_vendor import VendorApplicationViewSet
+from .secure_order_v2 import SecureOrderV2ViewSet
+from .wallet_order_v2 import WalletOrderV2ViewSet
 from .order_chat_api import OrderChatViewSet
 from .vendor_finance_api import VendorFinanceViewSet
+from .shipping_api import VendorCityShippingViewSet, MarketplaceOfficeViewSet
 from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
@@ -38,7 +40,7 @@ router.register("themes", SecureDesignThemeViewSet, basename="theme")
 router.register("storefront-sections", SecureStorefrontSectionViewSet, basename="storefront-section")
 router.register("wallets", WalletViewSet, basename="wallet")
 router.register("vendor-finance", VendorFinanceViewSet, basename="vendor-finance")
-router.register("orders", SecureOrderV2ViewSet, basename="order")
+router.register("orders", WalletOrderV2ViewSet, basename="order")
 router.register("notifications", SecureNotificationViewSet, basename="notification")
 router.register("conversations", SecureConversationViewSet, basename="conversation")
 router.register("order-chats", OrderChatViewSet, basename="order-chat")
@@ -50,6 +52,8 @@ router.register("gifts", GiftTransferViewSet, basename="gift")
 router.register("service-categories", ServiceCategoryViewSet, basename="service-category")
 router.register("services", ServiceViewSet, basename="service")
 router.register("service-submissions", ServiceSubmissionViewSet, basename="service-submission")
+router.register("vendor-city-shipping", VendorCityShippingViewSet, basename="vendor-city-shipping")
+router.register("marketplace-offices", MarketplaceOfficeViewSet, basename="marketplace-office")
 router.register("favorites", FavoriteViewSet, basename="favorite")
 router.register("product-comments", ProductCommentViewSet, basename="product-comment")
 
