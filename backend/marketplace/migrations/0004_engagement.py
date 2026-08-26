@@ -1,0 +1,11 @@
+from django.conf import settings
+from django.db import migrations, models
+import django.db.models.deletion
+
+class Migration(migrations.Migration):
+    dependencies=[("marketplace","0003_shipping_offices_item_decisions")]
+    operations=[
+        migrations.CreateModel(name="Favorite",fields=[("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False,verbose_name="ID")),("created_at",models.DateTimeField(auto_now_add=True)),("updated_at",models.DateTimeField(auto_now=True)),("user",models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,related_name="favorites",to=settings.AUTH_USER_MODEL)),("product",models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,related_name="favorites",to="marketplace.product"))],options={"constraints":[models.UniqueConstraint(fields=("user","product"),name="uniq_user_product_favorite")]}),
+        migrations.CreateModel(name="ProductComment",fields=[("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False,verbose_name="ID")),("created_at",models.DateTimeField(auto_now_add=True)),("updated_at",models.DateTimeField(auto_now=True)),("body",models.TextField(max_length=1000)),("is_approved",models.BooleanField(default=True)),("parent",models.ForeignKey(blank=True,null=True,on_delete=django.db.models.deletion.CASCADE,related_name="replies",to="marketplace.productcomment")),("product",models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,related_name="comments",to="marketplace.product")),("user",models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,related_name="product_comments",to=settings.AUTH_USER_MODEL))]),
+        migrations.CreateModel(name="PasswordResetRequest",fields=[("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False,verbose_name="ID")),("created_at",models.DateTimeField(auto_now_add=True)),("updated_at",models.DateTimeField(auto_now=True)),("token_hash",models.CharField(max_length=64,unique=True)),("expires_at",models.DateTimeField()),("used_at",models.DateTimeField(blank=True,null=True)),("requested_phone",models.CharField(max_length=32)),("user",models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,related_name="password_reset_requests",to=settings.AUTH_USER_MODEL))],options={"indexes":[models.Index(fields=("user","expires_at"),name="marketplace_pass_user_id_99e8d6_idx")]}),
+    ]
