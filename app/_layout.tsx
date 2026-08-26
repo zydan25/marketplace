@@ -82,8 +82,8 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   errorRoot: { flex: 1, backgroundColor: "#F7F7F7", justifyContent: "center", alignItems: "center", padding: 24 },
   errorCard: { width: "100%", maxWidth: 420, backgroundColor: "#FFF", borderRadius: 18, padding: 24, alignItems: "center", borderWidth: 1, borderColor: "#E8E8E8" },
-  errorTitle: { fontSize: 19, fontWeight: "900", color: "#111", textAlign: "center" },
-  errorText: { marginTop: 10, fontSize: 12, lineHeight: 20, color: "#777", textAlign: "center" },
+  errorTitle: { fontSize: 19, fontWeight: "900", color: "#111", textAlign: "center", fontFamily: "Cairo" },
+  errorText: { marginTop: 10, fontSize: 12, lineHeight: 20, color: "#777", textAlign: "center", fontFamily: "Cairo" },
   retryButton: { marginTop: 20, minWidth: 150, height: 46, paddingHorizontal: 22, borderRadius: 23, backgroundColor: "#111", justifyContent: "center", alignItems: "center" },
-  retryText: { color: "#FFF", fontSize: 13, fontWeight: "800" },
+  retryText: { color: "#FFF", fontSize: 13, fontWeight: "800", fontFamily: "Cairo" },
 });

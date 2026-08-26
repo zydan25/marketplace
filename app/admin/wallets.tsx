@@ -1,11 +1,110 @@
-import { useEffect, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { ScreenContainer } from "@/components/screen-container";
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+
+import { AdminLayout, AdminField, AdminEmptyState, Colors, Font, Radius, Shadow, Spacing, showToast } from "@/components/admin";
 import { ApiClient } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 
-type Wallet = { id:number; user?:{phone?:string; name?:string; role?:string}; balance:string; currency:string };
-export default function AdminWalletsScreen(){ const {user,isAuthenticated}=useAuth(); const [wallets,setWallets]=useState<Wallet[]>([]); const [selected,setSelected]=useState<Wallet|null>(null); const [amount,setAmount]=useState(""); const [reference,setReference]=useState(""); const [note,setNote]=useState(""); const [loading,setLoading]=useState(true); async function load(){ try{ const data=await ApiClient.get<{results?:Wallet[]}>("/api/wallets/"); setWallets(data.results??[]); }catch{Alert.alert("تعذر تحميل المحافظ","حاولي تحديث الصفحة.");}finally{setLoading(false);} } useEffect(()=>{if(isAuthenticated&&user?.role==="admin")load();},[isAuthenticated,user?.role]); async function save(){ if(!selected||!amount||Number(amount)<=0){Alert.alert("بيانات ناقصة","اختاري محفظة وأدخلي مبلغًا موجبًا.");return;} try{await ApiClient.post(`/api/wallets/${selected.id}/admin_adjust/`,{amount,transaction_type:"adjustment",document_type:"receipt",reference,note}); Alert.alert("تم الحفظ","أضيف سند القبض إلى كشف حساب العميل."); setAmount(""); setReference(""); setNote(""); await load(); }catch(error){Alert.alert("تعذر الحفظ",error instanceof Error?error.message:"تحققي من صلاحية المدير.");} } if(!isAuthenticated||user?.role!=="admin")return <ScreenContainer><View style={s.center}><Text>هذه الصفحة للمدير فقط</Text></View></ScreenContainer>; return <ScreenContainer edges={["top","bottom","left","right"]} className="bg-[#F6F6F6]"><View style={s.header}><TouchableOpacity onPress={()=>router.back()}><MaterialIcons name="arrow-forward" size={24}/></TouchableOpacity><Text style={s.title}>سندات القبض والمحافظ</Text><View style={{width:24}}/></View><FlatList data={wallets} keyExtractor={item=>String(item.id)} contentContainerStyle={s.list} ListHeaderComponent={<View style={s.form}><Text style={s.formTitle}>إضافة رصيد للعميل</Text><Text style={s.selected}>{selected?`المحدد: ${selected.user?.phone} · ${selected.balance} ${selected.currency}`:"اختاري محفظة من القائمة"}</Text><TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="المبلغ" textAlign="right" style={s.input}/><TextInput value={reference} onChangeText={setReference} placeholder="رقم السند أو المرجع" textAlign="right" style={s.input}/><TextInput value={note} onChangeText={setNote} placeholder="ملاحظة العملية" textAlign="right" style={s.input}/><TouchableOpacity style={s.button} onPress={save}><Text style={s.buttonText}>حفظ سند القبض</Text></TouchableOpacity></View>} renderItem={({item})=><TouchableOpacity onPress={()=>setSelected(item)} style={[s.card,selected?.id===item.id&&s.selectedCard]}><MaterialIcons name="account-balance-wallet" size={26} color="#168451"/><View style={s.cardCopy}><Text style={s.phone}>{item.user?.phone||"عميل"}</Text><Text style={s.role}>{item.user?.name||"حساب عميل"}</Text></View><Text style={s.balance}>{item.balance} {item.currency}</Text></TouchableOpacity>}/></ScreenContainer>; }
-const s=StyleSheet.create({header:{height:56,paddingHorizontal:16,backgroundColor:"#FFF",flexDirection:"row",alignItems:"center",justifyContent:"space-between"},title:{fontSize:17,fontWeight:"900"},list:{padding:12,paddingBottom:40},form:{backgroundColor:"#FFF",padding:16,borderRadius:12,marginBottom:12},formTitle:{fontSize:17,fontWeight:"900",textAlign:"right"},selected:{color:"#168451",fontSize:12,textAlign:"right",marginTop:8,marginBottom:8},input:{height:44,backgroundColor:"#F5F5F5",paddingHorizontal:12,marginTop:8,color:"#111"},button:{height:46,backgroundColor:"#111",alignItems:"center",justifyContent:"center",marginTop:10},buttonText:{color:"#FFF",fontWeight:"900"},card:{backgroundColor:"#FFF",padding:14,borderRadius:10,marginBottom:8,flexDirection:"row-reverse",alignItems:"center",gap:10},selectedCard:{borderWidth:2,borderColor:"#E60023"},cardCopy:{flex:1,alignItems:"flex-end"},phone:{fontSize:14,fontWeight:"900"},role:{fontSize:11,color:"#777",marginTop:4},balance:{fontSize:13,fontWeight:"900",color:"#168451"},center:{flex:1,alignItems:"center",justifyContent:"center"}});
+type Wallet = { id: number; user?: { phone?: string; name?: string; role?: string }; balance: string; currency: string };
+
+export default function AdminWalletsScreen() {
+  const { user, isAuthenticated } = useAuth();
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [selected, setSelected] = useState<Wallet | null>(null);
+  const [amount, setAmount] = useState("");
+  const [reference, setReference] = useState("");
+  const [note, setNote] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    try {
+      const data = await ApiClient.get<{ results?: Wallet[] }>("/api/wallets/");
+      setWallets(data.results ?? []);
+    } catch {
+      Alert.alert("تعذر تحميل المحافظ", "حاولي تحديث الصفحة.");
+    } finally { setLoading(false); }
+  }
+
+  useEffect(() => { if (isAuthenticated && user?.role === "admin") load(); }, [isAuthenticated, user?.role]);
+
+  async function save() {
+    if (!selected || !amount || Number(amount) <= 0) {
+      Alert.alert("بيانات ناقصة", "اختاري محفظة وأدخلي مبلغًا موجبًا.");
+      return;
+    }
+    try {
+      await ApiClient.post(`/api/wallets/${selected.id}/admin_adjust/`, { amount, transaction_type: "adjustment", document_type: "receipt", reference, note });
+      showToast("تم حفظ سند القبض بنجاح", "success");
+      setAmount(""); setReference(""); setNote(""); await load();
+    } catch (error) {
+      Alert.alert("تعذر الحفظ", error instanceof Error ? error.message : "تحققي من صلاحية المدير.");
+    }
+  }
+
+  return (
+    <AdminLayout title="سندات القبض والمحافظ">
+      <FlatList
+        data={wallets}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.form}>
+            <Text style={styles.formTitle}>إضافة رصيد للعميل</Text>
+            <Text style={styles.selectedLabel}>
+              {selected ? `المحدد: ${selected.user?.phone} · ${selected.balance} ${selected.currency}` : "اختاري محفظة من القائمة"}
+            </Text>
+            <AdminField label="المبلغ" value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" />
+            <AdminField label="رقم المستند" value={reference} onChangeText={setReference} placeholder="رقم سند القبض" />
+            <AdminField label="ملاحظة" value={note} onChangeText={setNote} placeholder="ملاحظة داخلية (اختياري)" />
+            <TouchableOpacity style={styles.saveBtn} onPress={save}>
+              <Text style={styles.saveBtnText}>حفظ سند القبض</Text>
+            </TouchableOpacity>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[styles.card, selected?.id === item.id && styles.cardSelected]}
+            activeOpacity={0.7}
+            onPress={() => setSelected(item)}
+          >
+            <View style={styles.cardIcon}>
+              <MaterialIcons name="account-balance-wallet" size={20} color={Colors.success} />
+            </View>
+            <View style={styles.cardCopy}>
+              <Text style={styles.cardPhone}>{item.user?.phone ?? "—"}</Text>
+              <Text style={styles.cardRole}>{item.user?.role ?? "عميل"}</Text>
+            </View>
+            <Text style={styles.cardBalance}>{item.balance} {item.currency}</Text>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={
+          <AdminEmptyState
+            icon="account-balance-wallet"
+            title="لا توجد محافظ"
+            description="لم يتم إنشاء أي محافظ بعد."
+          />
+        }
+      />
+    </AdminLayout>
+  );
+}
+
+const styles = StyleSheet.create({
+  list: { padding: Spacing.lg, paddingBottom: Spacing["4xl"] },
+  form: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.xl, marginBottom: Spacing.md, ...Shadow.soft },
+  formTitle: { color: Colors.text, ...Font.sectionTitle, textAlign: "right", marginBottom: Spacing.sm },
+  selectedLabel: { color: Colors.success, ...Font.small, textAlign: "right", marginBottom: Spacing.lg },
+
+  card: { flexDirection: "row-reverse", alignItems: "center", backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.md, ...Shadow.soft },
+  cardSelected: { borderWidth: 2, borderColor: Colors.primary },
+  cardIcon: { width: 42, height: 42, borderRadius: Radius.sm, backgroundColor: Colors.successLight, alignItems: "center", justifyContent: "center" },
+  cardCopy: { flex: 1, alignItems: "flex-end" },
+  cardPhone: { color: Colors.text, ...Font.cardTitle },
+  cardRole: { color: Colors.textMuted, ...Font.tiny, marginTop: Spacing.xs },
+  cardBalance: { color: Colors.success, fontSize: 16, fontWeight: "900" },
+
+  saveBtn: { height: 48, backgroundColor: Colors.primary, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center", marginTop: Spacing.md },
+  saveBtnText: { color: Colors.textInverse, ...Font.button },
+});

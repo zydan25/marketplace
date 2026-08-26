@@ -22,6 +22,9 @@ module.exports = {
   theme: {
     extend: {
       colors: tailwindColors,
+      fontFamily: {
+        sans: ["Cairo", "sans-serif"],
+      },
     },
   },
   plugins: [

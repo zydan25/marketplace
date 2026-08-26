@@ -1,11 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html,body,#root{min-height:100%;margin:0}
+html,body,#root{min-height:100%;margin:0;font-family:'Cairo',sans-serif !important}
 html{direction:rtl;overflow-x:hidden;scroll-behavior:smooth}
-body{overflow-x:hidden;overscroll-behavior-y:none;background:#fff}
+body{overflow-x:hidden;overscroll-behavior-y:none;background:#fff;font-family:'Cairo',sans-serif !important}
 *{box-sizing:border-box}
+*,:before,:after{font-family:'Cairo',sans-serif !important}
+h1,h2,h3,h4,h5,h6,p,span,div,input,textarea,button,label,a,li,td,th{font-family:'Cairo',sans-serif !important}
 *::-webkit-scrollbar{width:7px;height:7px}
 *::-webkit-scrollbar-track{background:transparent}
 *::-webkit-scrollbar-thumb{background:rgba(17,24,39,.28);border-radius:99px}

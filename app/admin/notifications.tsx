@@ -1,12 +1,144 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Alert, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { Alert, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
-import { ScreenContainer } from "@/components/screen-container";
+
+import { AdminLayout, AdminField, Colors, Font, Radius, Shadow, Spacing, showToast } from "@/components/admin";
 import { apiCall } from "@/lib/_core/api";
 import { getAdminProducts, type StoreProduct } from "@/lib/product-api";
+
 type Audience = "governorate" | "single" | "selected";
 const governorates = ["أمانة العاصمة", "عدن", "تعز", "الحديدة", "إب", "ذمار", "حضرموت", "صنعاء", "عمران", "حجة", "صعدة", "مأرب", "شبوة", "الجوف", "لحج", "أبين", "الضالع", "ريمة", "المحويت", "سقطرى", "المهرة", "البيضاء"];
-export default function AdminNotificationsScreen() { const [title, setTitle] = useState(""); const [body, setBody] = useState(""); const [audience, setAudience] = useState<Audience>("governorate"); const [governorate, setGovernorate] = useState(governorates[0]); const [userIds, setUserIds] = useState(""); const [products, setProducts] = useState<StoreProduct[]>([]); const [selected, setSelected] = useState<StoreProduct | null>(null); const [saving, setSaving] = useState(false); useEffect(() => { getAdminProducts().then(setProducts).catch(() => setProducts([])); }, []); const send = async () => { try { setSaving(true); const result = await apiCall<{ notification: { recipientCount: number } }>("/api/admin/marketing-notifications", { method: "POST", body: JSON.stringify({ title, body, audienceType: audience, governorate: audience === "governorate" ? governorate : undefined, userIds: userIds.split(/[،,\s]+/).map(Number).filter(Number.isInteger), productId: selected ? Number(selected.id) : undefined, imageUrl: selected?.images[0]?.url }) }); Alert.alert("تم إرسال الإشعار", `وصل إلى ${result.notification.recipientCount} عميل.`); setTitle(""); setBody(""); setUserIds(""); setSelected(null); } catch (error) { Alert.alert("تعذر الإرسال", error instanceof Error ? error.message : "راجعي البيانات."); } finally { setSaving(false); } }; return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F6F6F6]"><View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={23} color="#171717" /></TouchableOpacity><Text style={styles.title}>إرسال إشعار</Text><View style={{ width: 23 }} /></View><ScrollView contentContainerStyle={styles.content}><Text style={styles.intro}>يمكنك إرسال عنوان وشرح وصورة المنتج؛ الضغط على الإشعار يفتح الصنف المرتبط.</Text><Field label="عنوان الإشعار" value={title} onChangeText={setTitle} placeholder="مثال: تخفيض اليوم" /><Field label="شرح الإشعار" value={body} onChangeText={setBody} placeholder="اكتبي تفاصيل العرض" multiline /><Text style={styles.label}>المستلمون</Text><View style={styles.chips}>{(["governorate", "single", "selected"] as Audience[]).map((item) => <TouchableOpacity key={item} onPress={() => setAudience(item)} style={[styles.chip, audience === item && styles.active]}><Text style={[styles.chipText, audience === item && styles.activeText]}>{item === "governorate" ? "محافظة" : item === "single" ? "عميل" : "عملاء محددون"}</Text></TouchableOpacity>)}</View>{audience === "governorate" ? <View style={styles.govs}>{governorates.map((item) => <TouchableOpacity key={item} onPress={() => setGovernorate(item)} style={[styles.gov, governorate === item && styles.govActive]}><Text style={[styles.govText, governorate === item && styles.govActiveText]}>{item}</Text></TouchableOpacity>)}</View> : <Field label={audience === "single" ? "معرف العميل" : "معرفات العملاء"} value={userIds} onChangeText={setUserIds} placeholder="مثال: 15، 23" keyboardType="numeric" helper="استخدمي معرف العميل من لوحة العملاء." />}<Text style={styles.label}>ربط اختياري بصنف وصورته</Text><FlatList horizontal inverted data={products} keyExtractor={(item) => item.id} contentContainerStyle={styles.productList} renderItem={({ item }) => <TouchableOpacity style={[styles.product, selected?.id === item.id && styles.selectedProduct]} onPress={() => setSelected(selected?.id === item.id ? null : item)}>{item.images[0]?.url ? <Image source={{ uri: item.images[0].url }} style={styles.productImage} /> : <View style={styles.noImage}><MaterialIcons name="image" color="#999" size={20} /></View>}<Text numberOfLines={2} style={styles.productName}>{item.name}</Text><Text style={styles.productCode}>{item.productCode}</Text></TouchableOpacity>} ListEmptyComponent={<Text style={styles.helper}>أضيفي أصنافًا أولًا لتتمكني من ربط الإشعار بها.</Text>} /><TouchableOpacity style={[styles.send, saving && styles.disabled]} disabled={saving} onPress={send}><MaterialIcons name="notifications-active" size={20} color="#FFF" /><Text style={styles.sendText}>{saving ? "جارِ الإرسال..." : "إرسال الإشعار"}</Text></TouchableOpacity></ScrollView></ScreenContainer>; }
-function Field({ label, helper, multiline, ...props }: { label: string; helper?: string; multiline?: boolean; value: string; onChangeText: (value: string) => void; placeholder: string; keyboardType?: "numeric" }) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput {...props} multiline={multiline} style={[styles.input, multiline && styles.area]} textAlign="right" placeholderTextColor="#929292" /><Text style={styles.helper}>{helper ?? ""}</Text></View>; }
-const styles = StyleSheet.create({ header: { height: 57, backgroundColor: "#FFF", paddingHorizontal: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, title: { fontWeight: "900", fontSize: 16 }, content: { padding: 14, paddingBottom: 35 }, intro: { color: "#666", fontSize: 11, textAlign: "right", lineHeight: 17, marginBottom: 12 }, field: { marginBottom: 10 }, label: { fontSize: 12, fontWeight: "900", textAlign: "right", marginBottom: 6 }, input: { minHeight: 47, backgroundColor: "#FFF", borderWidth: 1, borderColor: "#E0E0E0", paddingHorizontal: 12, writingDirection: "rtl" }, area: { height: 90, textAlignVertical: "top", paddingTop: 9 }, helper: { minHeight: 13, color: "#888", fontSize: 9, textAlign: "right", marginTop: 3 }, chips: { flexDirection: "row-reverse", gap: 7, marginBottom: 13 }, chip: { borderWidth: 1, borderColor: "#CCC", paddingHorizontal: 10, paddingVertical: 8 }, active: { backgroundColor: "#171717", borderColor: "#171717" }, chipText: { fontSize: 10 }, activeText: { color: "#FFF", fontWeight: "800" }, govs: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 7, marginBottom: 15 }, gov: { backgroundColor: "#FFF", paddingHorizontal: 9, paddingVertical: 7, borderWidth: 1, borderColor: "#E2E2E2" }, govActive: { backgroundColor: "#E60023", borderColor: "#E60023" }, govText: { fontSize: 10 }, govActiveText: { color: "#FFF", fontWeight: "800" }, productList: { gap: 8, paddingVertical: 5, paddingBottom: 14 }, product: { width: 96, backgroundColor: "#FFF", padding: 5, borderWidth: 1, borderColor: "#E2E2E2" }, selectedProduct: { borderColor: "#E60023", borderWidth: 2 }, productImage: { width: "100%", height: 112 }, noImage: { height: 112, backgroundColor: "#F1F1F1", justifyContent: "center", alignItems: "center" }, productName: { fontSize: 10, textAlign: "right", marginTop: 5 }, productCode: { color: "#E60023", fontSize: 8, textAlign: "right", marginTop: 3 }, send: { height: 52, backgroundColor: "#E60023", flexDirection: "row-reverse", gap: 8, justifyContent: "center", alignItems: "center", marginTop: 8 }, disabled: { backgroundColor: "#C89B9F" }, sendText: { color: "#FFF", fontWeight: "900" } });
+
+export default function AdminNotificationsScreen() {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [audience, setAudience] = useState<Audience>("governorate");
+  const [governorate, setGovernorate] = useState(governorates[0]);
+  const [userIds, setUserIds] = useState("");
+  const [products, setProducts] = useState<StoreProduct[]>([]);
+  const [selected, setSelected] = useState<StoreProduct | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { getAdminProducts().then(setProducts).catch(() => setProducts([])); }, []);
+
+  const send = async () => {
+    try {
+      setSaving(true);
+      await apiCall("/api/admin/marketing-notifications", {
+        method: "POST",
+        body: JSON.stringify({
+          title, body,
+          audienceType: audience,
+          governorate: audience === "governorate" ? governorate : undefined,
+          userIds: userIds.split(/[،,\s]+/).map(Number).filter(Number.isInteger),
+          productId: selected ? Number(selected.id) : undefined,
+          imageUrl: selected?.images[0]?.url,
+        }),
+      });
+      showToast("تم إرسال الإشعار بنجاح", "success");
+      setTitle(""); setBody(""); setUserIds(""); setSelected(null);
+    } catch (error) {
+      Alert.alert("تعذر الإرسال", error instanceof Error ? error.message : "راجعي البيانات.");
+    } finally { setSaving(false); }
+  };
+
+  const audienceChips: { key: Audience; label: string; icon: string }[] = [
+    { key: "governorate", label: "محافظة", icon: "location-on" },
+    { key: "single", label: "عميل واحد", icon: "person" },
+    { key: "selected", label: "عملاء محددون", icon: "people" },
+  ];
+
+  return (
+    <AdminLayout title="إرسال إشعار">
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={styles.intro}>يمكنك إرسال عنوان وشرح وصورة المنتج؛ الضغط على الإشعار يفتح الصنف المرتبط.</Text>
+
+        <AdminField label="عنوان الإشعار" value={title} onChangeText={setTitle} placeholder="مثال: تخفيض اليوم" />
+        <AdminField label="شرح الإشعار" value={body} onChangeText={setBody} placeholder="نص الإشعار الموجه للعملاء" multiline numberOfLines={3} />
+
+        <Text style={styles.fieldLabel}>نوع الجمهور</Text>
+        <View style={styles.chipRow}>
+          {audienceChips.map((chip) => (
+            <TouchableOpacity key={chip.key} style={[styles.chip, audience === chip.key && styles.chipActive]} onPress={() => setAudience(chip.key)}>
+              <MaterialIcons name={chip.icon as never} size={14} color={audience === chip.key ? Colors.textInverse : Colors.textSecondary} />
+              <Text style={[styles.chipText, audience === chip.key && styles.chipTextActive]}>{chip.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {audience === "governorate" && (
+          <View style={styles.govGrid}>
+            {governorates.map((gov) => (
+              <TouchableOpacity key={gov} style={[styles.govChip, governorate === gov && styles.govChipActive]} onPress={() => setGovernorate(gov)}>
+                <Text style={[styles.govText, governorate === gov && styles.govTextActive]}>{gov}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {audience === "single" && <AdminField label="رقم العميل" value={userIds} onChangeText={setUserIds} placeholder="رقم الهوية" keyboardType="numeric" />}
+
+        {audience === "selected" && <AdminField label="أرقام العملاء" value={userIds} onChangeText={setUserIds} placeholder="123، 456، 789" helper="افصلي الأرقام بالفاصلة." />}
+
+        <Text style={styles.fieldLabel}>صورة المنتج (اختياري)</Text>
+        <FlatList
+          horizontal
+          data={products}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.productList}
+          showsHorizontalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.productCard, selected?.id === item.id && styles.productCardSelected]}
+              onPress={() => setSelected(selected?.id === item.id ? null : item)}
+            >
+              {item.images[0]?.url ? (
+                <Image source={{ uri: item.images[0].url }} style={styles.productImage} />
+              ) : (
+                <View style={styles.productNoImage}>
+                  <MaterialIcons name="image" size={20} color={Colors.textMuted} />
+                </View>
+              )}
+              <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.productCode}>{item.productCode}</Text>
+            </TouchableOpacity>
+          )}
+        />
+
+        <TouchableOpacity style={[styles.sendBtn, saving && styles.sendBtnDisabled]} disabled={saving} onPress={send}>
+          <MaterialIcons name="send" size={18} color={Colors.textInverse} />
+          <Text style={styles.sendBtnText}>{saving ? "جارِ الإرسال..." : "إرسال الإشعار"}</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </AdminLayout>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing["4xl"] },
+  intro: { color: Colors.textSecondary, ...Font.small, textAlign: "right", lineHeight: 18, marginBottom: Spacing.lg },
+  fieldLabel: { color: Colors.text, ...Font.label, textAlign: "right", marginBottom: Spacing.sm },
+  chipRow: { flexDirection: "row-reverse", gap: Spacing.sm, marginBottom: Spacing.lg },
+  chip: { flexDirection: "row", alignItems: "center", gap: Spacing.xs, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: Colors.surface },
+  chipActive: { backgroundColor: Colors.black, borderColor: Colors.black },
+  chipText: { color: Colors.textSecondary, ...Font.chip },
+  chipTextActive: { color: Colors.textInverse, fontWeight: "700" },
+
+  govGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.lg },
+  govChip: { borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: Colors.surface },
+  govChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  govText: { color: Colors.textSecondary, ...Font.tiny },
+  govTextActive: { color: Colors.textInverse, fontWeight: "700" },
+
+  productList: { gap: Spacing.sm, paddingVertical: Spacing.sm, paddingBottom: Spacing.lg },
+  productCard: { width: 100, backgroundColor: Colors.surface, borderRadius: Radius.sm, padding: Spacing.xs, borderWidth: 1, borderColor: Colors.border, ...Shadow.soft },
+  productCardSelected: { borderColor: Colors.primary, borderWidth: 2 },
+  productImage: { width: "100%", height: 100, borderRadius: Radius.sm, resizeMode: "cover" as const },
+  productNoImage: { width: "100%", height: 100, borderRadius: Radius.sm, backgroundColor: Colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
+  productName: { color: Colors.text, ...Font.tiny, textAlign: "right", marginTop: Spacing.xs },
+  productCode: { color: Colors.primary, ...Font.tiny, textAlign: "right", marginTop: 2 },
+
+  sendBtn: { height: 52, backgroundColor: Colors.primary, borderRadius: Radius.sm, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, marginTop: Spacing.md, ...Shadow.raised },
+  sendBtnDisabled: { opacity: 0.6 },
+  sendBtnText: { color: Colors.textInverse, ...Font.button },
+});

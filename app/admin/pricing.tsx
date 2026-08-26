@@ -1,8 +1,82 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
-import { ScreenContainer } from "@/components/screen-container";
+
+import { AdminLayout, AdminField, Colors, Font, Radius, Shadow, Spacing, showToast } from "@/components/admin";
 import { apiCall } from "@/lib/_core/api";
-export default function PricingScreen() { const [markup, setMarkup] = useState("0"); const [freeShipping, setFreeShipping] = useState(true); const [saving, setSaving] = useState(false); useEffect(() => { apiCall<{ outsideIbbMarkupPercent: number; freeShippingOutsideIbb: boolean }>("/api/pricing-settings").then((data) => { setMarkup(String(data.outsideIbbMarkupPercent)); setFreeShipping(data.freeShippingOutsideIbb); }); }, []); const save = async () => { try { setSaving(true); await apiCall("/api/admin/pricing-settings", { method: "PATCH", body: JSON.stringify({ outsideIbbMarkupPercent: Number(markup), freeShippingOutsideIbb: freeShipping }) }); Alert.alert("تم الحفظ", "تُطبق القاعدة على العملاء خارج محافظة إب."); } catch (error) { Alert.alert("تعذر الحفظ", error instanceof Error ? error.message : "راجعي النسبة."); } finally { setSaving(false); } }; return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F6F6F6]"><View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={23} color="#171717" /></TouchableOpacity><Text style={styles.title}>التحكم بالأسعار</Text><View style={{ width: 23 }} /></View><View style={styles.card}><Text style={styles.heading}>المحافظات خارج إب</Text><Text style={styles.copy}>تُضاف هذه النسبة إلى سعر الصنف للعملاء خارج إب. اتركيها 0 إذا أردت نفس الأسعار.</Text><Text style={styles.label}>نسبة الزيادة %</Text><TextInput value={markup} onChangeText={setMarkup} keyboardType="numeric" style={styles.input} textAlign="right" /><View style={styles.switchRow}><Switch value={freeShipping} onValueChange={setFreeShipping} trackColor={{ true: "#E60023" }} /><View><Text style={styles.switchTitle}>توصيل مجاني خارج إب</Text><Text style={styles.copy}>عند التفعيل لا يضاف رسم توصيل منفصل.</Text></View></View><TouchableOpacity style={styles.save} onPress={save} disabled={saving}><Text style={styles.saveText}>{saving ? "جارِ الحفظ..." : "حفظ قاعدة الأسعار"}</Text></TouchableOpacity></View></ScreenContainer>; }
-const styles = StyleSheet.create({ header: { height: 56, backgroundColor: "#FFF", paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, title: { fontSize: 16, fontWeight: "900" }, card: { margin: 14, backgroundColor: "#FFF", padding: 15, alignItems: "flex-end" }, heading: { fontSize: 16, fontWeight: "900" }, copy: { color: "#777", fontSize: 10, lineHeight: 16, textAlign: "right", marginTop: 5 }, label: { marginTop: 18, fontWeight: "800", fontSize: 12 }, input: { width: "100%", height: 48, borderWidth: 1, borderColor: "#DDD", marginTop: 7, paddingHorizontal: 12 }, switchRow: { width: "100%", flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginTop: 20 }, switchTitle: { textAlign: "right", fontWeight: "900", fontSize: 13 }, save: { width: "100%", height: 50, backgroundColor: "#E60023", marginTop: 24, alignItems: "center", justifyContent: "center" }, saveText: { color: "#FFF", fontWeight: "900" } });
+
+export default function PricingScreen() {
+  const [markup, setMarkup] = useState("0");
+  const [freeShipping, setFreeShipping] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiCall<{ outsideIbbMarkupPercent: number; freeShippingOutsideIbb: boolean }>("/api/pricing-settings").then((data) => {
+      setMarkup(String(data.outsideIbbMarkupPercent));
+      setFreeShipping(data.freeShippingOutsideIbb);
+    });
+  }, []);
+
+  const save = async () => {
+    try {
+      setSaving(true);
+      await apiCall("/api/admin/pricing-settings", {
+        method: "PATCH",
+        body: JSON.stringify({ outsideIbbMarkupPercent: Number(markup), freeShippingOutsideIbb: freeShipping }),
+      });
+      showToast("تم حفظ قاعدة الأسعار", "success");
+    } catch (error) {
+      Alert.alert("تعذر الحفظ", error instanceof Error ? error.message : "راجعي النسبة.");
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <AdminLayout title="التحكم بالأسعار">
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.iconWrap}>
+            <MaterialIcons name="payments" size={20} color={Colors.info} />
+          </View>
+          <Text style={styles.heading}>المحافظات خارج إب</Text>
+        </View>
+        <Text style={styles.copy}>تُضاف هذه النسبة إلى سعر الصنف للعملاء خارج إب. اتركيها 0 إذا أردت نفس الأسعار.</Text>
+
+        <AdminField label="نسبة الزيادة %" value={markup} onChangeText={setMarkup} keyboardType="numeric" placeholder="0" />
+
+        <View style={styles.switchRow}>
+          <Switch value={freeShipping} onValueChange={setFreeShipping} trackColor={{ true: Colors.primary }} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchTitle}>توصيل مجاني خارج إب</Text>
+            <Text style={styles.switchHint}>عند التفعيل لا يضاف رسم توصيل منفصل.</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} disabled={saving} onPress={save}>
+          <Text style={styles.saveBtnText}>{saving ? "جارِ الحفظ..." : "حفظ قاعدة الأسعار"}</Text>
+        </TouchableOpacity>
+      </View>
+    </AdminLayout>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    margin: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
+    ...Shadow.soft,
+  },
+  cardHeader: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md, marginBottom: Spacing.md },
+  iconWrap: { width: 42, height: 42, borderRadius: Radius.sm, backgroundColor: Colors.infoLight, alignItems: "center", justifyContent: "center" },
+  heading: { color: Colors.text, ...Font.sectionTitle },
+  copy: { color: Colors.textSecondary, ...Font.small, lineHeight: 18, textAlign: "right", marginBottom: Spacing.lg },
+
+  switchRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md, paddingVertical: Spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
+  switchTitle: { color: Colors.text, ...Font.label, textAlign: "right" },
+  switchHint: { color: Colors.textMuted, ...Font.tiny, textAlign: "right", marginTop: 2 },
+
+  saveBtn: { height: 48, backgroundColor: Colors.primary, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center", marginTop: Spacing.md, ...Shadow.raised },
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText: { color: Colors.textInverse, ...Font.button },
+});

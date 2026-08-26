@@ -1,9 +1,8 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { ScreenContainer } from "@/components/screen-container";
+import { AdminLayout, AdminEmptyState, Colors, Font, Radius, Shadow, Spacing, showToast } from "@/components/admin";
 import { useAuth } from "@/hooks/use-auth";
 import { ApiClient } from "@/lib/api-client";
 import type { StoreCategory } from "@/lib/category-api";
@@ -14,6 +13,7 @@ export default function AdminCategoriesScreen() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -23,7 +23,9 @@ export default function AdminCategoriesScreen() {
       Alert.alert("تعذر تحميل الفئات", error instanceof Error ? error.message : "حاولي مجددًا.");
     } finally { setLoading(false); }
   }, []);
+
   useEffect(() => { if (isAuthenticated && user?.role === "admin") load(); }, [isAuthenticated, user?.role, load]);
+
   async function addCategory() {
     const title = name.trim();
     if (!title) { Alert.alert("اسم الفئة مطلوب", "اكتبي اسم الفئة قبل الحفظ."); return; }
@@ -33,12 +35,143 @@ export default function AdminCategoriesScreen() {
       const created = await ApiClient.post<StoreCategory>("/api/categories/", { name: title, slug, is_active: true, sort_order: categories.length });
       setCategories((items) => [...items, created]);
       setName("");
-      Alert.alert("تمت الإضافة", `أضيفت فئة «${title}» ويمكن اختيارها عند إضافة الصنف.`);
+      showToast("تمت إضافة الفئة بنجاح", "success");
     } catch (error) { Alert.alert("تعذر إضافة الفئة", error instanceof Error ? error.message : "راجعي البيانات وحاولي مرة أخرى."); }
     finally { setSaving(false); }
   }
-  if (!isAuthenticated || user?.role !== "admin") return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-white"><View style={styles.center}><MaterialIcons name="lock-outline" size={38} color="#E60023" /><Text style={styles.title}>هذه الصفحة للمدير فقط</Text></View></ScreenContainer>;
-  return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F6F6F6]"><View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={24} color="#171717" /></TouchableOpacity><Text style={styles.headerTitle}>إدارة الفئات</Text><TouchableOpacity onPress={load}><MaterialIcons name="refresh" size={22} color="#E60023" /></TouchableOpacity></View><View style={styles.form}><Text style={styles.hint}>أضيفي الفئة مرة واحدة، وستظهر تلقائيًا في الصفحة الرئيسية واختيار فئات الصنف.</Text><View style={styles.inputRow}><TouchableOpacity style={styles.addButton} disabled={saving} onPress={addCategory}><Text style={styles.addText}>{saving ? "..." : "إضافة"}</Text></TouchableOpacity><TextInput value={name} onChangeText={setName} placeholder="اسم الفئة، مثال: أزياء" placeholderTextColor="#999" textAlign="right" style={styles.input} /></View></View><FlatList style={{ flex: 1 }} data={categories} keyExtractor={(item) => String(item.id)} contentContainerStyle={styles.list} refreshing={loading} onRefresh={load} ListEmptyComponent={loading ? <ActivityIndicator color="#E60023" /> : <Text style={styles.empty}>لا توجد فئات بعد.</Text>} renderItem={({ item }) => <View style={styles.card}><View style={styles.icon}><MaterialIcons name="category" size={23} color="#E60023" /></View><View style={styles.copy}><Text style={styles.name}>{item.name}</Text><Text style={styles.meta}>{item.slug} · {item.is_active === false ? "غير مفعلة" : "مفعلة"}</Text></View><TouchableOpacity onPress={async () => { try { const updated = await ApiClient.patch<StoreCategory>(`/api/categories/${item.id}/`, { is_active: item.is_active === false }); setCategories((items) => items.map((category) => category.id === item.id ? updated : category)); } catch (error) { Alert.alert("تعذر التحديث", error instanceof Error ? error.message : "حاولي مجددًا."); } }}><Text style={styles.toggle}>{item.is_active === false ? "تفعيل" : "إيقاف"}</Text></TouchableOpacity></View>} /></ScreenContainer>;
+
+  async function toggleCategory(id: number, currentActive: boolean) {
+    try {
+      const updated = await ApiClient.patch<StoreCategory>(`/api/categories/${id}/`, { is_active: !currentActive });
+      setCategories((items) => items.map((category) => category.id === id ? updated : category));
+    } catch (error) {
+      Alert.alert("تعذر التحديث", error instanceof Error ? error.message : "حاولي مجددًا.");
+    }
+  }
+
+  return (
+    <AdminLayout title="إدارة الفئات">
+      <View style={styles.form}>
+        <Text style={styles.hint}>أضيفي الفئة مرة واحدة، وستظهر تلقائيًا في الصفحة الرئيسية واختيار فئات الصنف.</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="اسم الفئة، مثال: أزياء"
+            placeholderTextColor={Colors.textMuted}
+            style={styles.input}
+            textAlign="right"
+          />
+          <TouchableOpacity style={[styles.addBtn, saving && styles.addBtnDisabled]} disabled={saving} onPress={addCategory}>
+            <Text style={styles.addBtnText}>{saving ? "..." : "إضافة"}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <FlatList
+        style={{ flex: 1 }}
+        data={categories}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={styles.list}
+        refreshing={loading}
+        onRefresh={load}
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+          ) : (
+            <AdminEmptyState
+              icon="category"
+              title="لا توجد فئات"
+              description="لم تتم إضافة أي فئات حتى الآن."
+            />
+          )
+        }
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <View style={styles.cardIcon}>
+              <MaterialIcons name="category" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.cardCopy}>
+              <Text style={styles.cardName}>{item.name}</Text>
+              <Text style={styles.cardMeta}>{item.slug} · {item.is_active === false ? "غير مفعلة" : "مفعلة"}</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.toggleBtn, item.is_active === false && styles.toggleBtnInactive]}
+              onPress={() => toggleCategory(item.id, item.is_active !== false)}
+            >
+              <Text style={[styles.toggleBtnText, item.is_active === false && styles.toggleBtnTextInactive]}>
+                {item.is_active === false ? "تفعيل" : "إيقاف"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      />
+    </AdminLayout>
+  );
 }
 
-const styles = StyleSheet.create({ header: { height: 57, backgroundColor: "#FFFFFF", paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#E8E8E8" }, headerTitle: { color: "#171717", fontSize: 16, fontWeight: "900" }, form: { backgroundColor: "#FFFFFF", padding: 14 }, hint: { color: "#777", fontSize: 11, lineHeight: 18, textAlign: "right", marginBottom: 12 }, inputRow: { flexDirection: "row-reverse", gap: 8 }, input: { flex: 1, height: 46, backgroundColor: "#F5F5F5", paddingHorizontal: 12, color: "#171717", borderWidth: 1, borderColor: "#E5E5E5" }, addButton: { width: 72, height: 46, backgroundColor: "#E60023", alignItems: "center", justifyContent: "center" }, addText: { color: "#FFF", fontWeight: "900" }, list: { padding: 12, paddingBottom: 180 }, card: { minHeight: 68, backgroundColor: "#FFF", padding: 12, marginBottom: 8, flexDirection: "row-reverse", alignItems: "center", gap: 10 }, icon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF2F3" }, copy: { flex: 1, alignItems: "flex-end" }, name: { color: "#171717", fontSize: 14, fontWeight: "900" }, meta: { color: "#888", fontSize: 10, marginTop: 4 }, toggle: { color: "#E60023", fontSize: 11, fontWeight: "800" }, empty: { textAlign: "center", color: "#777", marginTop: 50 }, center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }, title: { color: "#171717", fontSize: 18, fontWeight: "900" } });
+const styles = StyleSheet.create({
+  form: {
+    backgroundColor: Colors.surface,
+    padding: Spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  hint: { color: Colors.textSecondary, ...Font.small, textAlign: "right", marginBottom: Spacing.md, lineHeight: 18 },
+  inputRow: { flexDirection: "row-reverse", gap: Spacing.sm },
+  input: {
+    flex: 1,
+    height: 46,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    color: Colors.text,
+    fontSize: 14,
+    writingDirection: "rtl" as const,
+  },
+  addBtn: {
+    height: 46,
+    paddingHorizontal: Spacing.xl,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addBtnDisabled: { opacity: 0.6 },
+  addBtnText: { color: Colors.textInverse, ...Font.button },
+
+  list: { padding: Spacing.lg, paddingBottom: Spacing["4xl"] },
+  card: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.md,
+    ...Shadow.soft,
+  },
+  cardIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardCopy: { flex: 1, alignItems: "flex-end" },
+  cardName: { color: Colors.text, ...Font.cardTitle },
+  cardMeta: { color: Colors.textMuted, ...Font.tiny, marginTop: Spacing.xs },
+
+  toggleBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.primaryLight,
+  },
+  toggleBtnInactive: { backgroundColor: Colors.surfaceAlt },
+  toggleBtnText: { color: Colors.primary, ...Font.chip },
+  toggleBtnTextInactive: { color: Colors.textSecondary },
+});

@@ -1,10 +1,9 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as ImagePicker from "expo-image-picker";
-import { Alert, FlatList, Image, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { Alert, FlatList, Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useCallback, useEffect, useState } from "react";
 
-import { ScreenContainer } from "@/components/screen-container";
+import { AdminLayout, AdminField, AdminPageHeaderAction, AdminEmptyState, Colors, Font, Radius, Shadow, Spacing, showToast } from "@/components/admin";
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
 import { createProduct, getAdminProducts, type ProductEditorPayload, type StoreProduct, updateProduct } from "@/lib/product-api";
@@ -20,20 +19,203 @@ const parseSizes = (value: string) => value.split("\n").map((line) => { const [l
 const parseCategories = (value: string) => [...new Set(value.split(/[،,\n]/).map((item) => item.trim()).filter(Boolean))];
 
 export default function AdminProductsScreen() {
-  const { user, isAuthenticated } = useAuth();
+  useAuth();
   const { categories: apiCategories } = useCategories();
   const [items, setItems] = useState<StoreProduct[]>([]); const [loading, setLoading] = useState(true); const [editing, setEditing] = useState<StoreProduct | null>(null); const [form, setForm] = useState<FormState>(emptyForm); const [newImages, setNewImages] = useState<DraftImage[]>([]); const [saving, setSaving] = useState(false); const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-  const load = useCallback(async () => { try { setLoading(true); const [products, storefront] = await Promise.all([getAdminProducts(), getAdminStorefront()]); setItems(products); setAvailableCategories([...new Set([...apiCategories.map((category) => category.name), ...storefront.flatMap((tab) => [tab.title, ...tab.circles.map((circle) => circle.targetCategory || circle.title)]).filter(Boolean)])]); } catch (error) { Alert.alert("تعذر تحميل الأصناف", error instanceof Error ? error.message : "حاولي مجددًا."); } finally { setLoading(false); }   }, [apiCategories]);
+  const load = useCallback(async () => { try { setLoading(true); const [products, storefront] = await Promise.all([getAdminProducts(), getAdminStorefront()]); setItems(products); setAvailableCategories([...new Set([...apiCategories.map((category) => category.name), ...storefront.flatMap((tab) => [tab.title, ...tab.circles.map((circle) => circle.targetCategory || circle.title)]).filter(Boolean)])]); } catch (error) { Alert.alert("تعذر تحميل الأصناف", error instanceof Error ? error.message : "حاولي مجددًا."); } finally { setLoading(false); } }, [apiCategories]);
   useEffect(() => { load(); }, [load]);
   const edit = (product?: StoreProduct) => { setEditing(product ?? null); setNewImages([]); setForm(product ? { productCode: product.productCode, name: product.name, category: product.category, categoriesText: (product.categories.length ? product.categories : [product.category]).join("، "), price: String(product.originalPrice), discountPercent: String(product.discountPercent), description: product.description, details: product.details, material: product.material, shippingNote: product.shippingNote, colorsText: product.colors.map((color) => `${color.name} | ${color.hex}`).join("\n"), sizesText: product.sizes.map((size) => `${size.label} | ${size.stock}`).join("\n"), isTrending: product.isTrending, trendTagsText: product.trendTags.map((tag) => `#${tag}`).join("، "), isPublished: true } : emptyForm); };
   const pickImages = async () => { const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [3, 4], quality: 1, base64: true }); if (result.canceled) return; const prepared = result.assets.filter((asset) => asset.base64).map((asset, index) => ({ dataUrl: `data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`, fileName: asset.fileName ?? `product-${Date.now()}-${index}.jpg`, sortOrder: newImages.length + index })); setNewImages((current) => [...current, ...prepared].slice(0, 10)); };
-  const save = async () => { const price = Number(form.price); const discountPercent = Number(form.discountPercent); const categories = parseCategories(form.categoriesText || form.category); const trendTags = parseCategories(form.trendTagsText).map((tag) => tag.replace(/^#/, "")); if (!form.name.trim() || !categories.length || !form.description.trim() || !Number.isInteger(price) || price <= 0) { Alert.alert("بيانات ناقصة", "أدخلي الاسم وفئة واحدة على الأقل والوصف والسعر الصحيح."); return; } if (form.isTrending && !trendTags.length) { Alert.alert("اسم الترند مطلوب", "أضيفي هاشتاج ترند واحدًا على الأقل."); return; } const payload: ProductEditorPayload = { productCode: form.productCode.trim().toUpperCase() || undefined, categoryIds: apiCategories.filter((category) => categories.includes(category.name)).map((category) => category.id), name: form.name.trim(), category: categories[0], categories, description: form.description.trim(), details: form.details.trim(), material: form.material.trim(), price, discountPercent, shippingNote: form.shippingNote.trim(), isTrending: form.isTrending, trendTags, isPublished: form.isPublished, colors: parseColors(form.colorsText), sizes: parseSizes(form.sizesText), ...(editing ? { keepImageIds: editing.images.map((image) => Number(image.id)).filter((id) => id > 0), existingImages: editing.images.map((image, index) => ({ id: Number(image.id), storageKey: image.storageKey, url: image.url, sortOrder: index })), newImages } : { images: newImages }) }; try { setSaving(true); if (editing) await updateProduct(editing.id, payload); else await createProduct(payload); await load(); setEditing(null); setForm(emptyForm); setNewImages([]); Alert.alert("تم الحفظ", "ظهر الصنف وفق حالة النشر المحددة."); } catch (error) { Alert.alert("تعذر حفظ الصنف", error instanceof Error ? error.message : "راجعي البيانات وحاولي مرة أخرى."); } finally { setSaving(false); } };
-  if (!isAuthenticated || user?.role !== "admin") return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-white"><View style={styles.denied}><MaterialIcons name="lock-outline" size={38} color="#E60023" /><Text style={styles.deniedTitle}>هذه الصفحة للمدير فقط</Text><TouchableOpacity style={styles.blackButton} onPress={() => router.replace("/login" as never)}><Text style={styles.blackButtonText}>تسجيل الدخول</Text></TouchableOpacity></View></ScreenContainer>;
-  if (editing || !items.length && !loading) return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F5F5F5]"><View style={styles.header}><TouchableOpacity onPress={() => editing ? setEditing(null) : router.back()}><MaterialIcons name="arrow-forward" size={24} color="#171717" /></TouchableOpacity><Text style={styles.headerTitle}>{editing ? "تعديل الصنف" : "إضافة صنف"}</Text><View style={{ width: 24 }} /></View><ScrollView style={{ flex: 1 }} contentContainerStyle={styles.formContent} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled"><Text style={styles.formIntro}>يُعرض الصنف في المتجر بعد الحفظ إذا كانت حالة النشر مفعّلة.</Text><Field label="رقم الصنف" value={form.productCode} onChangeText={(productCode) => setForm((v) => ({ ...v, productCode }))} placeholder="مثال: TDS-2026-001" helper="اختياري؛ إن تركته فارغًا يُنشأ رقم فريد تلقائيًا." /><Field label="اسم الصنف" value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="مثال: فستان أطفال مطرز" /><Field label="الفئات والقوائم" value={form.categoriesText} onChangeText={(categoriesText) => setForm((v) => ({ ...v, categoriesText }))} placeholder="مثال: أطفال، بناتي" helper="يمكنك إضافة أكثر من فئة بالفاصلة، أو اختيارها من الأزرار." /><CategoryPicker choices={availableCategories} value={form.categoriesText} onChange={(categoriesText) => setForm((v) => ({ ...v, categoriesText }))} /><View style={styles.twoFields}><Field compact label="السعر قبل الخصم (ر.ي)" value={form.price} onChangeText={(price) => setForm((v) => ({ ...v, price }))} keyboardType="numeric" placeholder="0" /><Field compact label="نسبة الخصم %" value={form.discountPercent} onChangeText={(discountPercent) => setForm((v) => ({ ...v, discountPercent }))} keyboardType="numeric" placeholder="0" /></View><View style={styles.trendRow}><View><Text style={styles.trendTitle}>إظهار الصنف في ترندات</Text><Text style={styles.trendHint}>عند التفعيل يظهر الصنف تحت الهاشتاجات المحددة.</Text></View><Switch value={form.isTrending} onValueChange={(isTrending) => setForm((v) => ({ ...v, isTrending }))} trackColor={{ true: "#171717" }} /></View>{form.isTrending ? <Field label="هاشتاجات الترند" value={form.trendTagsText} onChangeText={(trendTagsText) => setForm((v) => ({ ...v, trendTagsText }))} placeholder="#إطلالة_العيد، #موضة_الأطفال" helper="أضيفي هاشتاجًا أو أكثر بالفاصلة. علامة # اختيارية." /> : null}<Field label="وصف الصنف" multiline value={form.description} onChangeText={(description) => setForm((v) => ({ ...v, description }))} placeholder="وصف واضح للمنتج" /><Field label="التفاصيل الإضافية" multiline value={form.details} onChangeText={(details) => setForm((v) => ({ ...v, details }))} placeholder="الخامة، نوع القصة، العناية..." /><Field label="الخامة" value={form.material} onChangeText={(material) => setForm((v) => ({ ...v, material }))} placeholder="مثال: قطن 100%" /><Field label="ملاحظة الشحن" value={form.shippingNote} onChangeText={(shippingNote) => setForm((v) => ({ ...v, shippingNote }))} placeholder="مثال: شحن مجاني للطلبات فوق 25,000 ر.ي" /><Field label="الألوان" multiline value={form.colorsText} onChangeText={(colorsText) => setForm((v) => ({ ...v, colorsText }))} placeholder={"لون | #HEX\nأزرق | #3F6F97"} helper="أدخلي لونًا في كل سطر بصيغة: الاسم | #RRGGBB" /><Field label="المقاسات والمخزون" multiline value={form.sizesText} onChangeText={(sizesText) => setForm((v) => ({ ...v, sizesText }))} placeholder={"4Y | 8\n6Y | 12"} helper="أدخلي مقاسًا في كل سطر بصيغة: المقاس | المخزون" /><View style={styles.photoSection}><View style={styles.photoHeading}><Text style={styles.photoTitle}>صور الصنف</Text><Text style={styles.photoHint}>اختيارية، حتى 10 صور</Text></View>{editing?.images.length ? <FlatList horizontal inverted data={editing.images} keyExtractor={(item) => String(item.id)} contentContainerStyle={styles.imageList} renderItem={({ item }) => <Image source={{ uri: item.url }} style={styles.preview} />} /> : null}{newImages.length ? <FlatList horizontal inverted data={newImages} keyExtractor={(item, index) => `${item.fileName}-${index}`} contentContainerStyle={styles.imageList} renderItem={({ item, index }) => <View><Image source={{ uri: item.dataUrl }} style={styles.preview} /><TouchableOpacity style={styles.removeImage} onPress={() => setNewImages((current) => current.filter((_, itemIndex) => itemIndex !== index))}><MaterialIcons name="close" size={16} color="#FFFFFF" /></TouchableOpacity></View>} /> : null}<TouchableOpacity style={styles.photoButton} onPress={pickImages}><MaterialIcons name="add-photo-alternate" size={21} color="#171717" /><Text style={styles.photoButtonText}>اختيار صور من الجهاز</Text></TouchableOpacity></View><View style={styles.publishRow}><View><Text style={styles.publishTitle}>نشر الصنف في المتجر</Text><Text style={styles.publishText}>أوقفيه لحفظه كمسودة.</Text></View><Switch value={form.isPublished} onValueChange={(isPublished) => setForm((v) => ({ ...v, isPublished }))} trackColor={{ true: "#E60023" }} /></View><TouchableOpacity style={[styles.saveButton, saving && styles.disabled]} disabled={saving} onPress={save}><Text style={styles.saveButtonText}>{saving ? "جارِ الحفظ..." : editing ? "حفظ التعديلات" : "إضافة الصنف"}</Text></TouchableOpacity></ScrollView></ScreenContainer>;
-  return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F5F5F5]"><View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={24} color="#171717" /></TouchableOpacity><Text style={styles.headerTitle}>إدارة الأصناف</Text><TouchableOpacity onPress={() => edit()}><MaterialIcons name="add-circle-outline" size={26} color="#E60023" /></TouchableOpacity></View><FlatList style={{ flex: 1 }} data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.inventory} refreshing={loading} onRefresh={load} renderItem={({ item }) => <View style={styles.inventoryCard}><View style={styles.inventoryImage}>{item.images[0]?.url ? <Image source={{ uri: item.images[0].url }} style={styles.inventoryPhoto} /> : <MaterialIcons name="image-not-supported" size={26} color="#8E8E8E" />}</View><View style={styles.inventoryCopy}><Text style={styles.inventoryName} numberOfLines={2}>{item.name}</Text><Text style={styles.inventoryMeta}>{item.category} · {formatYER(item.price)}</Text><Text style={styles.inventoryDiscount}>{item.discountPercent ? `خصم ${item.discountPercent}% · السعر السابق ${formatYER(item.originalPrice)}` : "بدون خصم"}</Text></View><TouchableOpacity style={styles.editButton} onPress={() => edit(item)}><Text style={styles.editText}>تعديل</Text></TouchableOpacity></View>} ListHeaderComponent={<TouchableOpacity style={styles.createCard} onPress={() => edit()}><MaterialIcons name="add-shopping-cart" size={26} color="#FFFFFF" /><View style={styles.createCopy}><Text style={styles.createTitle}>إضافة صنف جديد</Text><Text style={styles.createText}>أضيفي التفاصيل والألوان والمقاسات والصور بشكل منفصل.</Text></View></TouchableOpacity>} /> </ScreenContainer>;
+  const save = async () => { const price = Number(form.price); const discountPercent = Number(form.discountPercent); const categories = parseCategories(form.categoriesText || form.category); const trendTags = parseCategories(form.trendTagsText).map((tag) => tag.replace(/^#/, "")); if (!form.name.trim() || !categories.length || !form.description.trim() || !Number.isInteger(price) || price <= 0) { Alert.alert("بيانات ناقصة", "أدخلي الاسم وفئة واحدة على الأقل والوصف والسعر الصحيح."); return; } if (form.isTrending && !trendTags.length) { Alert.alert("اسم الترند مطلوب", "أضيفي هاشتاج ترند واحدًا على الأقل."); return; } const payload: ProductEditorPayload = { productCode: form.productCode.trim().toUpperCase() || undefined, categoryIds: apiCategories.filter((category) => categories.includes(category.name)).map((category) => category.id), name: form.name.trim(), category: categories[0], categories, description: form.description.trim(), details: form.details.trim(), material: form.material.trim(), price, discountPercent, shippingNote: form.shippingNote.trim(), isTrending: form.isTrending, trendTags, isPublished: form.isPublished, colors: parseColors(form.colorsText), sizes: parseSizes(form.sizesText), ...(editing ? { keepImageIds: editing.images.map((image) => Number(image.id)).filter((id) => id > 0), existingImages: editing.images.map((image, index) => ({ id: Number(image.id), storageKey: image.storageKey, url: image.url, sortOrder: index })), newImages } : { images: newImages }) }; try { setSaving(true); if (editing) await updateProduct(editing.id, payload); else await createProduct(payload); await load(); setEditing(null); setForm(emptyForm); setNewImages([]); showToast("تم حفظ الصنف بنجاح", "success"); } catch (error) { Alert.alert("تعذر حفظ الصنف", error instanceof Error ? error.message : "راجعي البيانات وحاولي مرة أخرى."); } finally { setSaving(false); } };
+
+  if (editing || (!items.length && !loading)) {
+    return (
+      <AdminLayout title={editing ? "تعديل الصنف" : "إضافة صنف"}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.formContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Text style={styles.formIntro}>يُعرض الصنف في المتجر بعد الحفظ إذا كانت حالة النشر مفعّلة.</Text>
+          <AdminField label="رقم الصنف" value={form.productCode} onChangeText={(productCode) => setForm((v) => ({ ...v, productCode }))} placeholder="مثال: TDS-2026-001" helper="اختياري؛ إن تركته فارغًا يُنشأ رقم فريد تلقائيًا." />
+          <AdminField label="اسم الصنف" value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="مثال: فستان أطفال مطرز" />
+          <AdminField label="الفئات والقوائم" value={form.categoriesText} onChangeText={(categoriesText) => setForm((v) => ({ ...v, categoriesText }))} placeholder="مثال: أطفال، بناتي" helper="يمكنك إضافة أكثر من فئة بالفاصلة، أو اختيارها من الأزرار." />
+          <CategoryPicker choices={availableCategories} value={form.categoriesText} onChange={(categoriesText) => setForm((v) => ({ ...v, categoriesText }))} />
+          <View style={styles.twoFields}>
+            <AdminField compact label="السعر (ر.ي)" value={form.price} onChangeText={(price) => setForm((v) => ({ ...v, price }))} keyboardType="numeric" placeholder="0" />
+            <AdminField compact label="نسبة الخصم %" value={form.discountPercent} onChangeText={(discountPercent) => setForm((v) => ({ ...v, discountPercent }))} keyboardType="numeric" placeholder="0" />
+          </View>
+          <View style={styles.trendRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.trendTitle}>إظهار الصنف في ترندات</Text>
+              <Text style={styles.trendHint}>عند التفعيل يظهر الصنف تحت الهاشتاجات المحددة.</Text>
+            </View>
+            <Switch value={form.isTrending} onValueChange={(isTrending) => setForm((v) => ({ ...v, isTrending }))} trackColor={{ true: Colors.primary }} />
+          </View>
+          {form.isTrending && <AdminField label="هاشتاجات الترند" value={form.trendTagsText} onChangeText={(trendTagsText) => setForm((v) => ({ ...v, trendTagsText }))} placeholder="#فساتين #أزياء" helper="افصلي الهاشتاجات بالفاصلة أو سطر جديد." />}
+          <AdminField label="الوصف" value={form.description} onChangeText={(description) => setForm((v) => ({ ...v, description }))} placeholder="وصف يظهر للعميل" multiline numberOfLines={3} />
+          <AdminField label="التفاصيل" value={form.details} onChangeText={(details) => setForm((v) => ({ ...v, details }))} placeholder="مواصفات إضافية" multiline numberOfLines={3} />
+          <AdminField label="المادة" value={form.material} onChangeText={(material) => setForm((v) => ({ ...v, material }))} placeholder="مثال: قطن 100%" />
+          <AdminField label="ملاحظة الشحن" value={form.shippingNote} onChangeText={(shippingNote) => setForm((v) => ({ ...v, shippingNote }))} placeholder="تعليمات الشحن" />
+          <AdminField label="الألوان" value={form.colorsText} onChangeText={(colorsText) => setForm((v) => ({ ...v, colorsText }))} placeholder="أحمر | #FF0000" multiline numberOfLines={3} helper="اسم اللون | الكود في كل سطر." />
+          <AdminField label="المقاسات" value={form.sizesText} onChangeText={(sizesText) => setForm((v) => ({ ...v, sizesText }))} placeholder="S | 10" multiline numberOfLines={3} helper="المقاس | الكمية في كل سطر." />
+          <Text style={styles.fieldLabel}>صور الصنف</Text>
+          <View style={styles.imageGrid}>
+            {editing?.images.map((image, index) => (
+              <View key={`existing-${image.id}`} style={styles.imageWrap}>
+                <Image source={{ uri: image.url }} style={styles.imageThumb} />
+              </View>
+            ))}
+            {newImages.map((image, index) => (
+              <View key={`new-${index}`} style={styles.imageWrap}>
+                <Image source={{ uri: image.dataUrl }} style={styles.imageThumb} />
+              </View>
+            ))}
+            {newImages.length + (editing?.images.length ?? 0) < 10 && (
+              <TouchableOpacity style={styles.imageAdd} onPress={pickImages}>
+                <MaterialIcons name="add-a-photo" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.trendRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.trendTitle}>حالة النشر</Text>
+              <Text style={styles.trendHint}>عند التفعيل يظهر الصنف للعملاء.</Text>
+            </View>
+            <Switch value={form.isPublished} onValueChange={(isPublished) => setForm((v) => ({ ...v, isPublished }))} trackColor={{ true: Colors.primary }} />
+          </View>
+          <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
+            <Text style={styles.saveBtnText}>{saving ? "جارِ الحفظ..." : editing ? "تحديث الصنف" : "إضافة الصنف"}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <AdminLayout
+      title="إدارة الأصناف"
+      rightAction={<AdminPageHeaderAction icon="add-circle-outline" onPress={() => edit()} />}
+    >
+      <FlatList
+        style={{ flex: 1 }}
+        data={items}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        refreshing={loading}
+        onRefresh={load}
+        ListHeaderComponent={
+          <TouchableOpacity style={styles.createCard} onPress={() => edit()} activeOpacity={0.7}>
+            <View style={styles.createIcon}>
+              <MaterialIcons name="add-shopping-cart" size={22} color={Colors.textInverse} />
+            </View>
+            <View style={styles.createCopy}>
+              <Text style={styles.createTitle}>إضافة صنف جديد</Text>
+              <Text style={styles.createText}>أضيفي التفاصيل والألوان والمقاسات والصور بشكل منفصل.</Text>
+            </View>
+          </TouchableOpacity>
+        }
+        renderItem={({ item }) => (
+          <View style={styles.listItem}>
+            <View style={styles.itemImage}>
+              {item.images[0]?.url ? (
+                <Image source={{ uri: item.images[0].url }} style={styles.itemPhoto} />
+              ) : (
+                <MaterialIcons name="image-not-supported" size={22} color={Colors.textMuted} />
+              )}
+            </View>
+            <View style={styles.itemCopy}>
+              <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+              <Text style={styles.itemMeta}>{item.category} · {formatYER(item.price)}</Text>
+              {item.discountPercent ? (
+                <Text style={styles.itemDiscount}>خصم {item.discountPercent}%</Text>
+              ) : null}
+            </View>
+            <TouchableOpacity style={styles.editBtn} onPress={() => edit(item)}>
+              <Text style={styles.editBtnText}>تعديل</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        ListEmptyComponent={
+          <AdminEmptyState
+            icon="inventory-2"
+            title="لا توجد أصناف"
+            description="لم تتم إضافة أي أصناف حتى الآن."
+            action={
+              <TouchableOpacity style={styles.saveBtn} onPress={() => edit()}>
+                <Text style={styles.saveBtnText}>+ إضافة صنف</Text>
+              </TouchableOpacity>
+            }
+          />
+        }
+      />
+    </AdminLayout>
+  );
 }
 
-function Field({ label, helper, compact, ...props }: { label: string; helper?: string; compact?: boolean; value: string; onChangeText: (value: string) => void; placeholder: string; multiline?: boolean; keyboardType?: "numeric" }) { return <View style={[styles.fieldWrap, compact && styles.compactField]}><Text style={styles.fieldLabel}>{label}</Text><TextInput {...props} style={[styles.input, props.multiline && styles.textarea]} placeholderTextColor="#969696" textAlign="right" /><Text style={styles.helper}>{helper ?? ""}</Text></View>; }
-function CategoryPicker({ choices, value, onChange }: { choices: string[]; value: string; onChange: (value: string) => void }) { const selected = parseCategories(value); if (!choices.length) return null; return <View style={styles.categoryPicker}><Text style={styles.categoryPickerTitle}>اختيار سريع من قوائم المتجر</Text><View style={styles.categoryChips}>{choices.map((choice) => <TouchableOpacity key={choice} onPress={() => onChange(selected.includes(choice) ? selected.filter((item) => item !== choice).join("، ") : [...selected, choice].join("، "))} style={[styles.categoryChip, selected.includes(choice) && styles.categoryChipActive]}><Text style={[styles.categoryChipText, selected.includes(choice) && styles.categoryChipTextActive]}>{choice}</Text></TouchableOpacity>)}</View></View>; }
-const styles = StyleSheet.create({ header: { height: 57, backgroundColor: "#FFFFFF", paddingHorizontal: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#E8E8E8" }, headerTitle: { color: "#171717", fontSize: 16, fontWeight: "900" }, denied: { flex: 1, alignItems: "center", justifyContent: "center", gap: 15 }, deniedTitle: { color: "#171717", fontWeight: "900", fontSize: 18 }, blackButton: { backgroundColor: "#171717", paddingHorizontal: 24, paddingVertical: 12 }, blackButtonText: { color: "#FFFFFF", fontWeight: "800" }, formContent: { padding: 14, paddingBottom: 180 }, formIntro: { color: "#6D6D6D", fontSize: 11, textAlign: "right", marginBottom: 14 }, fieldWrap: { marginBottom: 13 }, compactField: { flex: 1 }, fieldLabel: { color: "#222222", fontSize: 12, fontWeight: "900", textAlign: "right", marginBottom: 6 }, input: { minHeight: 48, backgroundColor: "#FFFFFF", paddingHorizontal: 12, color: "#171717", fontSize: 13, borderWidth: 1, borderColor: "#E3E3E3", writingDirection: "rtl" }, textarea: { minHeight: 87, textAlignVertical: "top", paddingTop: 10 }, helper: { minHeight: 12, color: "#898989", fontSize: 9, textAlign: "right", marginTop: 3 }, categoryPicker: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E3E3E3", padding: 10, marginTop: -7, marginBottom: 13 }, categoryPickerTitle: { color: "#666666", fontSize: 10, textAlign: "right", marginBottom: 8 }, categoryChips: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 7 }, categoryChip: { borderWidth: 1, borderColor: "#D1D1D1", paddingHorizontal: 9, paddingVertical: 6 }, categoryChipActive: { backgroundColor: "#171717", borderColor: "#171717" }, categoryChipText: { color: "#555555", fontSize: 10 }, categoryChipTextActive: { color: "#FFFFFF", fontWeight: "800" }, twoFields: { flexDirection: "row-reverse", gap: 10 }, trendRow: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E3E3E3", padding: 12, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 13 }, trendTitle: { color: "#171717", fontSize: 13, fontWeight: "900", textAlign: "right" }, trendHint: { color: "#888888", fontSize: 9, marginTop: 3, textAlign: "right" }, photoSection: { backgroundColor: "#FFFFFF", padding: 12, borderWidth: 1, borderColor: "#E3E3E3", marginTop: 2, marginBottom: 13 }, photoHeading: { alignItems: "flex-end" }, photoTitle: { color: "#202020", fontSize: 13, fontWeight: "900" }, photoHint: { color: "#858585", fontSize: 9, marginTop: 2 }, imageList: { gap: 8, paddingVertical: 10 }, preview: { width: 75, height: 100, backgroundColor: "#F0F0F0" }, removeImage: { position: "absolute", top: 3, right: 3, width: 22, height: 22, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center", borderRadius: 12 }, photoButton: { height: 42, borderWidth: 1, borderColor: "#171717", flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 7 }, photoButtonText: { color: "#171717", fontSize: 12, fontWeight: "800" }, publishRow: { backgroundColor: "#FFFFFF", padding: 13, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }, publishTitle: { color: "#222222", fontSize: 13, fontWeight: "900", textAlign: "right" }, publishText: { color: "#858585", fontSize: 9, marginTop: 3, textAlign: "right" }, saveButton: { backgroundColor: "#E60023", height: 53, alignItems: "center", justifyContent: "center" }, disabled: { backgroundColor: "#BD9B9F" }, saveButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "900" }, inventory: { padding: 12, paddingBottom: 180 }, createCard: { minHeight: 86, backgroundColor: "#171717", padding: 15, flexDirection: "row-reverse", alignItems: "center", gap: 11, marginBottom: 12 }, createCopy: { flex: 1, alignItems: "flex-end" }, createTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" }, createText: { color: "#D5D5D5", fontSize: 10, textAlign: "right", marginTop: 3 }, inventoryCard: { backgroundColor: "#FFFFFF", minHeight: 102, padding: 10, flexDirection: "row-reverse", gap: 10, marginBottom: 9, alignItems: "center" }, inventoryImage: { width: 60, height: 80, backgroundColor: "#F1F1F1", alignItems: "center", justifyContent: "center" }, inventoryPhoto: { width: "100%", height: "100%" }, inventoryCopy: { flex: 1, alignItems: "flex-end" }, inventoryName: { color: "#171717", fontSize: 13, fontWeight: "900", textAlign: "right" }, inventoryMeta: { color: "#606060", fontSize: 10, marginTop: 5 }, inventoryDiscount: { color: "#E60023", fontSize: 9, marginTop: 3, textAlign: "right" }, editButton: { borderWidth: 1, borderColor: "#171717", paddingHorizontal: 10, paddingVertical: 7 }, editText: { color: "#171717", fontSize: 11, fontWeight: "800" },
+function CategoryPicker({ choices, value, onChange }: { choices: string[]; value: string; onChange: (value: string) => void }) {
+  const selected = parseCategories(value);
+  if (!choices.length) return null;
+  return (
+    <View style={styles.categoryPicker}>
+      <Text style={styles.categoryPickerTitle}>اختيار سريع من قوائم المتجر</Text>
+      <View style={styles.chipRow}>
+        {choices.map((choice) => (
+          <TouchableOpacity
+            key={choice}
+            onPress={() => onChange(selected.includes(choice) ? selected.filter((item) => item !== choice).join("، ") : [...selected, choice].join("، "))}
+            style={[styles.chip, selected.includes(choice) && styles.chipActive]}
+          >
+            <Text style={[styles.chipText, selected.includes(choice) && styles.chipTextActive]}>{choice}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  list: { padding: Spacing.lg, paddingBottom: Spacing["4xl"] },
+  formContent: { padding: Spacing.lg, paddingBottom: Spacing["4xl"] },
+  formIntro: { color: Colors.textSecondary, ...Font.small, textAlign: "right", marginBottom: Spacing.lg },
+  twoFields: { flexDirection: "row-reverse", gap: Spacing.md },
+
+  /* Trend row */
+  trendRow: { backgroundColor: Colors.surface, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md, marginBottom: Spacing.lg },
+  trendTitle: { color: Colors.text, ...Font.label, textAlign: "right" },
+  trendHint: { color: Colors.textMuted, ...Font.tiny, textAlign: "right", marginTop: 2 },
+
+  /* Category picker */
+  categoryPicker: { backgroundColor: Colors.surface, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, marginTop: -Spacing.sm, marginBottom: Spacing.lg },
+  categoryPickerTitle: { color: Colors.textSecondary, ...Font.tiny, textAlign: "right", marginBottom: Spacing.sm },
+  chipRow: { flexDirection: "row-reverse", flexWrap: "wrap", gap: Spacing.sm },
+  chip: { borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: Colors.surface },
+  chipActive: { backgroundColor: Colors.black, borderColor: Colors.black },
+  chipText: { color: Colors.textSecondary, ...Font.chip },
+  chipTextActive: { color: Colors.textInverse, fontWeight: "700" },
+
+  /* Images */
+  fieldLabel: { color: Colors.text, ...Font.label, textAlign: "right", marginBottom: Spacing.sm },
+  imageGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.lg },
+  imageWrap: { width: 80, height: 106, borderRadius: Radius.sm, overflow: "hidden", backgroundColor: Colors.surfaceAlt },
+  imageThumb: { width: "100%", height: "100%", resizeMode: "cover" as const },
+  imageAdd: { width: 80, height: 106, borderRadius: Radius.sm, borderWidth: 2, borderColor: Colors.border, borderStyle: "dashed" as const, alignItems: "center", justifyContent: "center", backgroundColor: Colors.surfaceAlt },
+
+  /* Create card */
+  createCard: { flexDirection: "row-reverse", alignItems: "center", backgroundColor: Colors.primary, borderRadius: Radius.md, padding: Spacing.lg, gap: Spacing.md, marginBottom: Spacing.lg, ...Shadow.raised },
+  createIcon: { width: 44, height: 44, borderRadius: Radius.sm, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" },
+  createCopy: { flex: 1 },
+  createTitle: { color: Colors.textInverse, ...Font.cardTitle },
+  createText: { color: "rgba(255,255,255,0.8)", ...Font.tiny, textAlign: "right", marginTop: 2 },
+
+  /* List item */
+  listItem: { flexDirection: "row-reverse", alignItems: "center", backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.md, ...Shadow.soft },
+  itemImage: { width: 60, height: 80, borderRadius: Radius.sm, overflow: "hidden", backgroundColor: Colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
+  itemPhoto: { width: "100%", height: "100%", resizeMode: "cover" as const },
+  itemCopy: { flex: 1, alignItems: "flex-end" },
+  itemName: { color: Colors.text, ...Font.cardTitle, textAlign: "right" },
+  itemMeta: { color: Colors.textSecondary, ...Font.tiny, marginTop: Spacing.xs },
+  itemDiscount: { color: Colors.danger, ...Font.tiny, marginTop: Spacing.xs },
+  editBtn: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.sm, backgroundColor: Colors.surfaceAlt, borderWidth: 1, borderColor: Colors.border },
+  editBtnText: { color: Colors.primary, ...Font.chip },
+
+  /* Save button */
+  saveBtn: { height: 48, backgroundColor: Colors.primary, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center", marginTop: Spacing.md },
+  saveBtnText: { color: Colors.textInverse, ...Font.button },
 });

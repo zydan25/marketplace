@@ -114,8 +114,8 @@ def dashboard(request):
 @dashboard_access_required
 def dashboard_manifest(request):
     return JsonResponse({
-        "name": "سوقيك — مركز إدارة المنصة",
-        "short_name": "سوقيك Admin",
+        "name": "شبيك — مركز إدارة المنصة",
+        "short_name": "شبيك Admin",
         "lang": "ar",
         "dir": "rtl",
         "start_url": ADMIN_DASHBOARD_HOME,

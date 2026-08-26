@@ -29,7 +29,7 @@ export default function TabLayout() {
           left: 0,
           right: 0,
         },
-        tabBarLabelStyle: { fontSize: 9, fontWeight: "700", marginTop: 3 },
+        tabBarLabelStyle: { fontSize: 9, fontWeight: "700", marginTop: 3, fontFamily: "Cairo" },
       }}
     >
       <Tabs.Screen name="index" options={{ title: "الرئيسية", tabBarIcon: ({ color }) => <IconSymbol name="house.fill" size={21} color={color} /> }} />

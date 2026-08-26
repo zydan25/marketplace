@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="/admin/dashboard/manifest.json">
-<title>سوقيك — مركز الإدارة</title>
+<title>شبيك — مركز الإدارة</title>
 <style>
 :root{--bg:#f4f7fb;--panel:#fff;--ink:#0f172a;--muted:#64748b;--line:#e5e7eb;--nav:#0f172a;--nav2:#172033;--primary:#2563eb;--primary-soft:#eff6ff;--success:#047857;--warning:#b45309;--danger:#b91c1c;--shadow:0 12px 40px rgba(15,23,42,.07);--radius:20px}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif}body{overflow-x:hidden}a{text-decoration:none;color:inherit}button,input{font:inherit}
@@ -33,7 +33,7 @@
 <div class="app">
 <aside class="sidebar" id="sidebar">
 <button class="drawer-close" onclick="closeMenu()" aria-label="إغلاق القائمة">×</button>
-<div class="brand">سوقيك — الإدارة<small>مركز التحكم في المنصة متعددة التجار</small></div>
+<div class="brand">شبيك — الإدارة<small>مركز التحكم في المنصة متعددة التجار</small></div>
 <div class="section-title">الرئيسية</div>
 <nav class="nav"><a class="active" href="/admin/dashboard/" onclick="closeMenu()"><span>لوحة التحكم</span><span>⌂</span></a><a href="/admin/marketplace/storefront-editor/" onclick="closeMenu()"><span>محرر الواجهة</span><span class="tag">LIVE</span></a></nav>
 <div class="section-title">السوق</div>
@@ -47,8 +47,8 @@
 <div class="sidebar-foot">واجهة متجاوبة · قائمة جانبية على سطح المكتب والهاتف · PWA جاهز للتثبيت.</div>
 </aside>
 <main class="main">
-<div class="mobile-bar"><button class="menu-btn" onclick="openMenu()" aria-label="فتح القائمة">☰</button><div class="mobile-brand">سوقيك — مركز الإدارة</div><div class="mobile-actions"><button class="mini-btn" onclick="location.reload()" aria-label="تحديث">↻</button></div></div>
-<header class="topbar"><div class="title"><div class="eyebrow">ADMIN CONTROL CENTER</div><h1>مرحبًا بك في مركز إدارة سوقيك</h1><p>إدارة المنصة من مكان واحد · {{ now|date:"Y-m-d H:i" }} · المستخدم: {{ request.user.get_full_name|default:request.user.phone }}</p></div><div class="actions"><a class="btn blue" href="/admin/marketplace/storefront-editor/">تصميم الصفحة الرئيسية</a><button class="btn" onclick="document.documentElement.classList.toggle('dark');localStorage.setItem('admin-dark',document.documentElement.classList.contains('dark'))">المظهر</button><button class="btn" onclick="location.reload()">تحديث البيانات</button></div></header>
+<div class="mobile-bar"><button class="menu-btn" onclick="openMenu()" aria-label="فتح القائمة">☰</button><div class="mobile-brand">شبيك — مركز الإدارة</div><div class="mobile-actions"><button class="mini-btn" onclick="location.reload()" aria-label="تحديث">↻</button></div></div>
+<header class="topbar"><div class="title"><div class="eyebrow">ADMIN CONTROL CENTER</div><h1>مرحبًا بك في مركز إدارة شبيك</h1><p>إدارة المنصة من مكان واحد · {{ now|date:"Y-m-d H:i" }} · المستخدم: {{ request.user.get_full_name|default:request.user.phone }}</p></div><div class="actions"><a class="btn blue" href="/admin/marketplace/storefront-editor/">تصميم الصفحة الرئيسية</a><button class="btn" onclick="document.documentElement.classList.toggle('dark');localStorage.setItem('admin-dark',document.documentElement.classList.contains('dark'))">المظهر</button><button class="btn" onclick="location.reload()">تحديث البيانات</button></div></header>
 <section class="stats">
 <div class="stat"><div class="label">العملاء</div><div class="value">{{ stats.customers }}</div><div class="note">حسابات العملاء</div></div>
 <div class="stat"><div class="label">التجار النشطون</div><div class="value">{{ stats.vendors }}</div><div class="note">{{ stats.pending_vendors }} طلب قيد المراجعة</div></div>
@@ -85,7 +85,7 @@
 <section class="card"><div class="card-head"><h2>حالة المدفوعات</h2><span>إجمالي العمليات</span></div><div class="body"><div class="list"><div class="row"><div><div class="name">مدفوع</div><div class="sub">عمليات مكتملة</div></div><span class="badge green">{{ payment_summary.paid }}</span></div><div class="row"><div><div class="name">معلق</div><div class="sub">تحتاج متابعة</div></div><span class="badge amber">{{ payment_summary.pending }}</span></div><div class="row"><div><div class="name">فشل</div><div class="sub">عمليات لم تكتمل</div></div><span class="badge red">{{ payment_summary.failed }}</span></div></div></div></section>
 <section class="card"><div class="card-head"><h2>مخزون منخفض</h2><a href="/admin/marketplace/productvariant/">فتح المخزون</a></div><div class="body"><div class="list">{% for item in low_stock %}<div class="row"><div><div class="name">{{ item.name }}</div><div class="sub">{{ item.vendor.store_name }}</div></div><span class="badge {% if item.stock <= 2 %}red{% else %}amber{% endif %}">{{ item.stock }} متبقي</span></div>{% empty %}<div class="hint">لا توجد منتجات منخفضة المخزون.</div>{% endfor %}</div></div></section>
 </div>
-<footer style="display:flex;justify-content:space-between;gap:10px;padding:14px 2px 0;color:#94a3b8;font-size:9px"><span>سوقيك · مركز الإدارة</span><span>إدارة منصة متعددة التجار · PWA</span></footer>
+<footer style="display:flex;justify-content:space-between;gap:10px;padding:14px 2px 0;color:#94a3b8;font-size:9px"><span>شبيك · مركز الإدارة</span><span>إدارة منصة متعددة التجار · PWA</span></footer>
 </main>
 </div>
 <script>

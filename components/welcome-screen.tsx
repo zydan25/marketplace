@@ -46,9 +46,9 @@ const styles = StyleSheet.create({
   },
   content: { alignItems: "center", paddingHorizontal: 28 },
   logoMark: { width: 82, height: 82, borderRadius: 24, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", marginBottom: 18 },
-  logoText: { fontSize: 42, fontWeight: "900", color: "#111111" },
-  brand: { color: "#FFFFFF", fontSize: 30, fontWeight: "900", letterSpacing: 0.5 },
-  message: { color: "#FFFFFF", fontSize: 18, fontWeight: "800", marginTop: 14, textAlign: "center" },
+  logoText: { fontSize: 42, fontWeight: "900", color: "#111111", fontFamily: "Cairo" },
+  brand: { color: "#FFFFFF", fontSize: 30, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Cairo" },
+  message: { color: "#FFFFFF", fontSize: 18, fontWeight: "800", marginTop: 14, textAlign: "center", fontFamily: "Cairo" },
   line: { width: 54, height: 3, borderRadius: 3, backgroundColor: "#E60023", marginTop: 16 },
-  sub: { color: "#AFAFAF", fontSize: 11, marginTop: 12, textAlign: "center" },
+  sub: { color: "#AFAFAF", fontSize: 11, marginTop: 12, textAlign: "center", fontFamily: "Cairo" },
 });
