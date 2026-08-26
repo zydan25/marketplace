@@ -13,7 +13,7 @@ def scope(u):
  if is_admin(u): return None,u
  v=VendorProfile.objects.filter(owner=u,status="active").first(); return (v,u) if v else (False,u)
 def can_edit(u,s): return is_admin(u) or bool(s.vendor_id and s.vendor and s.vendor.owner_id==u.id and s.vendor.status=="active")
-def defaults(): return {"published":False,"subtitle":"","image_url":"","mobile_image_url":"","image_position":"center","image_fit":"cover","aspect_ratio":"16:7","overlay":True,"overlay_opacity":30,"text_position":"center","text_align":"center","button_label":"","target_type":"none","target_url":"","target_id":"","source":"latest","category_ids":[],"product_ids":[],"limit":8,"columns_desktop":4,"columns_tablet":3,"columns_mobile":2,"show_images":True,"show_names":True,"show_prices":True,"show_discount":True,"show_rating":False,"show_arrows":True,"mobile_scroll":False,"card_style":"card","image_shape":"rounded","background":"#ffffff","text_color":"#111827","section_padding":"medium","full_width":True,"tabs":[],"__editor_version":9}
+def defaults(): return {"published":False,"subtitle":"","image_url":"","mobile_image_url":"","image_position":"center","image_fit":"cover","aspect_ratio":"16:7","overlay":True,"overlay_opacity":30,"text_position":"center","text_align":"center","button_label":"","target_type":"none","target_url":"","target_id":"","source":"latest","category_ids":[],"product_ids":[],"limit":8,"columns_desktop":4,"columns_tablet":3,"columns_mobile":2,"show_images":True,"show_names":True,"show_prices":True,"show_discount":True,"show_rating":False,"show_arrows":True,"mobile_scroll":False,"card_style":"card","image_shape":"rounded","background":"#ffffff","text_color":"#111827","section_padding":"medium","full_width":True,"tabs":[],"__editor_version":10}
 def config(s): d=defaults();d.update(s.config or {});return d
 def upload_file(f): p=f"storefront/{uuid.uuid4().hex}{Path(f.name or 'image.jpg').suffix.lower() or '.jpg'}";return default_storage.save(p,ContentFile(f.read()))
 def visual_editor(request):
@@ -25,7 +25,7 @@ def visual_editor(request):
  for s in sections:s.builder_config_json=json.dumps(config(s),ensure_ascii=False)
  cats=list(Category.objects.filter(is_active=True).order_by("sort_order","name"));pqs=Product.objects.filter(is_published=True).select_related("vendor").order_by("name");pqs=pqs.filter(vendor=v) if v else pqs
  catalog={"categories":[{"id":c.id,"name":c.name} for c in cats],"products":[{"id":p.id,"name":p.name,"vendor":p.vendor.store_name} for p in pqs[:500]]}
- return render(request,"admin/marketplace/storefront_builder_v4.html",{"sections":sections,"section_types":ALLOWED_SECTION_TYPES,"catalog_json":json.dumps(catalog,ensure_ascii=False),"defaults_json":json.dumps(defaults(),ensure_ascii=False),"type_help":TYPE_HELP})
+ return render(request,"admin/marketplace/storefront_builder_v5.html",{"sections":sections,"section_types":ALLOWED_SECTION_TYPES,"catalog_json":catalog,"defaults_json":defaults(),"type_help":TYPE_HELP})
 @require_http_methods(["POST"])
 def create_section(request):
  vendor,owner=scope(request.user)
