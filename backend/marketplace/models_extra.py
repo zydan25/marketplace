@@ -45,3 +45,10 @@ class MarketplaceOffice(TimeStampedModel):
 class OrderItemDecision(TimeStampedModel):
     class Status(models.TextChoices): PENDING="pending","معلق"; ACCEPTED="accepted","مقبول"; REJECTED="rejected","مرفوض"
     order_item=models.OneToOneField("marketplace.OrderItem",on_delete=models.CASCADE,related_name="decision"); status=models.CharField(max_length=20,choices=Status.choices,default=Status.PENDING); reason=models.TextField(blank=True); decided_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True,blank=True)
+class PlatformLedgerEntry(TimeStampedModel):
+    entry_type=models.CharField(max_length=40)
+    amount=models.DecimalField(max_digits=14,decimal_places=2)
+    currency=models.CharField(max_length=6,default="YER")
+    reference=models.CharField(max_length=160,unique=True)
+    metadata=models.JSONField(default=dict,blank=True)
+    order=models.ForeignKey("marketplace.Order",on_delete=models.PROTECT,null=True,blank=True,related_name="platform_ledger_entries")
