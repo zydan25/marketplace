@@ -22,18 +22,14 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build ${{ matrix.variant }} APK
+  customer:
+    name: Build Customer APK
+    if: ${{ inputs.variant == 'both' || inputs.variant == 'customer' }}
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [customer, vendor]
-    if: ${{ inputs.variant == 'both' || inputs.variant == matrix.variant }}
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EAS_PROJECT_ID: ${{ inputs.eas_project_id }}
-      APP_VARIANT: ${{ matrix.variant }}
+      APP_VARIANT: customer
       EAS_PROJECT_OWNER: zydan2626
       EAS_PROJECT_SLUG: shabik-marketplace
     steps:
@@ -41,32 +37,63 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: refactor/django-marketplace-foundation
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9.12.0
           run_install: false
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
       - name: Validate Expo/EAS project
         run: |
           test -n "$EXPO_TOKEN" || { echo "EXPO_TOKEN is missing from GitHub Actions secrets."; exit 1; }
           test -n "$EAS_PROJECT_ID" || { echo "EAS_PROJECT_ID is empty."; exit 1; }
           pnpm dlx eas-cli@latest project:info --non-interactive
-
       - name: Validate Expo configuration
-        run: pnpm exec expo config --type public > /tmp/expo-config-${{ matrix.variant }}.json
-
+        run: pnpm exec expo config --type public > /tmp/expo-config-customer.json
       - name: Validate TypeScript
         run: pnpm check
+      - name: Build Customer APK on EAS
+        run: pnpm dlx eas-cli@latest build --platform android --profile customer --non-interactive --no-wait
 
-      - name: Build APK on EAS
-        run: pnpm dlx eas-cli@latest build --platform android --profile ${{ matrix.variant }} --non-interactive --no-wait
+  vendor:
+    name: Build Vendor APK
+    if: ${{ inputs.variant == 'both' || inputs.variant == 'vendor' }}
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_PROJECT_ID: ${{ inputs.eas_project_id }}
+      APP_VARIANT: vendor
+      EAS_PROJECT_OWNER: zydan2626
+      EAS_PROJECT_SLUG: shabik-marketplace
+    steps:
+      - name: Checkout target refactor branch
+        uses: actions/checkout@v4
+        with:
+          ref: refactor/django-marketplace-foundation
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Validate Expo/EAS project
+        run: |
+          test -n "$EXPO_TOKEN" || { echo "EXPO_TOKEN is missing from GitHub Actions secrets."; exit 1; }
+          test -n "$EAS_PROJECT_ID" || { echo "EAS_PROJECT_ID is empty."; exit 1; }
+          pnpm dlx eas-cli@latest project:info --non-interactive
+      - name: Validate Expo configuration
+        run: pnpm exec expo config --type public > /tmp/expo-config-vendor.json
+      - name: Validate TypeScript
+        run: pnpm check
+      - name: Build Vendor APK on EAS
+        run: pnpm dlx eas-cli@latest build --platform android --profile vendor --non-interactive --no-wait
