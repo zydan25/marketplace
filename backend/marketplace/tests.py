@@ -4,13 +4,14 @@ from django.test import TestCase
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from .models import Category, DesignTheme, Order, Product, User, VendorProfile
+from .models import Category, DesignTheme, Order, Product, User, VendorProfile, Wallet
 
 
 class MarketplaceApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.customer = User.objects.create_user(phone="700000001", username="700000001", password="SafePass123!", role="customer")
+        Wallet.objects.create(user=self.customer, balance=Decimal("1000.00"), currency="YER")
         self.vendor_user = User.objects.create_user(phone="700000002", username="700000002", password="SafePass123!", role="vendor")
         self.vendor = VendorProfile.objects.create(owner=self.vendor_user, store_name="متجر الاختبار", slug="test-store", status="active")
         self.category = Category.objects.create(name="فساتين", slug="dresses")
@@ -33,14 +34,21 @@ class MarketplaceApiTests(TestCase):
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["sku"], "SKU-1")
 
-    def test_customer_can_create_order_and_stock_decreases(self):
+    def test_customer_can_create_order_and_reserves_stock(self):
         self.authenticate(self.customer)
-        response = self.client.post("/api/orders/", {"items": [{"product_id": self.product.id, "quantity": 2, "size": "M"}], "shipping_address": {"city": "إب"}}, format="json")
+        response = self.client.post(
+            "/api/orders/",
+            {"items": [{"product_id": self.product.id, "quantity": 2, "size": "M"}], "shipping_address": {"city": "إب"}},
+            format="json",
+        )
         self.assertEqual(response.status_code, 201)
         self.assertEqual(Order.objects.count(), 1)
         self.product.refresh_from_db()
-        self.assertEqual(self.product.stock, 2)
+        self.assertEqual(self.product.stock, 4)
+        self.assertEqual(self.product.reserved_stock, 2)
         self.assertEqual(response.data["total"], "200.00")
+        self.customer.wallet.refresh_from_db()
+        self.assertEqual(self.customer.wallet.balance, Decimal("800.00"))
 
     def test_vendor_can_create_product_but_customer_cannot(self):
         self.authenticate(self.customer)
