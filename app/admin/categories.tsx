@@ -1,177 +1,18 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-
+import { router } from "expo-router";
 import { AdminLayout, AdminEmptyState, Colors, Font, Radius, Shadow, Spacing, showToast } from "@/components/admin";
 import { useAuth } from "@/hooks/use-auth";
 import { ApiClient } from "@/lib/api-client";
 import type { StoreCategory } from "@/lib/category-api";
 
 export default function AdminCategoriesScreen() {
-  const { user, isAuthenticated } = useAuth();
-  const [categories, setCategories] = useState<StoreCategory[]>([]);
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await ApiClient.get<{ results?: StoreCategory[] } | StoreCategory[]>("/api/categories/");
-      setCategories(Array.isArray(response) ? response : (response.results ?? []));
-    } catch (error) {
-      Alert.alert("تعذر تحميل الفئات", error instanceof Error ? error.message : "حاولي مجددًا.");
-    } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { if (isAuthenticated && user?.role === "admin") load(); }, [isAuthenticated, user?.role, load]);
-
-  async function addCategory() {
-    const title = name.trim();
-    if (!title) { Alert.alert("اسم الفئة مطلوب", "اكتبي اسم الفئة قبل الحفظ."); return; }
-    try {
-      setSaving(true);
-      const slug = title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "") || `category-${Date.now()}`;
-      const created = await ApiClient.post<StoreCategory>("/api/categories/", { name: title, slug, is_active: true, sort_order: categories.length });
-      setCategories((items) => [...items, created]);
-      setName("");
-      showToast("تمت إضافة الفئة بنجاح", "success");
-    } catch (error) { Alert.alert("تعذر إضافة الفئة", error instanceof Error ? error.message : "راجعي البيانات وحاولي مرة أخرى."); }
-    finally { setSaving(false); }
-  }
-
-  async function toggleCategory(id: number, currentActive: boolean) {
-    try {
-      const updated = await ApiClient.patch<StoreCategory>(`/api/categories/${id}/`, { is_active: !currentActive });
-      setCategories((items) => items.map((category) => category.id === id ? updated : category));
-    } catch (error) {
-      Alert.alert("تعذر التحديث", error instanceof Error ? error.message : "حاولي مجددًا.");
-    }
-  }
-
-  return (
-    <AdminLayout title="إدارة الفئات">
-      <View style={styles.form}>
-        <Text style={styles.hint}>أضيفي الفئة مرة واحدة، وستظهر تلقائيًا في الصفحة الرئيسية واختيار فئات الصنف.</Text>
-        <View style={styles.inputRow}>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="اسم الفئة، مثال: أزياء"
-            placeholderTextColor={Colors.textMuted}
-            style={styles.input}
-            textAlign="right"
-          />
-          <TouchableOpacity style={[styles.addBtn, saving && styles.addBtnDisabled]} disabled={saving} onPress={addCategory}>
-            <Text style={styles.addBtnText}>{saving ? "..." : "إضافة"}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <FlatList
-        style={{ flex: 1 }}
-        data={categories}
-        keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={styles.list}
-        refreshing={loading}
-        onRefresh={load}
-        ListEmptyComponent={
-          loading ? (
-            <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
-          ) : (
-            <AdminEmptyState
-              icon="category"
-              title="لا توجد فئات"
-              description="لم تتم إضافة أي فئات حتى الآن."
-            />
-          )
-        }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardIcon}>
-              <MaterialIcons name="category" size={20} color={Colors.primary} />
-            </View>
-            <View style={styles.cardCopy}>
-              <Text style={styles.cardName}>{item.name}</Text>
-              <Text style={styles.cardMeta}>{item.slug} · {item.is_active === false ? "غير مفعلة" : "مفعلة"}</Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.toggleBtn, item.is_active === false && styles.toggleBtnInactive]}
-              onPress={() => toggleCategory(item.id, item.is_active !== false)}
-            >
-              <Text style={[styles.toggleBtnText, item.is_active === false && styles.toggleBtnTextInactive]}>
-                {item.is_active === false ? "تفعيل" : "إيقاف"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      />
-    </AdminLayout>
-  );
+  const { user, isAuthenticated } = useAuth(); const [categories, setCategories] = useState<StoreCategory[]>([]); const [name,setName]=useState(""); const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
+  const load=useCallback(async()=>{try{setLoading(true);const response=await ApiClient.get<{results?:StoreCategory[]}|StoreCategory[]>("/api/categories/");setCategories(Array.isArray(response)?response:(response.results??[]));}catch(error){Alert.alert("تعذر تحميل الفئات",error instanceof Error?error.message:"حاول مجددًا.");}finally{setLoading(false);}},[]);
+  useEffect(()=>{if(isAuthenticated&&user?.role==="admin")load();},[isAuthenticated,user?.role,load]);
+  async function addCategory(){const title=name.trim();if(!title)return Alert.alert("اسم الفئة مطلوب","اكتب اسم الفئة.");try{setSaving(true);const slug=title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu,"-").replace(/^-|-$/g,"")||`category-${Date.now()}`;const created=await ApiClient.post<StoreCategory>("/api/categories/",{name:title,slug,is_active:true,sort_order:categories.length});setCategories(items=>[...items,created]);setName("");showToast("تمت إضافة الفئة","success");}catch(error){Alert.alert("تعذر إضافة الفئة",error instanceof Error?error.message:"حاول مرة أخرى.");}finally{setSaving(false);}}
+  async function toggleCategory(id:number,active:boolean){try{const updated=await ApiClient.patch<StoreCategory>(`/api/categories/${id}/`,{is_active:!active});setCategories(items=>items.map(item=>item.id===id?updated:item));}catch(error){Alert.alert("تعذر التحديث",error instanceof Error?error.message:"حاول مجددًا.");}}
+  return <AdminLayout title="إدارة الفئات"><View style={styles.topActions}><TouchableOpacity style={styles.advanced} onPress={()=>router.push("/admin/catalog" as never)}><MaterialIcons name="tune" size={18} color={Colors.primary}/><Text style={styles.advancedText}>التصنيف والحقول المتقدمة</Text></TouchableOpacity></View><View style={styles.form}><Text style={styles.hint}>الإضافة السريعة هنا للفئات العامة. لإضافة الفروع وخيارات المنتجات والشركات والحالة والضمان استخدم الإدارة المتقدمة.</Text><View style={styles.inputRow}><TextInput value={name} onChangeText={setName} placeholder="اسم الفئة" placeholderTextColor={Colors.textMuted} style={styles.input} textAlign="right"/><TouchableOpacity style={[styles.addBtn,saving&&styles.addBtnDisabled]} disabled={saving} onPress={addCategory}><Text style={styles.addBtnText}>{saving?"...":"إضافة"}</Text></TouchableOpacity></View></View><FlatList style={{flex:1}} data={categories} keyExtractor={item=>String(item.id)} contentContainerStyle={styles.list} refreshing={loading} onRefresh={load} ListEmptyComponent={loading?<ActivityIndicator color={Colors.primary} style={{marginTop:40}}/>:<AdminEmptyState icon="category" title="لا توجد فئات" description="لم تتم إضافة أي فئات حتى الآن."/>} renderItem={({item})=><View style={styles.card}><View style={styles.cardIcon}><MaterialIcons name="category" size={20} color={Colors.primary}/></View><View style={styles.cardCopy}><Text style={styles.cardName}>{item.name}</Text><Text style={styles.cardMeta}>{item.slug} · {item.is_active===false?"غير مفعلة":"مفعلة"}</Text></View><TouchableOpacity style={[styles.toggleBtn,item.is_active===false&&styles.toggleBtnInactive]} onPress={()=>toggleCategory(item.id,item.is_active!==false)}><Text style={[styles.toggleBtnText,item.is_active===false&&styles.toggleBtnTextInactive]}>{item.is_active===false?"تفعيل":"إيقاف"}</Text></TouchableOpacity></View>}/></AdminLayout>;
 }
-
-const styles = StyleSheet.create({
-  form: {
-    backgroundColor: Colors.surface,
-    padding: Spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
-  },
-  hint: { color: Colors.textSecondary, ...Font.small, textAlign: "right", marginBottom: Spacing.md, lineHeight: 18 },
-  inputRow: { flexDirection: "row-reverse", gap: Spacing.sm },
-  input: {
-    flex: 1,
-    height: 46,
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.md,
-    color: Colors.text,
-    fontSize: 14,
-    writingDirection: "rtl" as const,
-  },
-  addBtn: {
-    height: 46,
-    paddingHorizontal: Spacing.xl,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addBtnDisabled: { opacity: 0.6 },
-  addBtnText: { color: Colors.textInverse, ...Font.button },
-
-  list: { padding: Spacing.lg, paddingBottom: Spacing["4xl"] },
-  card: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-    gap: Spacing.md,
-    ...Shadow.soft,
-  },
-  cardIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.primaryLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardCopy: { flex: 1, alignItems: "flex-end" },
-  cardName: { color: Colors.text, ...Font.cardTitle },
-  cardMeta: { color: Colors.textMuted, ...Font.tiny, marginTop: Spacing.xs },
-
-  toggleBtn: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.primaryLight,
-  },
-  toggleBtnInactive: { backgroundColor: Colors.surfaceAlt },
-  toggleBtnText: { color: Colors.primary, ...Font.chip },
-  toggleBtnTextInactive: { color: Colors.textSecondary },
-});
+const styles=StyleSheet.create({topActions:{paddingHorizontal:Spacing.lg,paddingTop:Spacing.md},advanced:{minHeight:42,borderRadius:Radius.sm,borderWidth:1,borderColor:Colors.primaryLight,backgroundColor:Colors.primaryLight,flexDirection:"row-reverse",alignItems:"center",justifyContent:"center",gap:7},advancedText:{color:Colors.primary,...Font.button},form:{backgroundColor:Colors.surface,padding:Spacing.lg,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:Colors.border},hint:{color:Colors.textSecondary,...Font.small,textAlign:"right",marginBottom:Spacing.md,lineHeight:18},inputRow:{flexDirection:"row-reverse",gap:Spacing.sm},input:{flex:1,height:46,backgroundColor:Colors.surfaceAlt,borderRadius:Radius.sm,borderWidth:1,borderColor:Colors.border,paddingHorizontal:Spacing.md,color:Colors.text,fontSize:14},addBtn:{height:46,paddingHorizontal:Spacing.xl,backgroundColor:Colors.primary,borderRadius:Radius.sm,alignItems:"center",justifyContent:"center"},addBtnDisabled:{opacity:.6},addBtnText:{color:Colors.textInverse,...Font.button},list:{padding:Spacing.lg,paddingBottom:Spacing["4xl"]},card:{flexDirection:"row-reverse",alignItems:"center",backgroundColor:Colors.surface,borderRadius:Radius.md,padding:Spacing.md,marginBottom:Spacing.sm,gap:Spacing.md,...Shadow.soft},cardIcon:{width:42,height:42,borderRadius:Radius.sm,backgroundColor:Colors.primaryLight,alignItems:"center",justifyContent:"center"},cardCopy:{flex:1,alignItems:"flex-end"},cardName:{color:Colors.text,...Font.cardTitle},cardMeta:{color:Colors.textMuted,...Font.tiny,marginTop:Spacing.xs},toggleBtn:{paddingHorizontal:Spacing.md,paddingVertical:Spacing.sm,borderRadius:Radius.sm,backgroundColor:Colors.primaryLight},toggleBtnInactive:{backgroundColor:Colors.surfaceAlt},toggleBtnText:{color:Colors.primary,...Font.chip},toggleBtnTextInactive:{color:Colors.textSecondary}});
