@@ -18,6 +18,7 @@ const schemeFromBundleId = `manus${timestamp}`;
 
 const appName = variant === "vendor" ? "شبيك — التاجر" : "شبيك";
 const appSlug = "shabik-marketplace";
+const easProjectId = process.env.EAS_PROJECT_ID?.trim();
 
 const config: ExpoConfig = {
   name: appName,
@@ -32,7 +33,7 @@ const config: ExpoConfig = {
   extra: {
     appVariant: variant,
     djangoApiUrl: process.env.EXPO_PUBLIC_DJANGO_API_URL ?? "",
-    eas: { projectId: process.env.EAS_PROJECT_ID ?? "08e87e9b-0af4-46a0-ac07-8ff5c470ed04" },
+    ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
   },
   ios: {
     supportsTablet: true,
