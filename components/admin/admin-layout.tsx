@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -14,6 +14,7 @@ import { Colors, Font, Radius, Spacing } from "./tokens";
  *  - Consistent SafeArea
  *  - Background color
  *  - Optional page header
+ *  - Quick access to the newest catalog/currency administration tools
  */
 export function AdminLayout({
   children,
@@ -69,6 +70,43 @@ export function AdminLayout({
           rightAction={rightAction}
         />
       ) : null}
+
+      {!headerless ? (
+        <View style={styles.managementBar}>
+          <Text style={styles.managementLabel}>إدارة المنصة</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.managementActions}
+          >
+            <TouchableOpacity
+              style={styles.managementButton}
+              activeOpacity={0.8}
+              onPress={() => router.push("/admin/currency" as never)}
+            >
+              <MaterialIcons name="currency-exchange" size={17} color={Colors.primary} />
+              <Text style={styles.managementButtonText}>العملات</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.managementButton}
+              activeOpacity={0.8}
+              onPress={() => router.push("/admin/catalog" as never)}
+            >
+              <MaterialIcons name="tune" size={17} color={Colors.info} />
+              <Text style={styles.managementButtonText}>خيارات الكتالوج</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.managementButton}
+              activeOpacity={0.8}
+              onPress={() => router.push("/admin/categories" as never)}
+            >
+              <MaterialIcons name="category" size={17} color={Colors.success} />
+              <Text style={styles.managementButtonText}>الفئات</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      ) : null}
+
       <ToastProvider />
       <View style={styles.content}>{children}</View>
       <AdminFooter />
@@ -77,6 +115,44 @@ export function AdminLayout({
 }
 
 const styles = StyleSheet.create({
+  managementBar: {
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    gap: 6,
+  },
+  managementLabel: {
+    color: Colors.textMuted,
+    fontSize: 9,
+    fontWeight: "800",
+    fontFamily: "Cairo",
+    textAlign: "right",
+  },
+  managementActions: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  managementButton: {
+    minHeight: 36,
+    paddingHorizontal: 11,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bg,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  managementButtonText: {
+    color: Colors.text,
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: "Cairo",
+  },
   content: {
     flex: 1,
     backgroundColor: Colors.bg,
