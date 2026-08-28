@@ -55,7 +55,7 @@ export default function VendorProductCreateScreen() {
         setOptions(tree.options ?? {});
         if (editingId) {
           const product = await djangoApi<Product>(`/api/products/${editingId}/`);
-          const details = typeof product.details === "string" ? {} : product.details ?? {};
+          const details: Record<string, any> = typeof product.details === "string" ? {} : (product.details ?? {});
           const leaf = product.categories?.[product.categories.length - 1];
           setSelectedCategory(leaf?.id ?? null);
           setSelectedRoot(leaf?.parent ?? null);
@@ -65,7 +65,7 @@ export default function VendorProductCreateScreen() {
           setGender(String(details.gender ?? ""));
           setCustomCategoryName(String(details.custom_category_name ?? ""));
           setForm({ name: product.name, sku: product.sku, brand: product.brand ?? "", material: product.material ?? "", description: product.description ?? "", price: String(product.price ?? ""), salePrice: String(product.sale_price ?? ""), stock: String(product.stock ?? ""), shipping: product.shipping_note ?? "", returns: product.return_policy ?? "", hashtags: (product.hashtags ?? []).join(","), isTrending: product.is_trending, isPublished: product.is_published });
-          setColors(product.colors ?? []);
+          setColors((product.colors ?? []).map((color) => ({ name: color.name, hex: color.hex ?? "#111111" })));
           setSizes((product.sizes ?? []).map((item) => item.label));
           setExistingImages((product.gallery ?? []).filter((item) => item.id > 0));
         }
@@ -131,7 +131,7 @@ export default function VendorProductCreateScreen() {
       <StepRow active={step} onChange={setStep} />
       {step === "catalog" ? <View>
         <FieldTitle text="الفئة العامة" /><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{categories.map((item) => <Chip key={item.id} label={item.name} active={selectedRoot === item.id} onPress={() => { setSelectedRoot(item.id); setSelectedCategory(null); }} />)}</ScrollView>
-        {selectedRoot ? <><FieldTitle text="الفئة الفرعية" /><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{children.map((item) => <Chip key={item.id} label={item.name} active={selectedCategory === item.id} onPress={() => setSelectedCategory(item.id)} />)}<Chip label="أخرى" active={!selectedCategory && !!customCategoryName} onPress={() => { setSelectedCategory(null); setCustomCategoryName(""); }} /></ScrollView></> : null}
+        {selectedRoot ? <><FieldTitle text="الفئة الفرعية" /><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{children.map((item) => <Chip key={item.id} label={item.name} active={selectedCategory === item.id} onPress={() => setSelectedCategory(item.id)} />)}<Chip label="أخرى" active={!selectedCategory && !!customCategoryName} onPress={() => { setSelectedCategory(null); }} /></ScrollView></> : null}
         {!selectedCategory && selectedRoot ? <TextInput value={customCategoryName} onChangeText={setCustomCategoryName} placeholder="اسم التصنيف غير الموجود" placeholderTextColor="#999" style={styles.input} textAlign="right" /> : null}
         <FieldTitle text="حالة المنتج" /><View style={styles.wrap}>{conditionOptions.map((item) => <Chip key={item.id} label={item.name} active={condition === item.name} onPress={() => setCondition(item.name)} />)}</View>
         <View style={styles.info}><MaterialIcons name="category" size={19} color="#168451" /><Text style={styles.infoText}>التصنيف يحدد طريقة ظهور المنتج والفلترة والخيارات المناسبة له.</Text></View>
@@ -165,7 +165,7 @@ export default function VendorProductCreateScreen() {
   function field(key: keyof FormState, placeholder: string, multiline = false) { return <TextInput value={String(form[key])} onChangeText={(value) => setField(key, value)} placeholder={placeholder} placeholderTextColor="#999" style={[styles.input, multiline && styles.multiline]} textAlign="right" multiline={multiline} />; }
 }
 
-function StepRow({ active, onChange }: { active: string; onChange: (value: "catalog" | "basic" | "variants" | "media") => void }) { const items = [{ id: "catalog" as const, label: "التصنيف" }, { id: "basic" as const, label: "البيانات" }, { id: "variants" as const, label: "الخيارات" }, { id: "media" as const, label: "الصور" }]; return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stepList}>{items.map((item) => <TouchableOpacity key={item.id} onPress={() => onChange(item.id)} style={[styles.step, active === item.id && styles.stepActive]}><Text style={[styles.stepText, active === item.id && styles.stepTextActive]}>{item.label}</Text></TouchableOpacity>)}</ScrollView>; }
+function StepRow({ active, onChange }: { active: "catalog" | "basic" | "variants" | "media"; onChange: (value: "catalog" | "basic" | "variants" | "media") => void }) { const items = [{ id: "catalog" as const, label: "التصنيف" }, { id: "basic" as const, label: "البيانات" }, { id: "variants" as const, label: "الخيارات" }, { id: "media" as const, label: "الصور" }]; return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stepList}>{items.map((item) => <TouchableOpacity key={item.id} onPress={() => onChange(item.id)} style={[styles.step, active === item.id && styles.stepActive]}><Text style={[styles.stepText, active === item.id && styles.stepTextActive]}>{item.label}</Text></TouchableOpacity>)}</ScrollView>; }
 function FieldTitle({ text }: { text: string }) { return <Text style={styles.fieldTitle}>{text}</Text>; }
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) { return <TouchableOpacity onPress={onPress} style={[styles.chip, active && styles.chipActive]}><Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text></TouchableOpacity>; }
 
