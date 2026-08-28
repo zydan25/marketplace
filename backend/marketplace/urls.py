@@ -2,13 +2,14 @@ from django.urls import include, path
 from rest_framework import serializers, viewsets
 from rest_framework.routers import DefaultRouter
 
+from .catalog_api import CatalogOptionViewSet, CatalogTreeView, CurrencyRateViewSet, PreferencesView
 from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
 from .secure_auth import SecureLoginView, SecureRegisterView
 from .secure_cart import SecureCartCalculateView
 from .secure_catalog import SecureCategoryViewSet, SecureDesignThemeViewSet, SecureProductViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
-from .secure_order_v2 import SecureOrderV2ViewSet
+from .launch_order_api import LaunchOrderViewSet
 from .secure_vendor import VendorApplicationViewSet
 from .order_chat_api import OrderChatViewSet
 from .vendor_finance_api import VendorFinanceViewSet
@@ -45,10 +46,12 @@ router.register("themes", SecureDesignThemeViewSet, basename="theme")
 router.register("storefront-sections", SecureStorefrontSectionViewSet, basename="storefront-section")
 router.register("wallets", WalletViewSet, basename="wallet")
 router.register("vendor-finance", VendorFinanceViewSet, basename="vendor-finance")
-router.register("orders", SecureOrderV2ViewSet, basename="order")
+router.register("orders", LaunchOrderViewSet, basename="order")
 router.register("notifications", SecureNotificationViewSet, basename="notification")
 router.register("conversations", SecureConversationViewSet, basename="conversation")
 router.register("order-chats", OrderChatViewSet, basename="order-chat")
+router.register("catalog-options", CatalogOptionViewSet, basename="catalog-option")
+router.register("currency-rates", CurrencyRateViewSet, basename="currency-rate")
 router.register("coupons", CouponViewSet, basename="coupon")
 router.register("cities", CityViewSet, basename="city")
 router.register("addresses", AddressViewSet, basename="address")
@@ -62,6 +65,8 @@ urlpatterns = [
     path("cart/calculate/", SecureCartCalculateView.as_view(), name="cart-calculate"),
     path("home/", DynamicHomeView.as_view(), name="home-global"),
     path("stores/<slug:slug>/home/", DynamicHomeView.as_view(), name="home-store"),
+    path("catalog/tree/", CatalogTreeView.as_view(), name="catalog-tree"),
+    path("preferences/", PreferencesView.as_view(), name="preferences"),
     path("admin-dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
     path("", include(router.urls)),
 ]
