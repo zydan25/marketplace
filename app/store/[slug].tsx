@@ -1,60 +1,80 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-
+import { useEffect, useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { ProductCard } from "@/components/product-card";
 import { ShareButton } from "@/components/share-button";
 import { apiCall } from "@/lib/_core/api";
 import { getProducts, type StoreProduct } from "@/lib/product-api";
 
-type RawSection = { id: number | string; type?: string; section_type?: string; title?: string; sort_order?: number; config?: Record<string, any>; is_visible?: boolean };
-type StorePayload = { store?: { id?: number | null; store_name?: string; slug?: string; description?: string; logo_url?: string | null; cover_url?: string | null } | null; theme?: { tokens?: Record<string, any>; layout?: Record<string, any> } | null; data?: RawSection[] };
+type Section = { id:number|string; title?:string; type?:string; section_type?:string; sort_order?:number; is_visible?:boolean; config?:Record<string,any> };
+type StorePayload = { store?:{store_name?:string;slug?:string;description?:string;logo_url?:string|null;cover_url?:string|null}|null; theme?:{tokens?:Record<string,any>}|null; data?:Section[] };
+type Circle = { id?:number|string; title?:string; name?:string; url?:string; targetCategory?:string; imageUrl?:string };
+type Slide = { id?:number|string; title?:string; subtitle?:string; ctaLabel?:string; url?:string; imageUrl?:string; image_url?:string };
 
 export default function StoreScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
-  const [payload, setPayload] = useState<StorePayload | null>(null);
-  const [products, setProducts] = useState<StoreProduct[]>([]);
-  const [loading, setLoading] = useState(true);
+  const params = useLocalSearchParams<{ slug?:string }>();
+  const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
+  const [data,setData] = useState<StorePayload|null>(null);
+  const [products,setProducts] = useState<StoreProduct[]>([]);
+  const [loading,setLoading] = useState(true);
   useEffect(() => {
     if (!slug) return;
-    Promise.all([apiCall<StorePayload>(`/api/stores/${encodeURIComponent(String(slug))}/home/`), getProducts()])
-      .then(([home, all]) => { setPayload(home); setProducts(all.filter(item => item.vendor.slug === slug)); })
+    Promise.all([apiCall<StorePayload>(`/api/stores/${encodeURIComponent(slug)}/home/`),getProducts()])
+      .then(([home,all]) => { setData(home); setProducts(all.filter(p => p.vendor.slug === slug)); })
       .catch(() => undefined).finally(() => setLoading(false));
-  }, [slug]);
-  const store = payload?.store;
-  const sections = (payload?.data ?? []).filter(section => section.is_visible !== false).sort((a,b)=>Number(a.sort_order??0)-Number(b.sort_order??0));
-  const primary = String(payload?.theme?.tokens?.primary ?? "#E60023");
-  const background = String(payload?.theme?.tokens?.background ?? "#F5F5F5");
-  if (loading) return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E60023"/></View></ScreenContainer>;
-  if (!store) return <ScreenContainer><View style={styles.center}><Text>المتجر غير موجود أو غير نشط.</Text></View></ScreenContainer>;
-  return <ScreenContainer edges={["top","bottom","left","right"]} style={{backgroundColor:background}}>
-    <View style={styles.header}><TouchableOpacity onPress={()=>router.back()}><MaterialIcons name="arrow-forward" size={25} color="#111"/></TouchableOpacity><Text style={styles.title}>{store.store_name}</Text><ShareButton type="store" id={String(store.slug??slug)} title={store.store_name??"متجر"}/></View>
-    <FlatList data={products} numColumns={2} keyExtractor={item=>String(item.id)} contentContainerStyle={styles.list} columnWrapperStyle={styles.row}
-      ListHeaderComponent={<View><View style={styles.storeInfo}>{store.cover_url?<Image source={{uri:store.cover_url}} style={styles.cover}/>:null}<View style={styles.logo}>{store.logo_url?<Image source={{uri:store.logo_url}} style={styles.logoImage}/>:<MaterialIcons name="storefront" size={36} color={primary}/>}</View><Text style={styles.storeName}>{store.store_name}</Text>{store.description?<Text style={styles.storeDesc}>{store.description}</Text>:null}</View>{sections.map(section=><StorefrontSection key={String(section.id)} section={section} products={products} primary={primary}/>)}</View>}
-      renderItem={({item})=><View style={styles.productWrapper}><ProductCard product={item}/></View>}
-      ListEmptyComponent={<Text style={styles.empty}>لا توجد منتجات منشورة في هذا المتجر.</Text>}/>
-    />
-  </ScreenContainer>;
+  },[slug]);
+  if (loading) return <ScreenContainer><View style={s.center}><ActivityIndicator color="#E60023"/></View></ScreenContainer>;
+  if (!data?.store) return <ScreenContainer><View style={s.center}><Text>المتجر غير موجود أو غير نشط.</Text></View></ScreenContainer>;
+  const store=data.store;
+  const primary=String(data.theme?.tokens?.primary ?? "#E60023");
+  const background=String(data.theme?.tokens?.background ?? "#F5F5F5");
+  const sections=[...(data.data ?? [])].filter(x => x.is_visible !== false).sort((a,b)=>Number(a.sort_order??0)-Number(b.sort_order??0));
+  return (
+    <ScreenContainer edges={["top","bottom","left","right"]} style={{backgroundColor:background}}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={()=>router.back()}><MaterialIcons name="arrow-forward" size={25} color="#111"/></TouchableOpacity>
+        <Text style={s.title}>{store.store_name}</Text>
+        <ShareButton type="store" id={String(store.slug??slug)} title={store.store_name??"متجر"}/>
+      </View>
+      <ScrollView contentContainerStyle={s.page}>
+        <View style={s.storeCard}>
+          {store.cover_url ? <Image source={{uri:store.cover_url}} style={s.cover}/> : null}
+          <View style={s.logo}>{store.logo_url ? <Image source={{uri:store.logo_url}} style={s.logoImage}/> : <MaterialIcons name="storefront" size={34} color={primary}/>}</View>
+          <Text style={s.storeName}>{store.store_name}</Text>
+          {store.description ? <Text style={s.description}>{store.description}</Text> : null}
+        </View>
+        {sections.map(section => <StoreSection key={String(section.id)} section={section} products={products} primary={primary}/>)}
+        <Text style={s.productsTitle}>منتجات المتجر ({products.length})</Text>
+        <View style={s.productsGrid}>{products.map(product => <View key={String(product.id)} style={s.productCell}><ProductCard product={product}/></View>)}</View>
+        {!products.length ? <Text style={s.empty}>لا توجد منتجات منشورة في هذا المتجر.</Text> : null}
+      </ScrollView>
+    </ScreenContainer>
+  );
 }
 
-function StorefrontSection({section,products,primary}:{section:RawSection;products:StoreProduct[];primary:string}){
- const type=String(section.section_type??section.type??""); const config=section.config??{};
- const slides=Array.isArray(config.slides)?config.slides.filter((x:any)=>x?.visible!==false&&x?.isActive!==false):[];
- const circles=Array.isArray(config.circles)?config.circles.filter((x:any)=>x?.visible!==false&&x?.isActive!==false):[];
- const embeddedCircles=Array.isArray(config.category_circles)?config.category_circles.filter((x:any)=>x?.visible!==false&&x?.isActive!==false):[];
- const productRows=Array.isArray(config.products)?config.products:[]; const ids=productRows.map((x:any)=>Number(x?.id)).filter(Number.isFinite);
- const displayed=ids.length?ids.map((id:number)=>products.find(p=>Number(p.id)===id)).filter(Boolean) as StoreProduct[]:products.slice(0,Math.max(2,Number(config.rows??2)*Number(config.columns??2)*3));
- const columns=Math.max(2,Math.min(4,Number(config.columns??2))); const rows=Math.max(1,Math.min(6,Number(config.rows??2))); const scroll=config.scroll!==false;
- if(!["hero","banner","category","product_grid","trend"].includes(type))return null;
- return <View style={styles.section}>
-   {slides.length?<ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.heroRow}>{slides.map((slide:any,index:number)=><Pressable key={String(slide.id??index)} style={styles.hero} onPress={()=>navigate(slide.url)}><Image source={{uri:String(slide.imageUrl??slide.image_url??"")}} style={styles.heroImage}/><View style={styles.heroShade}/><View style={styles.heroText}>{slide.badge?<Text style={styles.heroBadge}>{String(slide.badge)}</Text>:null}<Text style={styles.heroTitle}>{String(slide.title??section.title??"")}</Text>{slide.subtitle?<Text style={styles.heroSub}>{String(slide.subtitle)}</Text>:null}{slide.ctaLabel?<View style={[styles.heroButton,{borderColor:primary}]}><Text style={styles.heroButtonText}>{String(slide.ctaLabel)}</Text></View>:null}</View></Pressable>)}</ScrollView>:null}
-   {type==="category"&&circles.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.circleRow}>{circles.map((circle:any,index:number)=><CategoryCircle key={String(circle.id??index)} circle={circle} primary={primary}/>)}</ScrollView>:null}
-   {(type==="product_grid"||type==="trend")&&displayed.length?<View style={styles.gridSection}><View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{section.title||(type==="trend"?"الأكثر رواجًا":"منتجات مختارة")}</Text><View style={[styles.sectionAccent,{backgroundColor:primary}]}/></View>{config.show_categories&&embeddedCircles.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.embeddedCircleRow}>{embeddedCircles.map((circle:any,index:number)=><CategoryCircle key={String(circle.id??index)} circle={circle} primary={primary}/>)}</ScrollView>:null}{scroll?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>{chunk(displayed.slice(0,rows*columns*3),rows).map((column,index)=><View key={index} style={styles.productColumn}>{column.map(product=><View key={String(product.id)} style={{width:160}}><ProductCard product={product}/></View>)}</View>)}</ScrollView>:<View style={styles.productGrid}>{displayed.slice(0,rows*columns).map(product=><View key={String(product.id)} style={{width:`${100/columns-2}%`}}><ProductCard product={product}/></View>)}</View>}</View>:null}
- </View>;
+function StoreSection({section,products,primary}:{section:Section;products:StoreProduct[];primary:string}) {
+  const c=section.config ?? {};
+  const type=String(section.section_type ?? section.type ?? "");
+  const slides:Slide[]=Array.isArray(c.slides)?c.slides:[];
+  const circles:Circle[]=Array.isArray(c.circles)?c.circles:[];
+  const embedded:Circle[]=Array.isArray(c.category_circles)?c.category_circles:[];
+  const ids:number[]=Array.isArray(c.products)?c.products.map((x:any)=>Number(x?.id)).filter((x:number)=>Number.isFinite(x)):[];
+  const limit=Math.max(2,Number(c.rows??2)*Number(c.columns??2));
+  const selected=ids.length?ids.map(id=>products.find(p=>Number(p.id)===id)).filter(Boolean) as StoreProduct[]:products.slice(0,limit);
+  if(!["hero","banner","category","product_grid","trend"].includes(type)) return null;
+  return (
+    <View style={s.section}>
+      {(type==="hero"||type==="banner")&&slides.length>0 ? <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={s.slides}>{slides.map((slide,index)=>{
+        const uri=String(slide.imageUrl??slide.image_url??"");
+        return <Pressable key={String(slide.id??index)} style={s.hero} onPress={()=>openUrl(slide.url)}>{uri?<Image source={{uri}} style={s.heroImage}/>:<View style={s.placeholder}/>}<View style={s.shade}/><View style={s.heroText}><Text style={s.heroTitle}>{String(slide.title??section.title??"")}</Text>{slide.subtitle?<Text style={s.heroSub}>{slide.subtitle}</Text>:null}{slide.ctaLabel?<View style={[s.button,{borderColor:primary}]}><Text style={s.buttonText}>{slide.ctaLabel}</Text></View>:null}</View></Pressable>;
+      })}</ScrollView>:null}
+      {type==="category"&&circles.length>0 ? <CategoryRow circles={circles} primary={primary}/>:null}
+      {(type==="product_grid"||type==="trend")&&selected.length>0 ? <View style={s.gridSection}><View style={s.sectionHeader}><Text style={s.sectionTitle}>{section.title||(type==="trend"?"الأكثر رواجًا":"منتجات مختارة")}</Text><View style={[s.accent,{backgroundColor:primary}]}/></View>{Boolean(c.show_categories)&&embedded.length>0?<CategoryRow circles={embedded} primary={primary}/>:null}<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.productScroll}>{selected.map(product=><View key={String(product.id)} style={s.horizontalProduct}><ProductCard product={product}/></View>)}</ScrollView></View>:null}
+    </View>
+  );
 }
-function chunk<T>(items:T[],size:number){const out:T[][]=[];for(let i=0;i<items.length;i+=size)out.push(items.slice(i,i+size));return out;}
-function CategoryCircle({circle,primary}:{circle:any;primary:string}){return <Pressable style={styles.circleItem} onPress={()=>navigate(circle.url??`/collection?category=${encodeURIComponent(String(circle.targetCategory??""))}`)}><View style={[styles.circle,{borderColor:`${primary}30`]}>{circle.imageUrl?<Image source={{uri:String(circle.imageUrl)}} style={StyleSheet.absoluteFillObject}/>:<MaterialIcons name="category" size={24} color={primary}/>}</View><Text numberOfLines={1} style={styles.circleText}>{String(circle.title??circle.name??"")}</Text></Pressable>}
-function navigate(url?:string){const value=String(url??"").trim();if(value.startsWith("/"))router.push(value as never);}
-const styles=StyleSheet.create({center:{flex:1,alignItems:"center",justifyContent:"center"},header:{height:56,paddingHorizontal:16,backgroundColor:"#FFF",flexDirection:"row",justifyContent:"space-between",alignItems:"center",borderBottomWidth:1,borderColor:"#F0F0F0"},title:{fontSize:16,fontWeight:"900",color:"#111"},list:{padding:10,paddingBottom:60},row:{justifyContent:"space-between",gap:10,marginBottom:10},productWrapper:{flex:1,maxWidth:"48%"},storeInfo:{alignItems:"flex-end",padding:14,backgroundColor:"#FFF",borderRadius:14,marginBottom:10},cover:{width:"100%",height:150,borderRadius:12,marginBottom:12,backgroundColor:"#EEE"},logo:{width:76,height:76,borderRadius:38,backgroundColor:"#FFF",borderWidth:2,borderColor:"#F2F2F2",overflow:"hidden",justifyContent:"center",alignItems:"center",marginBottom:8},logoImage:{width:"100%",height:"100%"},storeName:{fontSize:21,fontWeight:"900",color:"#111"},storeDesc:{textAlign:"right",color:"#666",fontSize:12,lineHeight:19,marginTop:7},section:{backgroundColor:"transparent",marginBottom:8},heroRow:{gap:10},hero:{height:215,width:350,borderRadius:16,overflow:"hidden",backgroundColor:"#EEE",position:"relative"},heroImage:{width:"100%",height:"100%"},heroShade:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,0.28)"},heroText:{position:"absolute",right:16,bottom:16,maxWidth:"82%",alignItems:"flex-end"},heroBadge:{backgroundColor:"#FFF",color:"#111",paddingHorizontal:8,paddingVertical:4,borderRadius:50,fontSize:9,fontWeight:"900"},heroTitle:{color:"#FFF",fontSize:22,fontWeight:"900",marginTop:7,textAlign:"right"},heroSub:{color:"#FFF",fontSize:11,lineHeight:17,marginTop:4,textAlign:"right"},heroButton:{backgroundColor:"#FFF",borderWidth:1,paddingHorizontal:12,paddingVertical:7,borderRadius:20,marginTop:8},heroButtonText:{color:"#111",fontSize:10,fontWeight:"900"},circleRow:{paddingVertical:8,gap:14},embeddedCircleRow:{paddingVertical:7,gap:12},circleItem:{width:68,alignItems:"center"},circle:{width:60,height:60,borderRadius:30,borderWidth:2,backgroundColor:"#FFF",overflow:"hidden",alignItems:"center",justifyContent:"center"},circleText:{maxWidth:66,color:"#333",fontSize:9,fontWeight:"800",marginTop:5,textAlign:"center"},gridSection:{backgroundColor:"#FFF",borderRadius:14,padding:10},sectionHeader:{flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-between",marginBottom:6},sectionTitle:{color:"#111",fontSize:16,fontWeight:"900"},sectionAccent:{width:28,height:4,borderRadius:2},productScroll:{gap:9},productColumn:{gap:9},productGrid:{flexDirection:"row-reverse",flexWrap:"wrap",justifyContent:"space-between",rowGap:10},empty:{color:"#888",textAlign:"center",padding:30}});
+function CategoryRow({circles,primary}:{circles:Circle[];primary:string}) { return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.circleRow}>{circles.map((circle,index)=><Pressable key={String(circle.id??index)} style={s.circleItem} onPress={()=>openUrl(circle.url??`/collection?category=${encodeURIComponent(String(circle.targetCategory??""))}`)}><View style={[s.circle,{borderColor:`${primary}30`}]}>{circle.imageUrl?<Image source={{uri:String(circle.imageUrl)}} style={StyleSheet.absoluteFillObject}/>:<MaterialIcons name="category" size={24} color={primary}/>}</View><Text numberOfLines={1} style={s.circleText}>{String(circle.title??circle.name??"")}</Text></Pressable>)}</ScrollView>; }
+function openUrl(url?:string){const value=String(url??"").trim();if(value.startsWith("/"))router.push(value as never);}
+const s=StyleSheet.create({center:{flex:1,alignItems:"center",justifyContent:"center"},header:{height:56,paddingHorizontal:16,backgroundColor:"#FFF",flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderColor:"#EEE"},title:{fontSize:16,fontWeight:"900",color:"#111"},page:{padding:12,paddingBottom:80},storeCard:{backgroundColor:"#FFF",borderRadius:14,padding:14,alignItems:"flex-end",marginBottom:10},cover:{width:"100%",height:150,borderRadius:12,marginBottom:10},logo:{width:70,height:70,borderRadius:35,backgroundColor:"#FFF",borderWidth:2,borderColor:"#EEE",alignItems:"center",justifyContent:"center",overflow:"hidden"},logoImage:{width:"100%",height:"100%"},storeName:{fontSize:21,fontWeight:"900",color:"#111",marginTop:8},description:{fontSize:11,lineHeight:18,color:"#666",textAlign:"right",marginTop:5},section:{marginBottom:10},slides:{gap:10},hero:{width:350,height:210,borderRadius:16,overflow:"hidden",backgroundColor:"#EEE",position:"relative"},heroImage:{width:"100%",height:"100%"},placeholder:{flex:1,backgroundColor:"#EEE"},shade:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,.28)"},heroText:{position:"absolute",right:15,bottom:14,maxWidth:"80%",alignItems:"flex-end"},heroTitle:{color:"#FFF",fontSize:21,fontWeight:"900"},heroSub:{color:"#FFF",fontSize:10,lineHeight:16,marginTop:4},button:{backgroundColor:"#FFF",borderWidth:1,borderRadius:18,paddingHorizontal:12,paddingVertical:6,marginTop:7},buttonText:{color:"#111",fontSize:9,fontWeight:"900"},circleRow:{gap:12,paddingVertical:6},circleItem:{width:70,alignItems:"center"},circle:{width:58,height:58,borderRadius:29,borderWidth:2,backgroundColor:"#FFF",alignItems:"center",justifyContent:"center",overflow:"hidden"},circleText:{width:68,marginTop:4,fontSize:9,fontWeight:"800",color:"#333",textAlign:"center"},gridSection:{backgroundColor:"#FFF",borderRadius:14,padding:10},sectionHeader:{flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-between",marginBottom:7},sectionTitle:{fontSize:15,fontWeight:"900",color:"#111"},accent:{width:28,height:4,borderRadius:2},productScroll:{gap:9},horizontalProduct:{width:160},productsTitle:{fontSize:17,fontWeight:"900",color:"#111",textAlign:"right",marginVertical:9},productsGrid:{flexDirection:"row-reverse",flexWrap:"wrap",justifyContent:"space-between",rowGap:10},productCell:{width:"48%"},empty:{padding:30,color:"#888",textAlign:"center"}});
