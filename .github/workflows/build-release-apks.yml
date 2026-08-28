@@ -31,7 +31,7 @@ jobs:
       EAS_PROJECT_ID: ${{ inputs.eas_project_id }}
       APP_VARIANT: customer
       EAS_PROJECT_OWNER: zydan2626
-      EAS_PROJECT_SLUG: shabik-marketplace
+      EAS_PROJECT_SLUG: shbyk-lbyk
     steps:
       - name: Checkout target refactor branch
         uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
       EAS_PROJECT_ID: ${{ inputs.eas_project_id }}
       APP_VARIANT: vendor
       EAS_PROJECT_OWNER: zydan2626
-      EAS_PROJECT_SLUG: shabik-marketplace
+      EAS_PROJECT_SLUG: shbyk-lbyk
     steps:
       - name: Checkout target refactor branch
         uses: actions/checkout@v4
