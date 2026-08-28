@@ -17,7 +17,8 @@ const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
 
 const appName = variant === "vendor" ? "شبيك — التاجر" : "شبيك";
-const appSlug = "shabik-marketplace";
+// The existing EAS project for projectId 10e0228e-8424-4fc5-9399-9c4f8bfb8a95 uses this slug.
+const appSlug = "shbyk-lbyk";
 const easProjectId = process.env.EAS_PROJECT_ID?.trim();
 
 const config: ExpoConfig = {
