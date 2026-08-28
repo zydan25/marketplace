@@ -15,6 +15,7 @@ from .secure_vendor import VendorApplicationViewSet
 from .order_chat_api import OrderChatViewSet
 from .vendor_finance_api import VendorFinanceViewSet
 from .support_api import AdminSupportCloseView, AdminSupportMessageView, AdminSupportView, SupportEmployeesView, SupportMessageView, SupportView
+from .vendor_shipping_api import VendorCityShippingViewSet
 from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
@@ -46,6 +47,7 @@ router.register("conversations", SecureConversationViewSet, basename="conversati
 router.register("order-chats", OrderChatViewSet, basename="order-chat")
 router.register("catalog-options", CatalogOptionViewSet, basename="catalog-option")
 router.register("currency-rates", CurrencyRateViewSet, basename="currency-rate")
+router.register("vendor-city-shipping", VendorCityShippingViewSet, basename="vendor-city-shipping")
 router.register("coupons", CouponViewSet, basename="coupon")
 router.register("cities", CityViewSet, basename="city")
 router.register("addresses", AddressViewSet, basename="address")
