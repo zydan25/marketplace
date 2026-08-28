@@ -45,7 +45,6 @@ class GiftTransfer(TimeStampedModel):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     receiver_name_snapshot = models.CharField(max_length=255, blank=True)
 
-
 class CatalogOption(TimeStampedModel):
     """Configurable product attribute option controlled from the marketplace backend."""
     group = models.CharField(max_length=60)
@@ -59,10 +58,9 @@ class CatalogOption(TimeStampedModel):
         ordering = ["group", "sort_order", "name", "id"]
         constraints = [models.UniqueConstraint(fields=["group", "slug", "category"], name="uniq_catalog_option_group_slug_category")]
         indexes = [
-            models.Index(fields=["group", "is_active"], name="marketplace_c_group_i_0e79c0_idx"),
-            models.Index(fields=["category", "group", "is_active"], name="marketplace_c_categor_0be1ef_idx"),
+            models.Index(fields=["group", "is_active"], name="catopt_grp_active_idx"),
+            models.Index(fields=["category", "group", "is_active"], name="catopt_cat_grp_active_idx"),
         ]
-
 
 class CurrencyRate(TimeStampedModel):
     base_currency = models.CharField(max_length=6, default="YER")
@@ -75,12 +73,10 @@ class CurrencyRate(TimeStampedModel):
         constraints = [models.UniqueConstraint(fields=["base_currency", "target_currency"], name="uniq_currency_rate_pair")]
         ordering = ["base_currency", "target_currency"]
 
-
 class UserPreference(TimeStampedModel):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="preference")
     currency = models.CharField(max_length=6, default="YER")
     notifications_enabled = models.BooleanField(default=True)
-
 
 class VendorCityShipping(TimeStampedModel):
     vendor = models.ForeignKey("marketplace.VendorProfile", on_delete=models.CASCADE, related_name="city_shipping_fees")
@@ -91,5 +87,5 @@ class VendorCityShipping(TimeStampedModel):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["vendor", "city"], name="uniq_vendor_city_shipping")]
         indexes = [
-            models.Index(fields=["vendor", "city", "is_active"], name="marketplace_v_vendor_c_f2b09e_idx"),
+            models.Index(fields=["vendor", "city", "is_active"], name="vcs_vendor_city_active_idx"),
         ]
