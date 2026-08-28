@@ -48,9 +48,9 @@ class VendorProductViewSet(SecureProductViewSet):
         qs = Product.objects.select_related("vendor", "vendor__owner").prefetch_related(
             "categories", "image_items", "variants"
         )
-        if user.is_staff or user.role == "admin":
+        if getattr(user, "is_staff", False) or getattr(user, "role", None) == "admin":
             return qs
-        if user.role != "vendor":
+        if getattr(user, "role", None) != "vendor":
             return qs.filter(is_published=True, vendor__status="active")
         return qs.filter(vendor__owner=user)
 
@@ -59,7 +59,7 @@ class VendorProductViewSet(SecureProductViewSet):
         own_vendor = VendorProfile.objects.filter(owner=user).first()
         requested_id = self.request.data.get("vendor_id")
 
-        if user.is_staff or user.role == "admin":
+        if user.is_staff or getattr(user, "role", None) == "admin":
             if requested_id:
                 vendor = VendorProfile.objects.filter(id=requested_id).first()
                 if not vendor:
@@ -67,12 +67,14 @@ class VendorProductViewSet(SecureProductViewSet):
                 if vendor.status != "active":
                     raise ValidationError({"vendor_id": "المتجر المحدد غير نشط."})
                 return vendor
+            if own_vendor and own_vendor.status == "active":
+                return own_vendor
             active = VendorProfile.objects.filter(status="active").order_by("id")
             if active.count() == 1:
                 return active.first()
             raise ValidationError({"vendor_id": "حدد المتجر الذي سيُضاف إليه المنتج."})
 
-        if user.role != "vendor":
+        if getattr(user, "role", None) != "vendor":
             raise PermissionDenied("إدارة المنتجات متاحة للتاجر فقط")
         if not own_vendor:
             raise ValidationError({"vendor_id": "لا يوجد متجر مرتبط بحساب التاجر."})
@@ -86,9 +88,9 @@ class VendorProductViewSet(SecureProductViewSet):
 class VendorDesignThemeViewSet(SecureDesignThemeViewSet):
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff or user.role == "admin":
+        if getattr(user, "is_staff", False) or getattr(user, "role", None) == "admin":
             return DesignTheme.objects.all().select_related("vendor", "owner")
-        if user.role == "vendor":
+        if getattr(user, "role", None) == "vendor":
             return DesignTheme.objects.filter(vendor__owner=user).select_related("vendor", "owner")
         return DesignTheme.objects.filter(is_global=True, is_active=True)
 
@@ -97,22 +99,22 @@ class VendorStorefrontSectionViewSet(SecureStorefrontSectionViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = StorefrontSection.objects.select_related("vendor", "owner")
-        if user.is_staff or user.role == "admin":
+        if getattr(user, "is_staff", False) or getattr(user, "role", None) == "admin":
             return qs
-        if user.role == "vendor":
+        if getattr(user, "role", None) == "vendor":
             return qs.filter(vendor__owner=user)
         return qs.filter(vendor__isnull=True, is_visible=True)
 
     def perform_create(self, serializer):
         user = self.request.user
-        if user.is_staff or user.role == "admin":
+        if user.is_staff or getattr(user, "role", None) == "admin":
             requested_id = self.request.data.get("vendor_id")
             vendor = VendorProfile.objects.filter(id=requested_id).first() if requested_id else VendorProfile.objects.filter(owner=user, status="active").first()
             if requested_id and not vendor:
                 raise ValidationError({"vendor_id": "المتجر المحدد غير موجود."})
             serializer.save(owner=user, vendor=vendor)
             return
-        if user.role != "vendor":
+        if getattr(user, "role", None) != "vendor":
             raise PermissionDenied("إنشاء أقسام المتجر متاح للتاجر فقط")
         vendor = VendorProfile.objects.filter(owner=user, status="active").first()
         if not vendor:
