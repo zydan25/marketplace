@@ -14,30 +14,22 @@ from .launch_order_api import LaunchOrderViewSet
 from .secure_vendor import VendorApplicationViewSet
 from .order_chat_api import OrderChatViewSet
 from .vendor_finance_api import VendorFinanceViewSet
-from .support_api import SupportEmployeesView, SupportMessageView, SupportView
+from .support_api import AdminSupportCloseView, AdminSupportMessageView, AdminSupportView, SupportEmployeesView, SupportMessageView, SupportView
 from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
 
 class PriceGroupSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PriceGroup
-        fields = "__all__"
-
+    class Meta: model = PriceGroup; fields = "__all__"
 class CitySerializer(serializers.ModelSerializer):
     price_group = PriceGroupSerializer(read_only=True)
-    class Meta:
-        model = City
-        fields = "__all__"
-
+    class Meta: model = City; fields = "__all__"
 class CityViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = City.objects.filter(is_active=True)
     serializer_class = CitySerializer
-
 class CouponViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CouponSerializer
-    def get_queryset(self):
-        return CouponModel.objects.filter(is_active=True)
+    def get_queryset(self): return CouponModel.objects.filter(is_active=True)
 
 router = DefaultRouter()
 router.register("vendors", SecureVendorViewSet, basename="vendor")
@@ -72,6 +64,9 @@ urlpatterns = [
     path("support/", SupportView.as_view(), name="support"),
     path("support/messages/", SupportMessageView.as_view(), name="support-messages"),
     path("support/employees/", SupportEmployeesView.as_view(), name="support-employees"),
+    path("admin/support/", AdminSupportView.as_view(), name="admin-support"),
+    path("admin/support/<int:conversation_id>/messages/", AdminSupportMessageView.as_view(), name="admin-support-message"),
+    path("admin/support/<int:conversation_id>/close/", AdminSupportCloseView.as_view(), name="admin-support-close"),
     path("admin-dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
     path("", include(router.urls)),
 ]
