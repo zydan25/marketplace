@@ -8,9 +8,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 
-from .marketplace_models import CouponRedemption
 from .models import Coupon, Product
 from .models_extended import City, ProductVariant
+from .models_extra import VendorCityShipping
 from .services import PricingEngine
 
 
@@ -28,7 +28,8 @@ class SecureCartCalculateView(APIView):
         if city_id and not city:
             raise ValidationError({"city_id": "المدينة غير صالحة"})
 
-        groups = defaultdict(Decimal)
+        vendor_subtotals = defaultdict(Decimal)
+        vendor_shipping = defaultdict(lambda: Decimal("0.00"))
         subtotal = Decimal("0.00")
         lines = []
         errors = []
@@ -63,8 +64,8 @@ class SecureCartCalculateView(APIView):
             unit_price = variant.price_override if variant and variant.price_override is not None else pricing["unit_final_price"]
             line_total = unit_price * quantity
             subtotal += line_total
-            groups[product.vendor_id] += line_total
-            lines.append({"product_id": product.id, "variant_id": variant.id if variant else None, "quantity": quantity, "unit_price": str(unit_price), "line_total": str(line_total)})
+            vendor_subtotals[product.vendor_id] += line_total
+            lines.append({"product_id": product.id, "vendor_id": product.vendor_id, "variant_id": variant.id if variant else None, "quantity": quantity, "unit_price": str(unit_price), "line_total": str(line_total), "color": variant.color if variant else str(row.get("color", "")), "size": variant.size if variant else str(row.get("size", ""))})
 
         if errors:
             return Response({"valid": False, "errors": errors, "lines": lines}, status=400)
@@ -90,12 +91,16 @@ class SecureCartCalculateView(APIView):
             discount = (subtotal * coupon.discount_percent / Decimal("100")).quantize(Decimal("0.01")) if coupon.discount_percent else coupon.discount_amount
             discount = min(discount, subtotal)
 
-        shipping_fee = city.shipping_fee if city else Decimal("0.00")
+        if city:
+            for vendor_id in vendor_subtotals:
+                vendor_shipping[vendor_id] = VendorCityShipping.objects.filter(vendor_id=vendor_id, city_id=city.id, is_active=True).values_list("fee", flat=True).first() or Decimal("0.00")
+        shipping_fee = sum(vendor_shipping.values(), Decimal("0.00"))
         total = max(Decimal("0.00"), subtotal - discount + shipping_fee)
         return Response({
             "valid": True,
             "subtotal": str(subtotal),
             "shipping_fee": str(shipping_fee),
+            "shipping_by_vendor": {str(k): str(v) for k, v in vendor_shipping.items()},
             "discount": str(discount),
             "total": str(total),
             "currency": str(request.data.get("currency", "YER")).upper(),
