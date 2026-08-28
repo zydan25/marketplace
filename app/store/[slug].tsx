@@ -1,49 +1,63 @@
-import { useEffect, useState } from "react";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
 import { ScreenContainer } from "@/components/screen-container";
-import { ApiClient } from "@/lib/api-client";
-import { getProducts, type StoreProduct } from "@/lib/product-api";
-import { getVendorStorefront, type StorefrontTab } from "@/lib/storefront-api";
 import { ProductCard } from "@/components/product-card";
 import { ShareButton } from "@/components/share-button";
+import { apiCall } from "@/lib/_core/api";
+import { getProducts, type StoreProduct } from "@/lib/product-api";
 
-type Store = { store_name: string; slug: string; description?: string; logo_url?: string | null; cover_url?: string | null };
+type RawSection = { id: number | string; title?: string; type?: string; section_type?: string; sort_order?: number; config?: Record<string, any>; is_visible?: boolean };
+type StorePayload = {
+  store?: { id?: number | null; store_name?: string; slug?: string; description?: string; logo_url?: string | null; cover_url?: string | null } | null;
+  theme?: { tokens?: Record<string, any>; layout?: Record<string, any> } | null;
+  data?: RawSection[];
+};
 
 export default function StoreScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
-  const [store, setStore] = useState<Store | null>(null);
+  const [payload, setPayload] = useState<StorePayload | null>(null);
   const [products, setProducts] = useState<StoreProduct[]>([]);
-  const [sections, setSections] = useState<StorefrontTab[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!slug) return;
     Promise.all([
-      ApiClient.get<Store>(`/api/vendors/${slug}/`),
+      apiCall<StorePayload>(`/api/stores/${encodeURIComponent(String(slug))}/home/`),
       getProducts(),
-      getVendorStorefront(String(slug)),
-    ]).then(([data, items, storefront]) => {
-      setStore(data);
-      setProducts(items.filter(item => item.vendor.slug === slug));
-      setSections(storefront);
+    ]).then(([home, allProducts]) => {
+      setPayload(home);
+      setProducts(allProducts.filter((item) => item.vendor.slug === slug));
     }).catch(() => undefined).finally(() => setLoading(false));
   }, [slug]);
 
-  if (loading) return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E60023" /></View></ScreenContainer>;
-  if (!store) return <ScreenContainer><View style={styles.center}><Text>المتجر غير موجود</Text></View></ScreenContainer>;
+  const store = payload?.store;
+  const sections = (payload?.data ?? []).filter((section) => section.is_visible !== false).sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0));
+  const primary = String(payload?.theme?.tokens?.primary ?? "#E60023");
+  const background = String(payload?.theme?.tokens?.background ?? "#F5F5F5");
 
-  return <ScreenContainer edges={["top","bottom","left","right"]} className="bg-[#F5F5F5]">
-    <View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} /></TouchableOpacity><Text style={styles.title}>{store.store_name}</Text><ShareButton type="store" id={store.slug} title={store.store_name} /></View>
+  if (loading) return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E60023" /></View></ScreenContainer>;
+  if (!store) return <ScreenContainer><View style={styles.center}><Text>المتجر غير موجود أو غير نشط.</Text></View></ScreenContainer>;
+
+  return <ScreenContainer edges={["top", "bottom", "left", "right"]} style={{ backgroundColor: background }}>
+    <View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} color="#111" /></TouchableOpacity><Text style={styles.title}>{store.store_name}</Text><ShareButton type="store" id={String(store.slug ?? slug)} title={store.store_name ?? "متجر"} /></View>
     <FlatList
       data={products}
       numColumns={2}
-      keyExtractor={item => item.id}
+      keyExtractor={(item) => String(item.id)}
       contentContainerStyle={styles.list}
       columnWrapperStyle={styles.row}
       ListHeaderComponent={<View>
-        <View style={styles.storeInfo}>{store.cover_url ? <Image source={{uri:store.cover_url}} style={styles.cover} /> : null}<View style={styles.logoPlaceholder}>{store.logo_url ? <Image source={{uri:store.logo_url}} style={styles.logoImage} /> : <MaterialIcons name="storefront" size={40} color="#E60023" />}</View><Text style={styles.storeName}>{store.store_name}</Text><View style={styles.rating}><MaterialIcons name="star" size={18} color="#F2B600" /><Text>4.8 · تقييم العملاء</Text></View><Text style={styles.storeDesc}>{store.description || "وصف المتجر سيظهر هنا."}</Text></View>
-        {sections.map(section => <StorefrontSection key={section.id} section={section} />)}
+        <View style={styles.storeInfo}>
+          {store.cover_url ? <Image source={{ uri: store.cover_url }} style={styles.cover} /> : null}
+          <View style={styles.logo}><>{store.logo_url ? <Image source={{ uri: store.logo_url }} style={styles.logoImage} /> : <MaterialIcons name="storefront" size={36} color={primary} />}</></View>
+          <Text style={styles.storeName}>{store.store_name}</Text>
+          <View style={styles.rating}><MaterialIcons name="star" size={18} color="#F2B600" /><Text>متجر موثوق · التقييم يظهر مع مراجعات العملاء</Text></View>
+          {store.description ? <Text style={styles.storeDesc}>{store.description}</Text> : null}
+        </View>
+        {sections.map((section) => <StorefrontSection key={String(section.id)} section={section} products={products} primary={primary} />)}
         <Text style={styles.productsTitle}>منتجات المتجر ({products.length})</Text>
       </View>}
       renderItem={({ item }) => <View style={styles.productWrapper}><ProductCard product={item} /></View>}
@@ -52,17 +66,65 @@ export default function StoreScreen() {
   </ScreenContainer>;
 }
 
-function StorefrontSection({ section }: { section: StorefrontTab }) {
-  const slide = section.slides[0];
-  const circles = section.circles.filter(item => item.visible && item.isActive);
-  const cards = section.cards.filter(item => item.visible && item.isActive);
+function StorefrontSection({ section, products, primary }: { section: RawSection; products: StoreProduct[]; primary: string }) {
+  const type = String(section.section_type ?? section.type ?? "");
+  const config = section.config ?? {};
+  const slides = Array.isArray(config.slides) ? config.slides.filter((x: any) => x?.visible !== false && x?.isActive !== false) : [];
+  const circles = Array.isArray(config.circles) ? config.circles.filter((x: any) => x?.visible !== false && x?.isActive !== false) : [];
+  const productRows = Array.isArray(config.products) ? config.products : [];
+  const ids = productRows.map((x: any) => Number(x?.id)).filter(Number.isFinite);
+  const displayed = useMemo(() => ids.length ? ids.map((id: number) => products.find((p) => Number(p.id) === id)).filter(Boolean) as StoreProduct[] : products.slice(0, Math.max(2, Number(config.rows ?? 2) * Number(config.columns ?? 2))), [ids.join(","), products]);
+  const columns = Math.max(2, Math.min(4, Number(config.columns ?? 2)));
+  const rows = Math.max(1, Math.min(6, Number(config.rows ?? 2)));
+  const scroll = config.scroll !== false;
+  if (!["hero", "banner", "category", "product_grid", "trend"].includes(type)) return null;
+
   return <View style={styles.section}>
-    {slide?.imageUrl ? <Pressable style={styles.hero} onPress={() => navigate(slide.url)}><Image source={{ uri: slide.imageUrl }} style={styles.heroImage} /><View style={styles.heroShade}/><View style={styles.heroText}>{slide.badge ? <Text style={styles.heroBadge}>{slide.badge}</Text> : null}<Text style={styles.heroTitle}>{slide.title}</Text>{slide.subtitle ? <Text style={styles.heroSub}>{slide.subtitle}</Text> : null}{slide.ctaLabel ? <View style={styles.heroButton}><Text style={styles.heroButtonText}>{slide.ctaLabel}</Text></View> : null}</View></Pressable> : null}
-    {circles.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.circleRow}>{circles.map(circle => <Pressable key={circle.id} style={styles.circleItem} onPress={() => navigate(circle.url)}><View style={styles.circle}>{circle.imageUrl ? <Image source={{uri:circle.imageUrl}} style={StyleSheet.absoluteFillObject}/> : <MaterialIcons name="category" size={23} color="#777"/>}</View><Text numberOfLines={1} style={styles.circleText}>{circle.title}</Text></Pressable>)}</ScrollView> : null}
-    {cards.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardRow}>{cards.map(card => <Pressable key={card.id} style={styles.card} onPress={() => navigate(card.url)}>{card.imageUrl ? <Image source={{uri:card.imageUrl}} style={styles.cardImage}/> : <View style={styles.cardImageFallback}><MaterialIcons name="image" size={26} color="#aaa"/></View>}<View style={styles.cardBody}>{card.badge ? <Text style={styles.cardBadge}>{card.badge}</Text> : null}<Text style={styles.cardTitle}>{card.title}</Text>{card.subtitle ? <Text numberOfLines={2} style={styles.cardSub}>{card.subtitle}</Text> : null}</View></Pressable>)}</ScrollView> : null}
+    {slides.length ? <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.heroRow}>{slides.map((slide: any, index: number) => <Pressable key={String(slide.id ?? index)} style={styles.hero} onPress={() => navigate(slide.url)}><Image source={{ uri: String(slide.imageUrl ?? slide.image_url ?? "") }} style={styles.heroImage} /><View style={styles.heroShade}/><View style={styles.heroText}>{slide.badge ? <Text style={styles.heroBadge}>{slide.badge}</Text> : null}<Text style={styles.heroTitle}>{String(slide.title ?? section.title ?? "")}</Text>{slide.subtitle ? <Text style={styles.heroSub}>{String(slide.subtitle)}</Text> : null}{slide.ctaLabel ? <View style={[styles.heroButton, { borderColor: primary }]}><Text style={styles.heroButtonText}>{String(slide.ctaLabel)}</Text></View> : null}</View></Pressable>)}</ScrollView> : null}
+
+    {type === "category" && circles.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.circleRow}>{circles.map((circle: any, index: number) => <Pressable key={String(circle.id ?? index)} style={styles.circleItem} onPress={() => navigate(circle.url ?? `/collection?category=${encodeURIComponent(String(circle.targetCategory ?? ""))}`)}><View style={[styles.circle, { borderColor: `${primary}30` }]}>{circle.imageUrl ? <Image source={{ uri: String(circle.imageUrl) }} style={StyleSheet.absoluteFillObject} /> : <MaterialIcons name="category" size={24} color={primary} />}</View><Text numberOfLines={1} style={styles.circleText}>{String(circle.title ?? circle.name ?? "")}</Text></Pressable>)}</ScrollView> : null}
+
+    {(type === "product_grid" || type === "trend") && displayed.length ? <View style={styles.gridSection}><View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{section.title || (type === "trend" ? "الأكثر رواجًا" : "منتجات مختارة")}</Text><View style={[styles.sectionAccent, { backgroundColor: primary }]} /></View>{scroll ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>{displayed.slice(0, rows * columns).map((product) => <View key={String(product.id)} style={{ width: 160 }}><ProductCard product={product} /></View>)}</ScrollView> : <View style={styles.productGrid}>{displayed.slice(0, rows * columns).map((product) => <View key={String(product.id)} style={{ width: `${100 / columns - 2}%` }}><ProductCard product={product} /></View>)}</View>}</View> : null}
   </View>;
 }
 
-function navigate(url: string) { const value = url.trim(); if (!value) return; if (value.startsWith("/")) router.push(value as never); }
+function navigate(url?: string) { const value = String(url ?? "").trim(); if (value.startsWith("/")) router.push(value as never); }
 
-const styles=StyleSheet.create({center:{flex:1,justifyContent:"center",alignItems:"center"},header:{height:54,paddingHorizontal:16,backgroundColor:"#FFF",flexDirection:"row",justifyContent:"space-between",alignItems:"center",borderBottomWidth:1,borderColor:"#F5F5F5"},title:{fontSize:16,fontWeight:"900",color:"#111"},storeInfo:{alignItems:"flex-end",padding:18,backgroundColor:"#FFF",marginBottom:12,borderRadius:12},cover:{width:"100%",height:120,borderRadius:10,marginBottom:12},logoPlaceholder:{width:72,height:72,borderRadius:36,backgroundColor:"#FFF",alignItems:"center",justifyContent:"center",marginBottom:8,borderWidth:1,borderColor:"#EEE",overflow:"hidden"},logoImage:{width:"100%",height:"100%"},storeName:{fontSize:20,fontWeight:"900",color:"#111"},rating:{flexDirection:"row",gap:5,alignItems:"center",marginTop:5},storeDesc:{color:"#777",textAlign:"right",fontSize:12,lineHeight:20,marginTop:8},productsTitle:{fontSize:16,fontWeight:"900",marginTop:16,marginBottom:8,textAlign:"right",paddingHorizontal:4},list:{padding:10},row:{justifyContent:"space-between",gap:10,marginBottom:10},productWrapper:{flex:1,maxWidth:"48%"},empty:{padding:40,textAlign:"center",color:"#777"},section:{marginBottom:10},hero:{height:210,borderRadius:15,overflow:"hidden",marginBottom:10,position:"relative",backgroundColor:"#eee"},heroImage:{width:"100%",height:"100%"},heroShade:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,.26)"},heroText:{position:"absolute",right:16,bottom:16,alignItems:"flex-end",maxWidth:"82%"},heroBadge:{backgroundColor:"#fff",paddingHorizontal:7,paddingVertical:4,borderRadius:99,fontSize:9,fontWeight:"900"},heroTitle:{color:"#fff",fontSize:22,fontWeight:"900",marginTop:7,textAlign:"right"},heroSub:{color:"#fff",fontSize:11,marginTop:4,textAlign:"right"},heroButton:{backgroundColor:"#fff",paddingHorizontal:12,paddingVertical:7,borderRadius:18,marginTop:8},heroButtonText:{fontSize:10,fontWeight:"900",color:"#111"},circleRow:{paddingHorizontal:4,gap:14,paddingVertical:8},circleItem:{width:66,alignItems:"center"},circle:{width:58,height:58,borderRadius:29,backgroundColor:"#fff",borderWidth:1,borderColor:"#eee",overflow:"hidden",alignItems:"center",justifyContent:"center"},circleText:{fontSize:9,color:"#333",fontWeight:"800",marginTop:5,textAlign:"center"},cardRow:{paddingHorizontal:2,gap:10,paddingVertical:4},card:{width:220,borderRadius:13,overflow:"hidden",backgroundColor:"#fff",borderWidth:1,borderColor:"#eee"},cardImage:{width:"100%",height:110},cardImageFallback:{width:"100%",height:110,backgroundColor:"#f0f0f0",alignItems:"center",justifyContent:"center"},cardBody:{padding:10,alignItems:"flex-end"},cardBadge:{fontSize:9,fontWeight:"900",color:"#8b5cf6"},cardTitle:{fontSize:13,fontWeight:"900",color:"#111",textAlign:"right"},cardSub:{fontSize:9,color:"#777",textAlign:"right",marginTop:3,lineHeight:15}});
+const styles = StyleSheet.create({
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  header: { height: 56, paddingHorizontal: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#F0F0F0" },
+  title: { fontSize: 16, fontWeight: "900", color: "#111" },
+  list: { padding: 10, paddingBottom: 60 },
+  row: { justifyContent: "space-between", gap: 10, marginBottom: 10 },
+  productWrapper: { flex: 1, maxWidth: "48%" },
+  storeInfo: { alignItems: "flex-end", padding: 14, backgroundColor: "#FFF", borderRadius: 14, marginBottom: 10 },
+  cover: { width: "100%", height: 150, borderRadius: 12, marginBottom: 12, backgroundColor: "#EEE" },
+  logo: { width: 76, height: 76, borderRadius: 38, backgroundColor: "#FFF", borderWidth: 2, borderColor: "#F2F2F2", overflow: "hidden", justifyContent: "center", alignItems: "center", marginBottom: 8 },
+  logoImage: { width: "100%", height: "100%" },
+  storeName: { fontSize: 21, fontWeight: "900", color: "#111" },
+  rating: { flexDirection: "row", gap: 5, alignItems: "center", marginTop: 5 },
+  storeDesc: { textAlign: "right", color: "#666", fontSize: 12, lineHeight: 19, marginTop: 7 },
+  productsTitle: { textAlign: "right", fontSize: 17, fontWeight: "900", color: "#111", marginVertical: 10 },
+  section: { backgroundColor: "transparent", marginBottom: 8 },
+  heroRow: { gap: 10 },
+  hero: { height: 215, width: 350, borderRadius: 16, overflow: "hidden", backgroundColor: "#EEE", position: "relative" },
+  heroImage: { width: "100%", height: "100%" },
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.28)" },
+  heroText: { position: "absolute", right: 16, bottom: 16, maxWidth: "82%", alignItems: "flex-end" },
+  heroBadge: { backgroundColor: "#FFF", color: "#111", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 50, fontSize: 9, fontWeight: "900" },
+  heroTitle: { color: "#FFF", fontSize: 22, fontWeight: "900", marginTop: 7, textAlign: "right" },
+  heroSub: { color: "#FFF", fontSize: 11, lineHeight: 17, marginTop: 4, textAlign: "right" },
+  heroButton: { backgroundColor: "#FFF", borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, marginTop: 8 },
+  heroButtonText: { color: "#111", fontSize: 10, fontWeight: "900" },
+  circleRow: { paddingVertical: 8, gap: 14 },
+  circleItem: { width: 68, alignItems: "center" },
+  circle: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, backgroundColor: "#FFF", overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  circleText: { maxWidth: 66, color: "#333", fontSize: 9, fontWeight: "800", marginTop: 5, textAlign: "center" },
+  gridSection: { backgroundColor: "#FFF", borderRadius: 14, padding: 10 },
+  sectionHeader: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
+  sectionTitle: { color: "#111", fontSize: 16, fontWeight: "900" },
+  sectionAccent: { width: 28, height: 4, borderRadius: 2 },
+  productScroll: { gap: 9 },
+  productGrid: { flexDirection: "row-reverse", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 },
+  empty: { color: "#888", textAlign: "center", padding: 30 },
+});
