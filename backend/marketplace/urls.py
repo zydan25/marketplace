@@ -7,7 +7,8 @@ from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
 from .secure_auth import SecureLoginView, SecureRegisterView
 from .secure_cart import SecureCartCalculateView
-from .secure_catalog import SecureCategoryViewSet, SecureDesignThemeViewSet, SecureProductViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
+from .secure_catalog import SecureCategoryViewSet, SecureDesignThemeViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
+from .secure_vendor_catalog import SecureProductViewSet, VendorProductViewSet
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
 from .launch_order_api import LaunchOrderViewSet
 from .secure_vendor import VendorApplicationViewSet
@@ -41,7 +42,7 @@ router = DefaultRouter()
 router.register("vendors", SecureVendorViewSet, basename="vendor")
 router.register("vendor-applications", VendorApplicationViewSet, basename="vendor-application")
 router.register("categories", SecureCategoryViewSet, basename="category")
-router.register("products", SecureProductViewSet, basename="product")
+router.register("products", VendorProductViewSet, basename="product")
 router.register("themes", SecureDesignThemeViewSet, basename="theme")
 router.register("storefront-sections", SecureStorefrontSectionViewSet, basename="storefront-section")
 router.register("wallets", WalletViewSet, basename="wallet")
