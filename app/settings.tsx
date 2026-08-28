@@ -1,69 +1,28 @@
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ScreenContainer } from "@/components/screen-container";
 import { apiCall } from "@/lib/_core/api";
 import { useAuth } from "@/hooks/use-auth";
 
-const labels = { YER: "YE", SAR: "SAR", USD: "USD" } as const;
-
-export default function SettingsScreen() {
-  const { user } = useAuth();
-  const [currency, setCurrency] = useState<keyof typeof labels>("YER");
-
-  useEffect(() => {
-    apiCall<{ currency: keyof typeof labels }>("/api/preferences").then((data) => setCurrency(data.currency)).catch(() => undefined);
-  }, []);
-
-  const switchCurrency = async () => {
-    const next = currency === "YER" ? "SAR" : currency === "SAR" ? "USD" : "YER";
-    try {
-      await apiCall("/api/preferences", { method: "PATCH", body: JSON.stringify({ currency: next }) });
-      setCurrency(next);
-    } catch {
-      Alert.alert("تعذر حفظ العملة", "سجّلي الدخول ثم حاولي مجددًا.");
-    }
-  };
-
-  const soon = (title: string) => Alert.alert(title, "سيتم ربط هذا الخيار بخدمة المنصة في النسخة التالية.");
-
-  return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F6F6F6]">
-      <View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} color="#171717" /></TouchableOpacity><Text style={styles.title}>إعدادات</Text><View style={{ width: 25 }} /></View>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Section>
-          <Row label="تسجيل الدخول / تسجيل" icon="person-outline" onPress={() => router.push("/login" as never)} />
-          <Row label="دفتر العناوين" icon="location-on" onPress={() => router.push("/addresses" as never)} />
-          <Row label="خيارات الدفع" icon="payment" onPress={() => soon("خيارات الدفع")} />
-        </Section>
-        <Section>
-          <Row label="موقع" value={user?.governorate || "اليمن"} icon="public" onPress={() => soon("الموقع")} />
-          <Row label="اللغة" value="العربية" icon="language" onPress={() => Alert.alert("اللغة", "واجهة المتجر عربية باتجاه RTL.")} />
-          <Row label="عملة" value={labels[currency]} icon="attach-money" onPress={switchCurrency} />
-        </Section>
-        <Section>
-          <Row label="جهات الاتصال المفضلة" icon="star-border" onPress={() => soon("جهات الاتصال المفضلة")} />
-          <Row label="قائمة الاتصال المحظورة" icon="block" onPress={() => soon("قائمة الاتصال المحظورة")} />
-          <Row label="إمكانية الوصول" icon="accessibility" onPress={() => soon("إمكانية الوصول")} />
-          <Row label="مسح ذاكرة التخزين المؤقت" value="0 MB" icon="delete-sweep" onPress={() => Alert.alert("تم المسح", "تم مسح ذاكرة التخزين المؤقت المحلية.")} />
-        </Section>
-        <Section>
-          <Row label="سياسة الخصوصية وملفات تعريف الارتباط" icon="privacy-tip" onPress={() => soon("سياسة الخصوصية")} />
-          <Row label="الشروط والأحكام" icon="gavel" onPress={() => soon("الشروط والأحكام")} />
-          <Row label="التقييم والملاحظات" icon="rate-review" onPress={() => soon("التقييم والملاحظات")} />
-          <Row label="التواصل معنا" icon="support-agent" onPress={() => router.push("/support" as never)} />
-        </Section>
-        {user?.role === "admin" ? <Section><Row label="لوحة الإدارة" icon="admin-panel-settings" onPress={() => router.push("/admin" as never)} /></Section> : null}
-        <Text style={styles.version}>شبيك · إصدار 1.0.0</Text>
-      </ScrollView>
-    </ScreenContainer>
-  );
+type Currency = "YER"|"SAR"|"USD";
+type Rate = { base_currency:string; target_currency:string; rate:string };
+const labels:Record<Currency,string>={YER:"ر.ي",SAR:"ر.س",USD:"دولار"};
+export default function SettingsScreen(){
+ const {user,isAuthenticated}=useAuth(); const [currency,setCurrency]=useState<Currency>("YER"); const [notifications,setNotifications]=useState(true); const [rates,setRates]=useState<Rate[]>([]); const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
+ useEffect(()=>{if(!isAuthenticated)return;apiCall<{currency:Currency;notifications_enabled:boolean;rates:Rate[]}>("/api/preferences/").then(data=>{setCurrency(data.currency);setNotifications(data.notifications_enabled);setRates(data.rates??[]);}).catch(()=>undefined).finally(()=>setLoading(false));},[isAuthenticated]);
+ async function savePreference(nextCurrency=currency,nextNotifications=notifications){try{setSaving(true);const data=await apiCall<{currency:Currency;notifications_enabled:boolean}>("/api/preferences/",{method:"PATCH",body:JSON.stringify({currency:nextCurrency,notifications_enabled:nextNotifications})});setCurrency(data.currency);setNotifications(data.notifications_enabled);}catch(error){Alert.alert("تعذر حفظ الإعداد",error instanceof Error?error.message:"حاول مجددًا.");}finally{setSaving(false);}}
+ const cycleCurrency=()=>{const next:Currency=currency==="YER"?"SAR":currency==="SAR"?"USD":"YER";savePreference(next,notifications);};
+ if(loading)return <ScreenContainer><View style={styles.center}><ActivityIndicator color="#E60023"/></View></ScreenContainer>;
+ return <ScreenContainer edges={["top","bottom","left","right"]} className="bg-[#F6F6F6]"><View style={styles.header}><TouchableOpacity onPress={()=>router.back()}><MaterialIcons name="arrow-forward" size={25} color="#171717"/></TouchableOpacity><Text style={styles.title}>الإعدادات</Text><View style={{width:25}}/></View><ScrollView showsVerticalScrollIndicator={false}>
+ <Section><Row label="الحساب" value={user?.phone||user?.name||"زائر"} icon="person-outline" onPress={()=>router.push("/profile" as never)}/><Row label="دفتر العناوين" icon="location-on" onPress={()=>router.push("/addresses" as never)}/><Row label="المحفظة" icon="account-balance-wallet" onPress={()=>router.push("/wallet" as never)}/></Section>
+ <Section><Row label="العملة" value={labels[currency]} icon="currency-exchange" onPress={cycleCurrency}/><View style={styles.rateBox}><Text style={styles.rateTitle}>أسعار التحويل المعتمدة</Text>{rates.length?rates.map((rate,index)=><View key={`${rate.base_currency}-${rate.target_currency}-${index}`} style={styles.rateRow}><Text style={styles.rateValue}>{rate.rate}</Text><Text style={styles.ratePair}>{rate.base_currency} → {rate.target_currency}</Text></View>):<Text style={styles.empty}>لم تعتمد الإدارة أسعار تحويل بعد.</Text>}</View></Section>
+ <Section><View style={styles.row}><MaterialIcons name="notifications" size={22} color="#252525"/><View style={styles.copy}><Text style={styles.label}>إشعارات الطلبات والعروض</Text><Text style={styles.value}>تنبيهات حالة الطلب وأخبار الحساب</Text></View><Switch value={notifications} onValueChange={(value)=>savePreference(currency,value)} trackColor={{true:"#E60023"}}/></View><Row label="مركز الإشعارات" icon="notifications-none" onPress={()=>router.push("/notifications" as never)}/></Section>
+ <Section><Row label="تواصل معنا" value="محادثة مباشرة مع الإدارة" icon="support-agent" onPress={()=>router.push("/support" as never)}/><Row label="سياسة الخصوصية" icon="privacy-tip" onPress={()=>Alert.alert("الخصوصية","نحافظ على بيانات حسابك وطلباتك وفق سياسة المنصة.")}/><Row label="الشروط والأحكام" icon="gavel" onPress={()=>Alert.alert("الشروط والأحكام","تظهر شروط البيع والاسترجاع أثناء إتمام الطلب ووفق سياسة المنصة.")}/></Section>
+ {user?.role==="admin"?<Section><Row label="لوحة الإدارة" icon="admin-panel-settings" onPress={()=>router.push("/admin" as never)}/></Section>:null}<Text style={styles.version}>شبيك · إصدار 1.0.0</Text>
+ </ScrollView>{saving?<View style={styles.saving}><ActivityIndicator color="#FFF"/><Text style={styles.savingText}>جارٍ حفظ الإعداد...</Text></View>:null}</ScreenContainer>;
 }
-
-function Section({ children }: { children: React.ReactNode }) { return <View style={styles.section}>{children}</View>; }
-function Row({ label, value, icon, onPress }: { label: string; value?: string; icon: any; onPress: () => void }) {
-  return <TouchableOpacity style={styles.row} onPress={onPress}><MaterialIcons name="chevron-left" size={23} color="#A1A1A1" /><View style={styles.copy}><Text style={styles.label}>{label}</Text>{value ? <Text style={styles.value}>{value}</Text> : null}</View><MaterialIcons name={icon} size={22} color="#252525" /></TouchableOpacity>;
-}
-
-const styles = StyleSheet.create({ header: { height: 58, backgroundColor: "#FFF", paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#E8E8E8" }, title: { fontSize: 18, fontWeight: "900", color: "#111" }, section: { backgroundColor: "#FFF", marginTop: 11 }, row: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderColor: "#F0F0F0" }, copy: { flex: 1, alignItems: "flex-end" }, label: { fontSize: 15, color: "#222", textAlign: "right" }, value: { color: "#777", fontSize: 12, marginTop: 3, textAlign: "right" }, version: { textAlign: "center", color: "#999", fontSize: 10, marginVertical: 25 } });
+function Section({children}:{children:React.ReactNode}){return <View style={styles.section}>{children}</View>}
+function Row({label,value,icon,onPress}:{label:string;value?:string;icon:string;onPress:()=>void}){return <TouchableOpacity style={styles.row} onPress={onPress}><MaterialIcons name="chevron-left" size={23} color="#AAA"/><View style={styles.copy}><Text style={styles.label}>{label}</Text>{value?<Text style={styles.value}>{value}</Text>:null}</View><MaterialIcons name={icon as any} size={22} color="#252525"/></TouchableOpacity>}
+const styles=StyleSheet.create({header:{height:58,backgroundColor:"#FFF",paddingHorizontal:16,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderColor:"#E8E8E8"},title:{fontSize:18,fontWeight:"900",color:"#111"},section:{backgroundColor:"#FFF",marginTop:11},row:{minHeight:62,paddingHorizontal:16,flexDirection:"row",alignItems:"center",gap:12,borderBottomWidth:1,borderColor:"#F0F0F0"},copy:{flex:1,alignItems:"flex-end"},label:{fontSize:14,color:"#222",fontWeight:"700",textAlign:"right"},value:{color:"#777",fontSize:10,marginTop:3,textAlign:"right"},rateBox:{margin:12,padding:11,backgroundColor:"#FAFAFA",borderRadius:10,borderWidth:1,borderColor:"#EEE",width:"94%"},rateTitle:{fontSize:11,fontWeight:"900",color:"#333",textAlign:"right",marginBottom:5},rateRow:{flexDirection:"row-reverse",justifyContent:"space-between",paddingVertical:5},ratePair:{fontSize:10,color:"#555"},rateValue:{fontSize:10,fontWeight:"900",color:"#111"},empty:{fontSize:10,color:"#888",textAlign:"right"},version:{textAlign:"center",color:"#999",fontSize:10,marginVertical:25},center:{flex:1,alignItems:"center",justifyContent:"center"},saving:{position:"absolute",bottom:15,left:25,right:25,height:42,borderRadius:21,backgroundColor:"#171717",flexDirection:"row-reverse",alignItems:"center",justifyContent:"center",gap:8},savingText:{color:"#FFF",fontSize:10,fontWeight:"800"}});
