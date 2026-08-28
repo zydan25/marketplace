@@ -58,7 +58,10 @@ class CatalogOption(TimeStampedModel):
     class Meta:
         ordering = ["group", "sort_order", "name", "id"]
         constraints = [models.UniqueConstraint(fields=["group", "slug", "category"], name="uniq_catalog_option_group_slug_category")]
-        indexes = [models.Index(fields=["group", "is_active"]), models.Index(fields=["category", "group", "is_active"])]
+        indexes = [
+            models.Index(fields=["group", "is_active"], name="marketplace_c_group_i_0e79c0_idx"),
+            models.Index(fields=["category", "group", "is_active"], name="marketplace_c_categor_0be1ef_idx"),
+        ]
 
 
 class CurrencyRate(TimeStampedModel):
@@ -87,4 +90,6 @@ class VendorCityShipping(TimeStampedModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["vendor", "city"], name="uniq_vendor_city_shipping")]
-        indexes = [models.Index(fields=["vendor", "city", "is_active"])]
+        indexes = [
+            models.Index(fields=["vendor", "city", "is_active"], name="marketplace_v_vendor_c_f2b09e_idx"),
+        ]
