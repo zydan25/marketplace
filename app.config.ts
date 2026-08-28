@@ -22,6 +22,7 @@ const appSlug = "shabik-marketplace";
 const config: ExpoConfig = {
   name: appName,
   slug: appSlug,
+  owner: "zydan2626",
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
@@ -31,7 +32,7 @@ const config: ExpoConfig = {
   extra: {
     appVariant: variant,
     djangoApiUrl: process.env.EXPO_PUBLIC_DJANGO_API_URL ?? "",
-    eas: { projectId: process.env.EAS_PROJECT_ID ?? "230441d9-9642-4102-b94e-21ba73cd6898" },
+    eas: { projectId: process.env.EAS_PROJECT_ID ?? "08e87e9b-0af4-46a0-ac07-8ff5c470ed04" },
   },
   ios: {
     supportsTablet: true,
