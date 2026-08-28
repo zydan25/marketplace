@@ -26,7 +26,7 @@ jobs:
       EAS_PROJECT_ID: 10e0228e-8424-4fc5-9399-9c4f8bfb8a95
       APP_VARIANT: customer
       EAS_PROJECT_OWNER: zydan2626
-      EAS_PROJECT_SLUG: shabik-marketplace
+      EAS_PROJECT_SLUG: shbyk-lbyk
     steps:
       - name: Checkout refactor branch
         uses: actions/checkout@v4
@@ -63,7 +63,7 @@ jobs:
       EAS_PROJECT_ID: 10e0228e-8424-4fc5-9399-9c4f8bfb8a95
       APP_VARIANT: vendor
       EAS_PROJECT_OWNER: zydan2626
-      EAS_PROJECT_SLUG: shabik-marketplace
+      EAS_PROJECT_SLUG: shbyk-lbyk
     steps:
       - name: Checkout refactor branch
         uses: actions/checkout@v4
