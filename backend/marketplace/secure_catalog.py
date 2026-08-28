@@ -89,9 +89,9 @@ class SecureVendorViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = VendorProfile.objects.select_related("owner")
-        if user.is_authenticated and (user.is_staff or user.role == "admin"):
+        if user.is_authenticated and (user.is_staff or getattr(user, "role", None) == "admin"):
             pass
-        elif user.is_authenticated and user.role == "vendor":
+        elif user.is_authenticated and getattr(user, "role", None) == "vendor":
             qs = qs.filter(owner=user)
         else:
             qs = qs.filter(status="active")
@@ -115,13 +115,13 @@ class SecureVendorViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         user = self.request.user
-        if not (user.is_staff or user.role == "admin") and serializer.instance.owner_id != user.id:
+        if not (user.is_staff or getattr(user, "role", None) == "admin") and serializer.instance.owner_id != user.id:
             raise PermissionDenied("لا يمكنك تعديل متجر آخر")
         serializer.save()
 
     def perform_destroy(self, instance):
         user = self.request.user
-        if not (user.is_staff or user.role == "admin") and instance.owner_id != user.id:
+        if not (user.is_staff or getattr(user, "role", None) == "admin") and instance.owner_id != user.id:
             raise PermissionDenied("لا يمكنك حذف متجر آخر")
         instance.status = "suspended"
         instance.save(update_fields=["status", "updated_at"])
@@ -133,9 +133,9 @@ class SecureProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = Product.objects.select_related("vendor", "vendor__owner").prefetch_related("categories", "image_items", "variants")
-        if user.is_authenticated and (user.is_staff or user.role == "admin"):
+        if user.is_authenticated and (user.is_staff or getattr(user, "role", None) == "admin"):
             pass
-        elif user.is_authenticated and user.role == "vendor":
+        elif user.is_authenticated and getattr(user, "role", None) == "vendor":
             qs = qs.filter(vendor__owner=user)
         else:
             qs = qs.filter(is_published=True, vendor__status="active")
@@ -166,7 +166,7 @@ class SecureProductViewSet(viewsets.ModelViewSet):
             vendor = VendorProfile.objects.filter(id=requested_id, status="active").first()
             if not vendor:
                 raise ValidationError({"vendor_id": "المتجر المحدد غير موجود أو غير نشط."})
-            if not (user.is_staff or user.role == "admin") and vendor.owner_id != user.id:
+            if not (user.is_staff or getattr(user, "role", None) == "admin") and vendor.owner_id != user.id:
                 raise PermissionDenied("لا يمكنك إنشاء منتج لمتجر آخر")
             return vendor
 
@@ -174,7 +174,7 @@ class SecureProductViewSet(viewsets.ModelViewSet):
         if own_vendor:
             return own_vendor
 
-        if user.is_staff or user.role == "admin":
+        if user.is_staff or getattr(user, "role", None) == "admin":
             active = VendorProfile.objects.filter(status="active").order_by("id")
             if active.count() == 1:
                 return active.first()
@@ -193,7 +193,7 @@ class SecureProductViewSet(viewsets.ModelViewSet):
 
     def _owns(self, instance):
         user = self.request.user
-        return bool(user.is_staff or user.role == "admin" or instance.vendor.owner_id == user.id)
+        return bool(user.is_staff or getattr(user, "role", None) == "admin" or instance.vendor.owner_id == user.id)
 
     def perform_update(self, serializer):
         if not self._owns(serializer.instance):
