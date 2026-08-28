@@ -8,12 +8,13 @@ from .models import City, Coupon as CouponModel, PriceGroup
 from .secure_auth import SecureLoginView, SecureRegisterView
 from .secure_cart import SecureCartCalculateView
 from .secure_catalog import SecureCategoryViewSet, SecureDesignThemeViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
-from .secure_vendor_catalog import SecureProductViewSet, VendorProductViewSet
+from .secure_vendor_catalog import VendorProductViewSet
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
 from .launch_order_api import LaunchOrderViewSet
 from .secure_vendor import VendorApplicationViewSet
 from .order_chat_api import OrderChatViewSet
 from .vendor_finance_api import VendorFinanceViewSet
+from .support_api import SupportEmployeesView, SupportMessageView, SupportView
 from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet, me
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
@@ -68,6 +69,9 @@ urlpatterns = [
     path("stores/<slug:slug>/home/", DynamicHomeView.as_view(), name="home-store"),
     path("catalog/tree/", CatalogTreeView.as_view(), name="catalog-tree"),
     path("preferences/", PreferencesView.as_view(), name="preferences"),
+    path("support/", SupportView.as_view(), name="support"),
+    path("support/messages/", SupportMessageView.as_view(), name="support-messages"),
+    path("support/employees/", SupportEmployeesView.as_view(), name="support-employees"),
     path("admin-dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
     path("", include(router.urls)),
 ]
