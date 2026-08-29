@@ -12,8 +12,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from .api_policy import IsVendorOrAdmin
 from .models import DesignTheme, StorefrontSection, VendorProfile
 from .serializers import DesignThemeSerializer, VendorSerializer
-
-# Canonical product/category API now belongs to the catalog app.
 from catalog.api import CategoryViewSet as SecureCategoryViewSet
 from catalog.api import ProductViewSet as SecureProductViewSet
 
@@ -45,7 +43,7 @@ class MediaStorefrontSectionSerializer(serializers.ModelSerializer):
                     url = default_storage.url(name)
                     result[key] = request.build_absolute_uri(url) if request and url.startswith("/") else url
                 except (ValueError, binascii.Error, TypeError):
-                    pass
+                    raise ValidationError({key: "تعذر حفظ الصورة المرفوعة. تأكد من أنها صورة صحيحة."})
             else:
                 result[key] = self._persist_storefront_data_urls(item, section_id)
         return result
@@ -162,7 +160,8 @@ class SecureStorefrontSectionViewSet(viewsets.ModelViewSet):
         if user.is_staff or user.role == "admin":
             return qs
         if user.role == "vendor":
-            return qs.filter(Q(vendor__owner=user) | Q(vendor__isnull=True), is_visible=True)
+            # Vendors must retain access to hidden sections so they can edit, re-enable, or delete them.
+            return qs.filter(vendor__owner=user)
         return qs.filter(vendor__isnull=True, is_visible=True)
 
     def perform_create(self, serializer):
@@ -180,3 +179,21 @@ class SecureStorefrontSectionViewSet(viewsets.ModelViewSet):
         if not vendor:
             raise ValidationError("لا يوجد متجر نشط مرتبط بالحساب")
         serializer.save(owner=user, vendor=vendor)
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = serializer.instance
+        if user.is_staff or user.role == "admin":
+            serializer.save()
+            return
+        if user.role == "vendor" and instance.vendor_id and instance.vendor.owner_id == user.id:
+            serializer.save(vendor=instance.vendor, owner=instance.owner)
+            return
+        raise PermissionDenied("لا يمكنك تعديل قسم متجر آخر")
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        if user.is_staff or user.role == "admin" or (user.role == "vendor" and instance.vendor_id and instance.vendor.owner_id == user.id):
+            instance.delete()
+            return
+        raise PermissionDenied("لا يمكنك حذف قسم متجر آخر")
