@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from .forms import PreferenceForm, UserCreateForm, UserEditForm
 from .models import User, UserPreference
-from .services import ensure_preference, set_account_action, set_account_password
+from .services import ensure_preference, set_account_action
 
 
 ACCOUNTS_HOME = "/admin/dashboard/accounts/"
@@ -128,13 +128,13 @@ def users_list(request):
 @accounts_dashboard_access_required
 def user_create(request):
     if request.method == "POST":
-        form = UserCreateForm(request.POST)
+        form = UserCreateForm(request.POST, request.FILES)
         if form.is_valid():
             with transaction.atomic():
                 user = form.save()
                 ensure_preference(user)
             messages.success(request, "تم إنشاء الحساب بنجاح.")
-            return redirect("accounts-user-detail", user_id=user.pk)
+            return redirect("accounts-dashboard:user-detail", user_id=user.pk)
     else:
         form = UserCreateForm(
             initial={
@@ -173,8 +173,8 @@ def user_detail(request, user_id):
 def user_save(request, user_id):
     user = get_object_or_404(User, pk=user_id)
     if request.method != "POST":
-        return redirect("accounts-user-detail", user_id=user.pk)
-    form = UserEditForm(request.POST, instance=user)
+        return redirect("accounts-dashboard:user-detail", user_id=user.pk)
+    form = UserEditForm(request.POST, request.FILES, instance=user)
     if not form.is_valid():
         preference = ensure_preference(user)
         return render(
@@ -193,35 +193,35 @@ def user_save(request, user_id):
     if user.pk == request.user.pk:
         form.instance.is_active = True
         form.instance.is_staff = True
-        if form.instance.role != User.Roles.ADMIN:
-            messages.warning(request, "لا يمكن إزالة صلاحية الإدارة أو تعطيل حسابك الحالي أثناء الجلسة.")
+        form.instance.role = User.Roles.ADMIN
+        messages.warning(request, "تم إبقاء حسابك الحالي مديرًا ونشطًا لتجنب فقدان الوصول إلى الإدارة.")
     form.save()
     messages.success(request, "تم حفظ بيانات الحساب.")
-    return redirect("accounts-user-detail", user_id=user.pk)
+    return redirect("accounts-dashboard:user-detail", user_id=user.pk)
 
 
 @accounts_dashboard_access_required
 def user_action(request, user_id, action):
     user = get_object_or_404(User, pk=user_id)
     if request.method != "POST":
-        return redirect("accounts-user-detail", user_id=user.pk)
+        return redirect("accounts-dashboard:user-detail", user_id=user.pk)
     if user.pk == request.user.pk and action in {"deactivate", "revoke-staff"}:
         messages.error(request, "لا يمكنك تعطيل حسابك أو سحب صلاحية الإدارة من نفسك.")
-        return redirect("accounts-user-detail", user_id=user.pk)
+        return redirect("accounts-dashboard:user-detail", user_id=user.pk)
     try:
         set_account_action(user, action)
     except ValueError as exc:
         messages.error(request, str(exc))
     else:
         messages.success(request, "تم تنفيذ الإجراء على الحساب.")
-    return redirect("accounts-user-detail", user_id=user.pk)
+    return redirect("accounts-dashboard:user-detail", user_id=user.pk)
 
 
 @accounts_dashboard_access_required
 def user_password(request, user_id):
     user = get_object_or_404(User, pk=user_id)
     if request.method != "POST":
-        return redirect("accounts-user-detail", user_id=user.pk)
+        return redirect("accounts-dashboard:user-detail", user_id=user.pk)
     form = SetPasswordForm(user, request.POST)
     if form.is_valid():
         form.save()
@@ -230,14 +230,14 @@ def user_password(request, user_id):
         messages.success(request, "تم تغيير كلمة المرور بنجاح.")
     else:
         messages.error(request, "لم يتم تغيير كلمة المرور. راجع المتطلبات المدونة في النموذج.")
-    return redirect("accounts-user-detail", user_id=user.pk)
+    return redirect("accounts-dashboard:user-detail", user_id=user.pk)
 
 
 @accounts_dashboard_access_required
 def user_preferences_save(request, user_id):
     user = get_object_or_404(User, pk=user_id)
     if request.method != "POST":
-        return redirect("accounts-user-detail", user_id=user.pk)
+        return redirect("accounts-dashboard:user-detail", user_id=user.pk)
     preference = ensure_preference(user)
     form = PreferenceForm(request.POST, instance=preference)
     if form.is_valid():
@@ -245,7 +245,7 @@ def user_preferences_save(request, user_id):
         messages.success(request, "تم حفظ تفضيلات الحساب.")
     else:
         messages.error(request, "تعذر حفظ التفضيلات. تحقق من البيانات.")
-    return redirect("accounts-user-detail", user_id=user.pk)
+    return redirect("accounts-dashboard:user-detail", user_id=user.pk)
 
 
 @accounts_dashboard_access_required
