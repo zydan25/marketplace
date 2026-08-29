@@ -39,14 +39,14 @@ export default function VendorProductDetailScreen() {
   useEffect(() => { load(); }, [id]);
 
   function confirmDelete() {
-    Alert.alert("حذف المنتج", "سيتم حذف المنتج نهائيًا.", [
+    Alert.alert("إيقاف نشر المنتج", "سيتم إخفاء المنتج عن العملاء مع الاحتفاظ بالبيانات والطلبات السابقة.", [
       { text: "إلغاء", style: "cancel" },
-      { text: "حذف", style: "destructive", onPress: async () => {
+      { text: "إيقاف النشر", style: "destructive", onPress: async () => {
         try {
           await djangoApi(`/api/products/${id}/`, { method: "DELETE" });
           router.replace("/vendor/products" as never);
         } catch {
-          Alert.alert("خطأ", "تعذر حذف المنتج.");
+          Alert.alert("خطأ", "تعذر إيقاف نشر المنتج.");
         }
       }}
     ]);
@@ -97,44 +97,23 @@ export default function VendorProductDetailScreen() {
         </View>
 
         <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{product.stock}</Text>
-            <Text style={styles.statLabel}>المخزون</Text>
-          </View>
+          <View style={styles.statItem}><Text style={styles.statValue}>{product.stock}</Text><Text style={styles.statLabel}>المخزون</Text></View>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{product.sales_count || 0}</Text>
-            <Text style={styles.statLabel}>المبيعات</Text>
-          </View>
+          <View style={styles.statItem}><Text style={styles.statValue}>{product.sales_count || 0}</Text><Text style={styles.statLabel}>المبيعات</Text></View>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{product.views_count || 0}</Text>
-            <Text style={styles.statLabel}>الطلبات</Text>
-          </View>
+          <View style={styles.statItem}><Text style={styles.statValue}>{product.views_count || 0}</Text><Text style={styles.statLabel}>المشاهدات</Text></View>
         </View>
 
         <View style={styles.actionsGrid}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push(`/vendor/product/create?edit=${product.id}` as never)}>
-            <View style={styles.actionIconBox}><MaterialIcons name="edit" size={24} color="#111" /></View>
-            <Text style={styles.actionLabel}>تعديل البيانات</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert("ميزة", "سيتم توفير إدارة المقاسات قريباً")}>
-            <View style={styles.actionIconBox}><MaterialIcons name="straighten" size={24} color="#111" /></View>
-            <Text style={styles.actionLabel}>المقاسات</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert("ميزة", "سيتم توفير إدارة الخصومات قريباً")}>
-            <View style={styles.actionIconBox}><MaterialIcons name="local-offer" size={24} color="#111" /></View>
-            <Text style={styles.actionLabel}>إضافة خصم</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert("ميزة", "سيتم توفير إدارة الصور قريباً")}>
-            <View style={styles.actionIconBox}><MaterialIcons name="add-photo-alternate" size={24} color="#111" /></View>
-            <Text style={styles.actionLabel}>إضافة صور</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push(`/vendor/product/create?edit=${product.id}` as never)}><View style={styles.actionIconBox}><MaterialIcons name="edit" size={24} color="#111" /></View><Text style={styles.actionLabel}>تعديل البيانات</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/vendor/storefront" as never)}><View style={styles.actionIconBox}><MaterialIcons name="palette" size={24} color="#111" /></View><Text style={styles.actionLabel}>واجهة المتجر</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/vendor/wallet" as never)}><View style={styles.actionIconBox}><MaterialIcons name="account-balance-wallet" size={24} color="#111" /></View><Text style={styles.actionLabel}>المستحقات</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/vendor/store-settings" as never)}><View style={styles.actionIconBox}><MaterialIcons name="store" size={24} color="#111" /></View><Text style={styles.actionLabel}>بيانات المتجر</Text></TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.deleteBtn} onPress={confirmDelete}>
-          <MaterialIcons name="delete-outline" size={20} color="#E60023" />
-          <Text style={styles.deleteBtnText}>حذف المنتج</Text>
+        <TouchableOpacity style={styles.deleteBtn} onPress={confirmDelete} disabled={!product.is_published}>
+          <MaterialIcons name="visibility-off" size={20} color={product.is_published ? "#E60023" : "#999"} />
+          <Text style={[styles.deleteBtnText, !product.is_published && styles.disabledText]}>{product.is_published ? "إيقاف نشر المنتج" : "المنتج غير منشور"}</Text>
         </TouchableOpacity>
       </ScrollView>
     </ScreenContainer>
@@ -143,26 +122,5 @@ export default function VendorProductDetailScreen() {
 
 const styles = StyleSheet.create({
   header: { height: 60, paddingHorizontal: 16, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFF", borderBottomWidth: 1, borderColor: "#EEE" },
-  headerBtn: { padding: 8 },
-  title: { fontSize: 18, fontWeight: "900", color: "#111" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  scroll: { flex: 1 },
-  content: { padding: 16, paddingBottom: 100 },
-  imageContainer: { width: "100%", height: 250, backgroundColor: "#FFF", borderRadius: 16, overflow: "hidden", alignItems: "center", justifyContent: "center", marginBottom: 16, borderWidth: 1, borderColor: "#EEE" },
-  mainImage: { width: "100%", height: "100%" },
-  infoCard: { backgroundColor: "#FFF", padding: 20, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: "#EEE", alignItems: "flex-end" },
-  productName: { fontSize: 18, fontWeight: "900", color: "#111", textAlign: "right", marginBottom: 8 },
-  productPrice: { fontSize: 20, fontWeight: "900", color: "#E60023", marginBottom: 8 },
-  productSku: { fontSize: 13, color: "#777", fontWeight: "700" },
-  statsCard: { flexDirection: "row-reverse", backgroundColor: "#FFF", padding: 16, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: "#EEE" },
-  statItem: { flex: 1, alignItems: "center" },
-  statValue: { fontSize: 20, fontWeight: "900", color: "#111", marginBottom: 4 },
-  statLabel: { fontSize: 12, color: "#777", fontWeight: "700" },
-  statDivider: { width: 1, backgroundColor: "#EEE", marginHorizontal: 10 },
-  actionsGrid: { flexDirection: "row-reverse", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 16 },
-  actionBtn: { width: "48%", backgroundColor: "#FFF", padding: 16, borderRadius: 16, alignItems: "center", marginBottom: 16, borderWidth: 1, borderColor: "#EEE" },
-  actionIconBox: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#F7F7F7", alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  actionLabel: { fontSize: 13, fontWeight: "800", color: "#333" },
-  deleteBtn: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", backgroundColor: "#FFF", padding: 16, borderRadius: 16, borderWidth: 1, borderColor: "#FFDCDC", gap: 8 },
-  deleteBtnText: { color: "#E60023", fontSize: 14, fontWeight: "800" },
+  headerBtn: { padding: 8 }, title: { fontSize: 18, fontWeight: "900", color: "#111" }, center: { flex: 1, justifyContent: "center", alignItems: "center" }, scroll: { flex: 1 }, content: { padding: 16, paddingBottom: 100 }, imageContainer: { width: "100%", height: 250, backgroundColor: "#FFF", borderRadius: 16, overflow: "hidden", alignItems: "center", justifyContent: "center", marginBottom: 16, borderWidth: 1, borderColor: "#EEE" }, mainImage: { width: "100%", height: "100%" }, infoCard: { backgroundColor: "#FFF", padding: 20, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: "#EEE", alignItems: "flex-end" }, productName: { fontSize: 18, fontWeight: "900", color: "#111", textAlign: "right", marginBottom: 8 }, productPrice: { fontSize: 20, fontWeight: "900", color: "#E60023", marginBottom: 8 }, productSku: { fontSize: 13, color: "#777", fontWeight: "700" }, statsCard: { flexDirection: "row-reverse", backgroundColor: "#FFF", padding: 16, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: "#EEE" }, statItem: { flex: 1, alignItems: "center" }, statValue: { fontSize: 20, fontWeight: "900", color: "#111", marginBottom: 4 }, statLabel: { fontSize: 12, color: "#777", fontWeight: "700" }, statDivider: { width: 1, backgroundColor: "#EEE", marginHorizontal: 10 }, actionsGrid: { flexDirection: "row-reverse", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 16 }, actionBtn: { width: "48%", backgroundColor: "#FFF", padding: 16, borderRadius: 16, alignItems: "center", marginBottom: 16, borderWidth: 1, borderColor: "#EEE" }, actionIconBox: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#F7F7F7", alignItems: "center", justifyContent: "center", marginBottom: 12 }, actionLabel: { fontSize: 13, fontWeight: "800", color: "#333" }, deleteBtn: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", backgroundColor: "#FFF", padding: 16, borderRadius: 16, borderWidth: 1, borderColor: "#FFDCDC", gap: 8 }, deleteBtnText: { color: "#E60023", fontSize: 14, fontWeight: "800" }, disabledText: { color: "#999" }
 });

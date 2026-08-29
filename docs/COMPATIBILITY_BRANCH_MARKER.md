@@ -1,1 +1,0 @@
-Compatibility fixes are being developed in a dedicated branch; this marker is temporary documentation and can be removed before merge.

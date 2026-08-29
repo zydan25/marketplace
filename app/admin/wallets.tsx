@@ -1,110 +1,21 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
 
 import { AdminLayout, AdminField, AdminEmptyState, Colors, Font, Radius, Shadow, Spacing, showToast } from "@/components/admin";
 import { ApiClient } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 
-type Wallet = { id: number; user?: { phone?: string; name?: string; role?: string }; balance: string; currency: string };
+type Wallet = { id:number; user?:{phone?:string;name?:string;role?:string}; balance:string; currency:string };
+type Payout = { id:number; vendor:number; vendor_name:string; amount:string; currency:string; status:string; reference:string; note?:string; created_at:string; vendor_order?:number|null; order?:number|null };
 
-export default function AdminWalletsScreen() {
-  const { user, isAuthenticated } = useAuth();
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [selected, setSelected] = useState<Wallet | null>(null);
-  const [amount, setAmount] = useState("");
-  const [reference, setReference] = useState("");
-  const [note, setNote] = useState("");
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [loading, setLoading] = useState(true);
-
-  async function load() {
-    try {
-      const data = await ApiClient.get<{ results?: Wallet[] }>("/api/wallets/");
-      setWallets(data.results ?? []);
-    } catch {
-      Alert.alert("تعذر تحميل المحافظ", "حاولي تحديث الصفحة.");
-    } finally { setLoading(false); }
-  }
-
-  useEffect(() => { if (isAuthenticated && user?.role === "admin") load(); }, [isAuthenticated, user?.role]);
-
-  async function save() {
-    if (!selected || !amount || Number(amount) <= 0) {
-      Alert.alert("بيانات ناقصة", "اختاري محفظة وأدخلي مبلغًا موجبًا.");
-      return;
-    }
-    try {
-      await ApiClient.post(`/api/wallets/${selected.id}/admin_adjust/`, { amount, transaction_type: "adjustment", document_type: "receipt", reference, note });
-      showToast("تم حفظ سند القبض بنجاح", "success");
-      setAmount(""); setReference(""); setNote(""); await load();
-    } catch (error) {
-      Alert.alert("تعذر الحفظ", error instanceof Error ? error.message : "تحققي من صلاحية المدير.");
-    }
-  }
-
-  return (
-    <AdminLayout title="سندات القبض والمحافظ">
-      <FlatList
-        data={wallets}
-        keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={styles.list}
-        ListHeaderComponent={
-          <View style={styles.form}>
-            <Text style={styles.formTitle}>إضافة رصيد للعميل</Text>
-            <Text style={styles.selectedLabel}>
-              {selected ? `المحدد: ${selected.user?.phone} · ${selected.balance} ${selected.currency}` : "اختاري محفظة من القائمة"}
-            </Text>
-            <AdminField label="المبلغ" value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" />
-            <AdminField label="رقم المستند" value={reference} onChangeText={setReference} placeholder="رقم سند القبض" />
-            <AdminField label="ملاحظة" value={note} onChangeText={setNote} placeholder="ملاحظة داخلية (اختياري)" />
-            <TouchableOpacity style={styles.saveBtn} onPress={save}>
-              <Text style={styles.saveBtnText}>حفظ سند القبض</Text>
-            </TouchableOpacity>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.card, selected?.id === item.id && styles.cardSelected]}
-            activeOpacity={0.7}
-            onPress={() => setSelected(item)}
-          >
-            <View style={styles.cardIcon}>
-              <MaterialIcons name="account-balance-wallet" size={20} color={Colors.success} />
-            </View>
-            <View style={styles.cardCopy}>
-              <Text style={styles.cardPhone}>{item.user?.phone ?? "—"}</Text>
-              <Text style={styles.cardRole}>{item.user?.role ?? "عميل"}</Text>
-            </View>
-            <Text style={styles.cardBalance}>{item.balance} {item.currency}</Text>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <AdminEmptyState
-            icon="account-balance-wallet"
-            title="لا توجد محافظ"
-            description="لم يتم إنشاء أي محافظ بعد."
-          />
-        }
-      />
-    </AdminLayout>
-  );
+export default function AdminWalletsScreen(){
+ const {user,isAuthenticated}=useAuth();const [wallets,setWallets]=useState<Wallet[]>([]);const [payouts,setPayouts]=useState<Payout[]>([]);const [selected,setSelected]=useState<Wallet|null>(null);const [amount,setAmount]=useState("");const [reference,setReference]=useState("");const [note,setNote]=useState("");const [loading,setLoading]=useState(true);const [refreshing,setRefreshing]=useState(false);const [busyPayout,setBusyPayout]=useState<number|null>(null);
+ async function load(){try{const [walletData,payoutData]=await Promise.all([ApiClient.get<{results?:Wallet[]}>("/api/wallets/"),ApiClient.get<{results?:Payout[]}>("/api/vendor-finance/")]);setWallets(walletData.results??[]);setPayouts((payoutData.results??[]).filter(p=>!p.vendor_order&&!p.order).slice(0,40));}catch(error){Alert.alert("تعذر تحميل المحافظ","تحقق من جلسة المدير واتصال الخادم.");}finally{setLoading(false);setRefreshing(false)}}
+ useEffect(()=>{if(isAuthenticated&&user?.role==="admin")load()},[isAuthenticated,user?.role]);
+ async function save(){if(!selected||!amount||Number(amount)<=0){Alert.alert("بيانات ناقصة","اختاري محفظة وأدخلي مبلغًا موجبًا.");return}try{await ApiClient.post(`/api/wallets/${selected.id}/admin_adjust/`,{amount,transaction_type:"adjustment",document_type:"receipt",reference,note});showToast("تم حفظ سند القبض بنجاح","success");setAmount("");setReference("");setNote("");await load()}catch(error){Alert.alert("تعذر الحفظ",error instanceof Error?error.message:"تحققي من صلاحية المدير.")}}
+ async function payoutAction(id:number,action:"admin_approve"|"admin_pay"|"admin_reject"){setBusyPayout(id);try{await ApiClient.post(`/api/vendor-finance/${id}/${action}/`,{note});showToast(action==="admin_pay"?"تم صرف طلب السحب":action==="admin_approve"?"تم اعتماد طلب السحب":"تم رفض طلب السحب","success");setNote("");await load()}catch(error){Alert.alert("تعذر تنفيذ العملية",error instanceof Error?error.message:"تحقق من حالة طلب السحب.")}finally{setBusyPayout(null)}}
+ return <AdminLayout title="المحافظ وسحوبات التجار"><FlatList data={wallets} keyExtractor={item=>String(item.id)} contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>{setRefreshing(true);load()}}/>} ListHeaderComponent={<View><View style={styles.form}><Text style={styles.formTitle}>إضافة رصيد / سند قبض</Text><Text style={styles.selectedLabel}>{selected?`المحدد: ${selected.user?.phone} · ${selected.balance} ${selected.currency}`:"اختاري محفظة من القائمة"}</Text><AdminField label="المبلغ" value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0"/><AdminField label="رقم المستند" value={reference} onChangeText={setReference} placeholder="رقم سند القبض"/><AdminField label="ملاحظة" value={note} onChangeText={setNote} placeholder="ملاحظة داخلية (اختياري)"/><TouchableOpacity style={styles.saveBtn} onPress={save}><Text style={styles.saveBtnText}>حفظ سند القبض</Text></TouchableOpacity></View><View style={styles.payoutHeader}><Text style={styles.payoutTitle}>طلبات سحب التجار</Text><Text style={styles.payoutCount}>{payouts.filter(p=>p.status==="pending"||p.status==="approved").length} معلّق</Text></View>{payouts.length?<View style={styles.payoutList}>{payouts.map(p=><View key={p.id} style={styles.payoutCard}><View style={styles.payoutTop}><View style={styles.pill}><Text style={styles.pillText}>{translate(p.status)}</Text></View><View style={styles.payoutCopy}><Text style={styles.vendorName}>{p.vendor_name}</Text><Text style={styles.payoutAmount}>{p.amount} {p.currency}</Text><Text style={styles.reference}>{p.reference} · {new Date(p.created_at).toLocaleDateString("ar-YE")}</Text></View></View>{p.status==="pending"||p.status==="approved"?<View style={styles.payoutActions}>{p.status==="pending"?<TouchableOpacity disabled={busyPayout===p.id} style={styles.actionSecondary} onPress={()=>payoutAction(p.id,"admin_approve")}><Text style={styles.actionSecondaryText}>اعتماد</Text></TouchableOpacity>:null}<TouchableOpacity disabled={busyPayout===p.id} style={styles.actionPrimary} onPress={()=>payoutAction(p.id,"admin_pay")}><Text style={styles.actionPrimaryText}>{busyPayout===p.id?"...":"تم الصرف"}</Text></TouchableOpacity><TouchableOpacity disabled={busyPayout===p.id} style={styles.actionDanger} onPress={()=>payoutAction(p.id,"admin_reject")}><Text style={styles.actionDangerText}>رفض</Text></TouchableOpacity></View>:null}</View>)}</View>:<View style={styles.noPayouts}><Text style={styles.noPayoutText}>لا توجد طلبات سحب يدوية من التجار.</Text></View>}<Text style={styles.walletHeader}>محافظ الحسابات</Text></View>} renderItem={({item})=><TouchableOpacity style={[styles.card,selected?.id===item.id&&styles.cardSelected]} activeOpacity={0.7} onPress={()=>setSelected(item)}><View style={styles.cardIcon}><MaterialIcons name="account-balance-wallet" size={20} color={Colors.success}/></View><View style={styles.cardCopy}><Text style={styles.cardPhone}>{item.user?.phone??"—"}</Text><Text style={styles.cardRole}>{item.user?.role??"عميل"}</Text></View><Text style={styles.cardBalance}>{item.balance} {item.currency}</Text></TouchableOpacity>} ListEmptyComponent={loading?<Text style={styles.loadingText}>جارٍ تحميل المحافظ...</Text>:<AdminEmptyState icon="account-balance-wallet" title="لا توجد محافظ" description="لم يتم إنشاء أي محافظ بعد."/>}/></AdminLayout>
 }
-
-const styles = StyleSheet.create({
-  list: { padding: Spacing.lg, paddingBottom: Spacing["4xl"] },
-  form: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.xl, marginBottom: Spacing.md, ...Shadow.soft },
-  formTitle: { color: Colors.text, ...Font.sectionTitle, textAlign: "right", marginBottom: Spacing.sm },
-  selectedLabel: { color: Colors.success, ...Font.small, textAlign: "right", marginBottom: Spacing.lg },
-
-  card: { flexDirection: "row-reverse", alignItems: "center", backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.md, ...Shadow.soft },
-  cardSelected: { borderWidth: 2, borderColor: Colors.primary },
-  cardIcon: { width: 42, height: 42, borderRadius: Radius.sm, backgroundColor: Colors.successLight, alignItems: "center", justifyContent: "center" },
-  cardCopy: { flex: 1, alignItems: "flex-end" },
-  cardPhone: { color: Colors.text, ...Font.cardTitle },
-  cardRole: { color: Colors.textMuted, ...Font.tiny, marginTop: Spacing.xs },
-  cardBalance: { color: Colors.success, fontSize: 16, fontWeight: "900" },
-
-  saveBtn: { height: 48, backgroundColor: Colors.primary, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center", marginTop: Spacing.md },
-  saveBtnText: { color: Colors.textInverse, ...Font.button },
-});
+function translate(status:string){return({pending:"قيد المراجعة",approved:"معتمد",paid:"مدفوع",rejected:"مرفوض"} as Record<string,string>)[status]??status}
+const styles=StyleSheet.create({list:{padding:Spacing.lg,paddingBottom:Spacing["4xl"]},form:{backgroundColor:Colors.surface,borderRadius:Radius.md,padding:Spacing.xl,marginBottom:Spacing.md,...Shadow.soft},formTitle:{color:Colors.text,...Font.sectionTitle,textAlign:"right",marginBottom:Spacing.sm},selectedLabel:{color:Colors.success,...Font.small,textAlign:"right",marginBottom:Spacing.lg},saveBtn:{height:48,backgroundColor:Colors.primary,borderRadius:Radius.sm,alignItems:"center",justifyContent:"center",marginTop:Spacing.md},saveBtnText:{color:Colors.textInverse,...Font.button},payoutHeader:{flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"center",marginBottom:Spacing.sm},payoutTitle:{color:Colors.text,...Font.sectionTitle},payoutCount:{color:Colors.warning,...Font.small},payoutList:{gap:Spacing.sm,marginBottom:Spacing.lg},payoutCard:{backgroundColor:Colors.surface,borderRadius:Radius.md,padding:Spacing.md,...Shadow.soft},payoutTop:{flexDirection:"row-reverse",alignItems:"center",gap:Spacing.md},payoutCopy:{flex:1,alignItems:"flex-end"},vendorName:{color:Colors.text,...Font.cardTitle},payoutAmount:{color:Colors.success,fontSize:16,fontWeight:"900",marginTop:3},reference:{color:Colors.textMuted,...Font.tiny,marginTop:3},pill:{paddingHorizontal:9,paddingVertical:6,borderRadius:99,backgroundColor:Colors.warningLight},pillText:{color:Colors.warning,...Font.tiny,fontWeight:"900"},payoutActions:{flexDirection:"row-reverse",gap:7,marginTop:12,borderTopWidth:1,borderColor:Colors.border,paddingTop:10},actionPrimary:{flex:1,backgroundColor:Colors.success,borderRadius:Radius.sm,minHeight:40,alignItems:"center",justifyContent:"center"},actionPrimaryText:{color:Colors.textInverse,fontWeight:"900",fontSize:11},actionSecondary:{flex:1,backgroundColor:Colors.primary,borderRadius:Radius.sm,minHeight:40,alignItems:"center",justifyContent:"center"},actionSecondaryText:{color:Colors.textInverse,fontWeight:"900",fontSize:11},actionDanger:{flex:1,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.danger,borderRadius:Radius.sm,minHeight:40,alignItems:"center",justifyContent:"center"},actionDangerText:{color:Colors.danger,fontWeight:"900",fontSize:11},noPayouts:{backgroundColor:Colors.surface,borderRadius:Radius.md,padding:20,marginBottom:Spacing.lg,alignItems:"center"},noPayoutText:{color:Colors.textMuted,fontSize:11},walletHeader:{color:Colors.text,...Font.sectionTitle,textAlign:"right",marginBottom:Spacing.sm},card:{flexDirection:"row-reverse",alignItems:"center",backgroundColor:Colors.surface,borderRadius:Radius.md,padding:Spacing.md,marginBottom:Spacing.sm,gap:Spacing.md,...Shadow.soft},cardSelected:{borderWidth:2,borderColor:Colors.primary},cardIcon:{width:42,height:42,borderRadius:Radius.sm,backgroundColor:Colors.successLight,alignItems:"center",justifyContent:"center"},cardCopy:{flex:1,alignItems:"flex-end"},cardPhone:{color:Colors.text,...Font.cardTitle},cardRole:{color:Colors.textMuted,...Font.tiny,marginTop:Spacing.xs},cardBalance:{color:Colors.success,fontSize:16,fontWeight:"900"},loadingText:{textAlign:"center",padding:30,color:Colors.textMuted}});
