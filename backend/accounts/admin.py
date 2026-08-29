@@ -76,6 +76,12 @@ class AccountsUserAdmin(UserAdmin):
 class UserPreferenceAdmin(admin.ModelAdmin):
     list_display = ("user", "currency", "notifications_enabled", "updated_at")
     list_filter = ("currency", "notifications_enabled")
-    search_fields = ("user__phone", "user__username", "user__email", "user__first_name", "user__last_name")
-    autocomplete_fields = ("user",)
+    search_fields = (
+        "user__phone",
+        "user__username",
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+    )
+    raw_id_fields = ("user",)
     readonly_fields = ("created_at", "updated_at")
