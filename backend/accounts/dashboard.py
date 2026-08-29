@@ -9,8 +9,8 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils import timezone
+from rest_framework.authtoken.models import Token
 
 from .forms import PreferenceForm, UserCreateForm, UserEditForm
 from .models import User, UserPreference
@@ -42,7 +42,6 @@ def _user_list_queryset(request):
     role = request.GET.get("role", "").strip()
     status = request.GET.get("status", "").strip()
     verified = request.GET.get("verified", "").strip()
-
     if query:
         from django.db.models import Q
 
@@ -81,24 +80,7 @@ def accounts_dashboard(request):
     verified = qs.filter(is_phone_verified=True).count()
     unverified = total - verified
     recent = qs.order_by("-date_joined", "-pk")[:8]
-    return render(
-        request,
-        "accounts/dashboard/overview.html",
-        {
-            "now": now,
-            "stats": {
-                "total": total,
-                "customers": customers,
-                "vendors": vendors,
-                "admins": admins,
-                "active": active,
-                "inactive": inactive,
-                "verified": verified,
-                "unverified": unverified,
-            },
-            "recent_users": recent,
-        },
-    )
+    return render(request, "accounts/dashboard/overview.html", {"now": now, "stats": {"total": total, "customers": customers, "vendors": vendors, "admins": admins, "active": active, "inactive": inactive, "verified": verified, "unverified": unverified}, "recent_users": recent})
 
 
 @accounts_dashboard_access_required
@@ -108,21 +90,7 @@ def users_list(request):
     page_obj = paginator.get_page(request.GET.get("page"))
     query = request.GET.copy()
     query.pop("page", None)
-    return render(
-        request,
-        "accounts/dashboard/users.html",
-        {
-            "page_obj": page_obj,
-            "query_string": urlencode(query),
-            "filters": {
-                "q": request.GET.get("q", ""),
-                "role": request.GET.get("role", ""),
-                "status": request.GET.get("status", ""),
-                "verified": request.GET.get("verified", ""),
-            },
-            "role_choices": User.Roles.choices,
-        },
-    )
+    return render(request, "accounts/dashboard/users.html", {"page_obj": page_obj, "query_string": urlencode(query), "filters": {"q": request.GET.get("q", ""), "role": request.GET.get("role", ""), "status": request.GET.get("status", ""), "verified": request.GET.get("verified", "")}, "role_choices": User.Roles.choices})
 
 
 @accounts_dashboard_access_required
@@ -136,14 +104,7 @@ def user_create(request):
             messages.success(request, "تم إنشاء الحساب بنجاح.")
             return redirect("accounts-dashboard:user-detail", user_id=user.pk)
     else:
-        form = UserCreateForm(
-            initial={
-                "role": User.Roles.CUSTOMER,
-                "is_active": True,
-                "is_phone_verified": False,
-                "is_staff": False,
-            }
-        )
+        form = UserCreateForm(initial={"role": User.Roles.CUSTOMER, "is_active": True, "is_phone_verified": False, "is_staff": False})
     return render(request, "accounts/dashboard/user_form.html", {"form": form, "mode": "create"})
 
 
@@ -151,21 +112,7 @@ def user_create(request):
 def user_detail(request, user_id):
     user = get_object_or_404(User, pk=user_id)
     preference = ensure_preference(user)
-    edit_form = UserEditForm(instance=user)
-    preference_form = PreferenceForm(instance=preference)
-    password_form = SetPasswordForm(user)
-    return render(
-        request,
-        "accounts/dashboard/user_detail.html",
-        {
-            "user_obj": user,
-            "display_name": _display_name(user),
-            "edit_form": edit_form,
-            "preference_form": preference_form,
-            "password_form": password_form,
-            "preference": preference,
-        },
-    )
+    return render(request, "accounts/dashboard/user_detail.html", {"user_obj": user, "display_name": _display_name(user), "edit_form": UserEditForm(instance=user), "preference_form": PreferenceForm(instance=preference), "password_form": SetPasswordForm(user), "preference": preference, "has_api_token": Token.objects.filter(user=user).exists()})
 
 
 @accounts_dashboard_access_required
@@ -177,19 +124,7 @@ def user_save(request, user_id):
     form = UserEditForm(request.POST, request.FILES, instance=user)
     if not form.is_valid():
         preference = ensure_preference(user)
-        return render(
-            request,
-            "accounts/dashboard/user_detail.html",
-            {
-                "user_obj": user,
-                "display_name": _display_name(user),
-                "edit_form": form,
-                "preference_form": PreferenceForm(instance=preference),
-                "password_form": SetPasswordForm(user),
-                "preference": preference,
-            },
-            status=400,
-        )
+        return render(request, "accounts/dashboard/user_detail.html", {"user_obj": user, "display_name": _display_name(user), "edit_form": form, "preference_form": PreferenceForm(instance=preference), "password_form": SetPasswordForm(user), "preference": preference, "has_api_token": Token.objects.filter(user=user).exists()}, status=400)
     if user.pk == request.user.pk:
         form.instance.is_active = True
         form.instance.is_staff = True
@@ -205,8 +140,8 @@ def user_action(request, user_id, action):
     user = get_object_or_404(User, pk=user_id)
     if request.method != "POST":
         return redirect("accounts-dashboard:user-detail", user_id=user.pk)
-    if user.pk == request.user.pk and action in {"deactivate", "revoke-staff"}:
-        messages.error(request, "لا يمكنك تعطيل حسابك أو سحب صلاحية الإدارة من نفسك.")
+    if user.pk == request.user.pk and action in {"deactivate", "revoke-staff", "revoke-api-token"}:
+        messages.error(request, "لا يمكنك إلغاء وصول حسابك الحالي إلى الإدارة أو جلسة API أثناء استخدامها.")
         return redirect("accounts-dashboard:user-detail", user_id=user.pk)
     try:
         set_account_action(user, action)
@@ -229,7 +164,7 @@ def user_password(request, user_id):
             update_session_auth_hash(request, user)
         messages.success(request, "تم تغيير كلمة المرور بنجاح.")
     else:
-        messages.error(request, "لم يتم تغيير كلمة المرور. راجع المتطلبات المدونة في النموذج.")
+        messages.error(request, "لم يتم تغيير كلمة المرور. راجع متطلبات كلمة المرور.")
     return redirect("accounts-dashboard:user-detail", user_id=user.pk)
 
 
@@ -257,18 +192,5 @@ def users_export_csv(request):
     writer = csv.writer(response)
     writer.writerow(["المعرف", "اسم المستخدم", "الهاتف", "الاسم الكامل", "البريد", "الدور", "نشط", "الهاتف موثق", "موظف إدارة", "النقاط", "تاريخ التسجيل", "آخر دخول"])
     for user in qs.iterator():
-        writer.writerow([
-            user.pk,
-            user.username or "",
-            user.phone or "",
-            _display_name(user),
-            user.email or "",
-            user.get_role_display(),
-            "نعم" if user.is_active else "لا",
-            "نعم" if user.is_phone_verified else "لا",
-            "نعم" if user.is_staff else "لا",
-            user.points_balance,
-            timezone.localtime(user.date_joined).strftime("%Y-%m-%d %H:%M") if user.date_joined else "",
-            timezone.localtime(user.last_login).strftime("%Y-%m-%d %H:%M") if user.last_login else "",
-        ])
+        writer.writerow([user.pk, user.username or "", user.phone or "", _display_name(user), user.email or "", user.get_role_display(), "نعم" if user.is_active else "لا", "نعم" if user.is_phone_verified else "لا", "نعم" if user.is_staff else "لا", user.points_balance, timezone.localtime(user.date_joined).strftime("%Y-%m-%d %H:%M") if user.date_joined else "", timezone.localtime(user.last_login).strftime("%Y-%m-%d %H:%M") if user.last_login else ""])
     return response
