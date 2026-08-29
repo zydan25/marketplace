@@ -56,6 +56,7 @@ class AccountsDashboardTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(phone="700000001", username="700000001", password="AdminPass123!", role="admin", is_staff=True, is_active=True)
         self.user = User.objects.create_user(phone="700000002", username="700000002", password="CustomerPass123!", role="customer", first_name="أحمد", is_active=True)
+        self.other = User.objects.create_user(phone="700000004", username="700000004", password="CustomerPass456!", role="customer", first_name="محمد", is_active=True)
         self.client.force_login(self.admin)
 
     def test_dashboard_home_and_users_are_html_pages(self):
@@ -99,6 +100,7 @@ class AccountsDashboardTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_export_is_csv(self):
+        self.client.force_login(self.admin)
         response = self.client.get(reverse("accounts-dashboard:users-export"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
@@ -109,3 +111,18 @@ class AccountsDashboardTests(TestCase):
         response = self.client.post(reverse("accounts-dashboard:user-action", kwargs={"user_id": self.user.pk, "action": "revoke-api-token"}))
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Token.objects.filter(pk=token.pk).exists())
+
+    def test_bulk_action_changes_selected_users_and_does_not_disable_admin(self):
+        token = Token.objects.create(user=self.other)
+        response = self.client.post(
+            reverse("accounts-dashboard:users"),
+            {"bulk_action": "deactivate", "selected_users": [str(self.user.pk), str(self.other.pk), str(self.admin.pk)]},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.other.refresh_from_db()
+        self.admin.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+        self.assertFalse(self.other.is_active)
+        self.assertTrue(self.admin.is_active)
+        self.assertTrue(Token.objects.filter(pk=token.pk).exists())
