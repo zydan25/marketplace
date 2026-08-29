@@ -8,10 +8,20 @@ from .models import VendorApplication, VendorProfile
 
 
 @transaction.atomic
+def create_vendor_for_user(user, **vendor_data):
+    if VendorProfile.objects.filter(owner=user).exists():
+        raise ValidationError("الحساب مرتبط بمتجر بالفعل")
+    if getattr(user, "is_staff", False):
+        raise ValidationError("لا يُنصح بربط حساب إداري بمتجر")
+    user.role = MarketplaceUser.Roles.VENDOR
+    user.save(update_fields=["role"])
+    return VendorProfile.objects.create(owner=user, **vendor_data)
+
+
+@transaction.atomic
 def approve_application(application, reviewer):
     if application.status != VendorApplication.Status.PENDING:
         raise ValidationError("الطلب ليس بانتظار المراجعة")
-
     user = MarketplaceUser.objects.select_for_update().get(pk=application.applicant_id)
     vendor = VendorProfile.objects.filter(owner=user).first()
     if vendor is None:
@@ -25,10 +35,9 @@ def approve_application(application, reviewer):
             address=application.address,
             status="active",
         )
-    else:
-        if vendor.status == "suspended":
-            vendor.status = "active"
-            vendor.save(update_fields=["status", "updated_at"])
+    elif vendor.status == "suspended":
+        vendor.status = "active"
+        vendor.save(update_fields=["status", "updated_at"])
 
     application.status = VendorApplication.Status.APPROVED
     application.reviewed_by = reviewer
