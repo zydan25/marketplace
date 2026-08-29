@@ -25,6 +25,7 @@ urlpatterns = [
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
     path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
+    path("admin/dashboard/vendors/", include("vendors.dashboard_urls")),
     path("admin/dashboard/manifest.json", dashboard_manifest, name="admin-dashboard-manifest"),
     path("admin/dashboard/sw.js", dashboard_worker, name="admin-dashboard-sw"),
     path("admin/dashboard/icon.svg", dashboard_icon, name="admin-dashboard-icon"),
@@ -32,19 +33,13 @@ urlpatterns = [
     path("admin/dashboard/resource/<slug:resource>/add/", resource_create, name="admin-crud-create"),
     path("admin/dashboard/resource/<slug:resource>/<int:pk>/edit/", resource_update, name="admin-crud-edit"),
     path("admin/dashboard/resource/<slug:resource>/<int:pk>/delete/", resource_delete, name="admin-crud-delete"),
-
-    # Preserve old UserAdmin links while UserAdmin is now owned by accounts.
     path("admin/marketplace/user/", legacy_user_admin_redirect, name="legacy-marketplace-user-admin"),
     path("admin/marketplace/user/<path:rest>", legacy_user_admin_redirect, name="legacy-marketplace-user-admin-rest"),
-
-    # Visual storefront builder.
     path("admin/marketplace/storefront-editor/", visual_editor, name="admin-storefront-editor"),
     path("admin/marketplace/storefront-editor/section/create/", create_section, name="admin-storefront-section-create"),
     path("admin/marketplace/storefront-editor/section/<int:pk>/", update_section, name="admin-storefront-section-update"),
     path("admin/marketplace/storefront-editor/upload-image/", upload_storefront_image, name="admin-storefront-image-upload"),
     path("admin/marketplace/storefront-editor/reorder/", reorder_sections, name="admin-storefront-section-reorder"),
-
-    # Compatibility aliases used by the editor JavaScript.
     path("admin/marketplace/storefront-builder/create/", create_section, name="admin-storefront-builder-create"),
     path("admin/marketplace/storefront-builder/<int:pk>/save/", update_section, name="admin-storefront-builder-save"),
     path("admin/marketplace/storefront-builder/<int:pk>/delete/", update_section, name="admin-storefront-builder-delete"),
@@ -53,7 +48,6 @@ urlpatterns = [
     path("admin/marketplace/storefront-builder/upload/", upload_storefront_image, name="admin-storefront-builder-upload"),
     path("admin/marketplace/storefront-builder/reorder/", reorder_sections, name="admin-storefront-builder-reorder"),
     path("admin/marketplace/storefront-builder/reorder-by-numbers/", reorder_sections, name="admin-storefront-builder-reorder-by-numbers"),
-
     path("admin/marketplace/<slug:resource>/", legacy_resource_redirect, name="admin-legacy-resource"),
     path("admin/", admin.site.urls),
     path("api/", include("marketplace.urls")),
