@@ -9,7 +9,7 @@ FORM_CONTROL = {"class": "control"}
 
 def _style_fields(form):
     for field in form.fields.values():
-        if isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect)):
+        if isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect, forms.ClearableFileInput)):
             continue
         existing = field.widget.attrs.get("class", "")
         field.widget.attrs["class"] = f"{existing} control".strip()
@@ -23,14 +23,14 @@ class UserCreateForm(forms.ModelForm):
         model = User
         fields = (
             "username", "phone", "first_name", "middle_name", "third_name", "last_name",
-            "email", "governorate", "role", "points_balance", "is_active", "is_staff", "is_phone_verified",
+            "email", "governorate", "avatar", "role", "points_balance", "is_active", "is_staff", "is_phone_verified",
         )
         labels = {
-            "username": "اسم المستخدم", "phone": "رقم الهاتف", "first_name": "الاسم الأول",
+            "username": "اسم المستخدم (اختياري)", "phone": "رقم الهاتف", "first_name": "الاسم الأول",
             "middle_name": "الاسم الأوسط", "third_name": "الاسم الثالث", "last_name": "اسم العائلة",
-            "email": "البريد الإلكتروني", "governorate": "المحافظة", "role": "الدور",
-            "points_balance": "رصيد النقاط", "is_active": "الحساب نشط", "is_staff": "صلاحية الإدارة",
-            "is_phone_verified": "الهاتف موثق",
+            "email": "البريد الإلكتروني", "governorate": "المحافظة", "avatar": "صورة الحساب",
+            "role": "الدور", "points_balance": "رصيد النقاط", "is_active": "الحساب نشط",
+            "is_staff": "صلاحية الإدارة", "is_phone_verified": "الهاتف موثق",
         }
 
     def __init__(self, *args, **kwargs):
@@ -40,7 +40,7 @@ class UserCreateForm(forms.ModelForm):
     def clean_username(self):
         username = (self.cleaned_data.get("username") or "").strip()
         if not username:
-            raise forms.ValidationError("اسم المستخدم مطلوب.")
+            return None
         qs = User.objects.filter(username__iexact=username)
         if self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
@@ -94,14 +94,14 @@ class UserEditForm(forms.ModelForm):
         model = User
         fields = (
             "username", "phone", "first_name", "middle_name", "third_name", "last_name",
-            "email", "governorate", "role", "points_balance", "is_active", "is_staff", "is_phone_verified",
+            "email", "governorate", "avatar", "role", "points_balance", "is_active", "is_staff", "is_phone_verified",
         )
         labels = {
-            "username": "اسم المستخدم", "phone": "رقم الهاتف", "first_name": "الاسم الأول",
+            "username": "اسم المستخدم (اختياري)", "phone": "رقم الهاتف", "first_name": "الاسم الأول",
             "middle_name": "الاسم الأوسط", "third_name": "الاسم الثالث", "last_name": "اسم العائلة",
-            "email": "البريد الإلكتروني", "governorate": "المحافظة", "role": "الدور",
-            "points_balance": "رصيد النقاط", "is_active": "الحساب نشط", "is_staff": "صلاحية الإدارة",
-            "is_phone_verified": "الهاتف موثق",
+            "email": "البريد الإلكتروني", "governorate": "المحافظة", "avatar": "صورة الحساب",
+            "role": "الدور", "points_balance": "رصيد النقاط", "is_active": "الحساب نشط",
+            "is_staff": "صلاحية الإدارة", "is_phone_verified": "الهاتف موثق",
         }
 
     def __init__(self, *args, **kwargs):
@@ -111,7 +111,7 @@ class UserEditForm(forms.ModelForm):
     def clean_username(self):
         username = (self.cleaned_data.get("username") or "").strip()
         if not username:
-            raise forms.ValidationError("اسم المستخدم مطلوب.")
+            return None
         if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("اسم المستخدم مستخدم مسبقًا.")
         return username
