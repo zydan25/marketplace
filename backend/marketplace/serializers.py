@@ -54,7 +54,9 @@ class ConversationSerializer(serializers.ModelSerializer):
  class Meta:
   model=Conversation; fields=["id","customer","vendor","order","subject","is_closed","messages","created_at","updated_at"]; read_only_fields=["customer","messages","created_at","updated_at"]
 
-# Compatibility exports: catalog serializers are now canonical and are re-exported here
-# so existing marketplace modules and older integrations continue to work unchanged.
+# Compatibility exports: domain serializers are now canonical in their dedicated apps.
 from catalog.serializers import CategorySerializer, ProductImageSerializer, ProductSerializer, ProductVariantSerializer
 from catalog.serializers import CatalogOptionSerializer, PriceGroupSerializer
+from vendors.serializers import VendorSerializer as CanonicalVendorSerializer, VendorApplicationSerializer as CanonicalVendorApplicationSerializer
+VendorSerializer = CanonicalVendorSerializer
+VendorApplicationSerializer = CanonicalVendorApplicationSerializer
