@@ -1,12 +1,19 @@
 from rest_framework import serializers
 
-from accounts.serializers import UserSerializer
+from marketplace.models import User
 
 from .models import VendorApplication, VendorProfile
 
 
+class VendorOwnerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "phone", "email", "first_name", "middle_name", "third_name", "last_name", "governorate", "role", "avatar", "is_phone_verified"]
+        read_only_fields = fields
+
+
 class VendorSerializer(serializers.ModelSerializer):
-    owner = UserSerializer(read_only=True)
+    owner = VendorOwnerSerializer(read_only=True)
     logo_url = serializers.SerializerMethodField()
     cover_url = serializers.SerializerMethodField()
 
@@ -23,8 +30,8 @@ class VendorSerializer(serializers.ModelSerializer):
 
 
 class VendorApplicationSerializer(serializers.ModelSerializer):
-    applicant = UserSerializer(read_only=True)
-    reviewed_by = UserSerializer(read_only=True)
+    applicant = VendorOwnerSerializer(read_only=True)
+    reviewed_by = VendorOwnerSerializer(read_only=True)
 
     class Meta:
         model = VendorApplication
