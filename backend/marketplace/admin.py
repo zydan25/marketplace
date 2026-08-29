@@ -34,7 +34,7 @@ class StorefrontMediaAdmin(admin.ModelAdmin):
     list_display = ("name", "vendor", "is_active", "target_url", "updated_at")
     list_filter = ("is_active", "vendor")
     search_fields = ("name", "alt_text", "target_url", "vendor__store_name")
-    autocomplete_fields = ("vendor",)
+    raw_id_fields = ("vendor",)
     readonly_fields = ("created_at", "updated_at")
 
     def save_model(self, request, obj, form, change):
