@@ -22,8 +22,9 @@ from .dashboard import (
     products_export_csv,
     variant_create,
     variant_toggle,
-    variant_update,
 )
+from .dashboard_actions import products_bulk
+from .dashboard_extra import option_update, price_group_update, variant_edit
 
 app_name = "catalog-dashboard"
 
@@ -34,6 +35,7 @@ urlpatterns = [
     path("categories/<int:category_id>/edit/", category_update, name="category-update"),
     path("categories/<int:category_id>/toggle/", category_toggle, name="category-toggle"),
     path("products/", products, name="products"),
+    path("products/bulk/", products_bulk, name="products-bulk"),
     path("products/add/", product_create, name="product-create"),
     path("products/export.csv", products_export_csv, name="products-export"),
     path("products/<int:product_id>/", product_detail, name="product-detail"),
@@ -41,13 +43,15 @@ urlpatterns = [
     path("products/<int:product_id>/publish/", product_publish_toggle, name="product-publish-toggle"),
     path("products/<int:product_id>/trend/", product_trend_toggle, name="product-trend-toggle"),
     path("products/<int:product_id>/variants/add/", variant_create, name="variant-create"),
-    path("variants/<int:variant_id>/save/", variant_update, name="variant-update"),
+    path("variants/<int:variant_id>/edit/", variant_edit, name="variant-edit"),
     path("variants/<int:variant_id>/toggle/", variant_toggle, name="variant-toggle"),
     path("products/<int:product_id>/images/add/", image_create, name="image-create"),
     path("images/<int:image_id>/primary/", image_primary, name="image-primary"),
     path("images/<int:image_id>/delete/", image_delete, name="image-delete"),
     path("options/", options, name="options"),
+    path("options/<int:option_id>/edit/", option_update, name="option-update"),
     path("options/<int:option_id>/toggle/", option_toggle, name="option-toggle"),
     path("price-groups/", price_groups, name="price-groups"),
+    path("price-groups/<int:group_id>/edit/", price_group_update, name="price-group-update"),
     path("price-groups/<int:group_id>/toggle/", price_group_toggle, name="price-group-toggle"),
 ]
