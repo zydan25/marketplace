@@ -5,7 +5,6 @@ from rest_framework.routers import DefaultRouter
 from .catalog_api import CatalogOptionViewSet, CatalogTreeView, CurrencyRateViewSet, PreferencesView
 from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
-from .secure_auth import SecureLoginView, SecureRegisterView
 from .secure_cart import SecureCartCalculateView
 from .secure_catalog import SecureCategoryViewSet, SecureDesignThemeViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
 from .secure_vendor_catalog import VendorProductViewSet
@@ -17,7 +16,7 @@ from .vendor_finance_api import VendorFinanceViewSet
 from .support_api import AdminSupportCloseView, AdminSupportMessageView, AdminSupportView, SupportEmployeesView, SupportMessageView, SupportView
 from .vendor_shipping_api import VendorCityShippingViewSet
 from .serializers import CouponSerializer
-from .views import AdminDashboardView, WalletViewSet, me
+from .views import AdminDashboardView, WalletViewSet
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
 
 class PriceGroupSerializer(serializers.ModelSerializer):
@@ -55,9 +54,7 @@ router.register("loans", LoanViewSet, basename="loan")
 router.register("gifts", GiftTransferViewSet, basename="gift")
 
 urlpatterns = [
-    path("auth/login/", SecureLoginView.as_view(), name="login"),
-    path("auth/register/", SecureRegisterView.as_view(), name="register"),
-    path("auth/me/", me, name="me"),
+    path("auth/", include("accounts.urls")),
     path("cart/calculate/", SecureCartCalculateView.as_view(), name="cart-calculate"),
     path("home/", DynamicHomeView.as_view(), name="home-global"),
     path("stores/<slug:slug>/home/", DynamicHomeView.as_view(), name="home-store"),

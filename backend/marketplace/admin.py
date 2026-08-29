@@ -1,19 +1,13 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from .models_extra import GiftTransfer, Loan
 from .models_extended import ProductVariant
-from .models import (Category, Conversation, Coupon, DesignTheme, Message, Notification, Order, OrderItem, Product, ProductImage, Referral, StorefrontSection, User, VendorPayout, VendorProfile, Wallet, WalletTransaction)
+from .models import (Category, Conversation, Coupon, DesignTheme, Message, Notification, Order, OrderItem, Product, ProductImage, Referral, StorefrontSection, VendorPayout, VendorProfile, Wallet, WalletTransaction)
 from .storefront_models import StorefrontMedia
 from .marketplace_models import VendorLedgerEntry
-
-@admin.register(User)
-class MarketplaceUserAdmin(UserAdmin):
-    list_display=("phone","get_full_name","role","governorate","is_active","date_joined"); list_filter=("role","is_active","is_phone_verified","governorate"); search_fields=("phone","first_name","middle_name","third_name","last_name","email")
-    fieldsets=UserAdmin.fieldsets+(("ملف السوق",{"fields":("phone","role","middle_name","third_name","governorate","avatar","is_phone_verified")}),)
 
 @admin.register(VendorProfile)
 class VendorProfileAdmin(admin.ModelAdmin):
