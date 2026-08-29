@@ -1,0 +1,1 @@
+Compatibility fixes implemented on the dedicated client/vendor branch before Storefront modularization.
