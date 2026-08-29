@@ -19,12 +19,12 @@ from .dashboard import (
     product_trend_toggle,
     product_update,
     products,
-    products_export_csv,
     variant_create,
     variant_toggle,
 )
 from .dashboard_actions import products_bulk
 from .dashboard_extra import option_update, price_group_update, variant_edit
+from .export_dashboard import products_export_csv
 
 app_name = "catalog-dashboard"
 
