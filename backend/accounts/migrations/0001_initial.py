@@ -19,4 +19,16 @@ class Migration(migrations.Migration):
             },
             bases=("marketplace.user",),
         ),
+        migrations.CreateModel(
+            name="UserPreference",
+            fields=[],
+            options={
+                "verbose_name": "تفضيل المستخدم",
+                "verbose_name_plural": "تفضيلات المستخدمين",
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
+            },
+            bases=("marketplace.userpreference",),
+        ),
     ]
