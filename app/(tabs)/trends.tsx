@@ -1,5 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useEffect, useMemo, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -23,42 +23,26 @@ export default function TrendsScreen() {
   const tags = useMemo(() => [...new Set(products.flatMap((product) => product.trendTags))].filter(Boolean), [products]);
   const trendingProducts = useMemo(() => selectedTag ? products.filter((product) => product.isTrending && product.trendTags.includes(selectedTag)) : products.filter((product) => product.isTrending), [products, selectedTag]);
   const availableTags = useMemo(() => ["__all__", ...tags], [tags]);
-  useEffect(() => {
-    if (selectedTag && tags.length === 0) setSelectedTag(null);
-  }, [selectedTag, tags]);
 
-  return (
-    <View style={[styles.page, { paddingTop: Math.max(insets.top, 8) }]}>
-      <FlatList
-        data={trendingProducts}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        showsVerticalScrollIndicator={false}
-        columnWrapperStyle={trendingProducts.length > 1 ? styles.row : undefined}
-        contentContainerStyle={[styles.list, { paddingBottom: 120 + insets.bottom }]}
-        refreshing={loading}
-        onRefresh={() => load(selectedTag ?? "")}
-        renderItem={({ item }) => <ProductCard product={item} />}
-        ListHeaderComponent={<View>
-          <View style={styles.hero}>
-            <Text style={styles.kicker}>TRENDING</Text>
-            <Text style={styles.heroTitle}>الترندات</Text>
-            <Text style={styles.heroText}>منتجات نشرتها المتاجر ضمن الترندات، مرتبة من خادم المنصة مع تصفية الهاشتاجات.</Text>
-          </View>
-          <View style={styles.tagSection}>
-            <View style={styles.tagTitleRow}><View style={styles.allTags}><MaterialIcons name="local-fire-department" size={19} color="#171717" /></View><View><Text style={styles.tagTitle}>تصفية الترند</Text><Text style={styles.tagSub}>اختر هاشتاجًا أو اعرض الكل</Text></View></View>
-            <FlatList horizontal inverted data={availableTags} keyExtractor={(item) => item} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tags} renderItem={({ item }) => {
-              const active = item === "__all__" ? selectedTag === null : selectedTag === item;
-              return <TouchableOpacity onPress={() => setSelectedTag(item === "__all__" ? null : item)} style={[styles.tag, active && styles.tagActive]}><Text style={[styles.tagText, active && styles.tagTextActive]}>{item === "__all__" ? "الكل" : `#${item}`}</Text></TouchableOpacity>;
-            }} ListEmptyComponent={!loading ? <Text style={styles.noTags}>لا توجد هاشتاجات ترند منشورة الآن.</Text> : null} />
-          </View>
-          <View style={styles.heading}><Text style={styles.headingText}>{selectedTag ? `#${selectedTag}` : "كل الترندات"}</Text><Text style={styles.count}>{trendingProducts.length} منتج</Text></View>
-        </View>}
-        ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="local-fire-department" size={44} color="#A0A0A0" /><Text style={styles.emptyTitle}>{loading ? "جارٍ تحميل الترندات" : "لا توجد أصناف مفعلة للترندات"}</Text><Text style={styles.emptyText}>فعّل خيار الترند من بيانات المنتج ليظهر هنا بعد نشره واعتماد المتجر.</Text></View>}
-      />
-    </View>
-  );
+  return <View style={[styles.page, { paddingTop: Math.max(insets.top, 8) }]}>
+    <FlatList
+      data={trendingProducts}
+      keyExtractor={(item) => String(item.id)}
+      numColumns={2}
+      showsVerticalScrollIndicator={false}
+      columnWrapperStyle={trendingProducts.length > 1 ? styles.row : undefined}
+      contentContainerStyle={[styles.list, { paddingBottom: 120 + insets.bottom }]}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={() => load(selectedTag ?? "")} />}
+      renderItem={({ item }) => <ProductCard product={item} />}
+      ListHeaderComponent={<View>
+        <View style={styles.hero}><View style={styles.fire}><MaterialIcons name="local-fire-department" size={21} color="#FFF"/></View><View style={styles.heroCopy}><Text style={styles.heroTitle}>الترندات</Text><Text style={styles.heroText}>اكتشف المنتجات الأكثر رواجًا الآن، مع تصفية مباشرة حسب الهاشتاج.</Text></View></View>
+        <View style={styles.tagSection}><View style={styles.tagHeader}><View><Text style={styles.tagTitle}>تصفح الترند حسب الاهتمام</Text><Text style={styles.tagSub}>اختر هاشتاجًا أو اعرض جميع المنتجات</Text></View><View style={styles.tagIcon}><MaterialIcons name="local-fire-department" size={18} color="#E11D48"/></View></View><FlatList horizontal inverted data={availableTags} keyExtractor={(item) => item} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tags} renderItem={({ item }) => { const active = item === "__all__" ? selectedTag === null : selectedTag === item; return <TouchableOpacity onPress={() => setSelectedTag(item === "__all__" ? null : item)} style={[styles.tag, active && styles.tagActive]}><Text style={[styles.tagText, active && styles.tagTextActive]}>{item === "__all__" ? "الكل" : `#${item}`}</Text></TouchableOpacity>; }} /></View>
+        <View style={styles.heading}><Text style={styles.headingText}>{selectedTag ? `#${selectedTag}` : "الأكثر رواجًا"}</Text><Text style={styles.count}>{trendingProducts.length} منتج</Text></View>
+      </View>}
+      ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="local-fire-department" size={46} color="#C1C1C5"/><Text style={styles.emptyTitle}>{loading ? "جارٍ تحميل الترندات" : "لا توجد منتجات ترند الآن"}</Text><Text style={styles.emptyText}>تظهر المنتجات هنا بعد نشرها واعتماد المتجر وتفعيل خيار الترند من بيانات المنتج.</Text></View>}
+    />
+  </View>;
 }
 
-const styles = StyleSheet.create({ page:{flex:1,backgroundColor:"#FFF"},list:{paddingHorizontal:12},hero:{minHeight:150,backgroundColor:"#171717",padding:18,alignItems:"flex-end",justifyContent:"center",marginHorizontal:-12,borderBottomLeftRadius:18,borderBottomRightRadius:18},kicker:{color:"#E60023",fontWeight:"900",fontSize:10},heroTitle:{color:"#FFF",fontWeight:"900",fontSize:28,marginTop:4},heroText:{color:"#D8D8D8",fontSize:10,marginTop:5,textAlign:"right",lineHeight:17,maxWidth:330},tagSection:{paddingTop:16,paddingBottom:4},tagTitleRow:{flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"center",paddingHorizontal:2,marginBottom:10},tagTitle:{color:"#171717",fontSize:14,fontWeight:"900",textAlign:"right"},tagSub:{color:"#888",fontSize:9,marginTop:2,textAlign:"right"},allTags:{width:36,height:36,borderRadius:10,backgroundColor:"#F1F1F1",alignItems:"center",justifyContent:"center"},tags:{gap:8,paddingBottom:8},tag:{backgroundColor:"#F1F1F1",borderRadius:18,paddingHorizontal:12,paddingVertical:8},tagActive:{backgroundColor:"#171717"},tagText:{color:"#505050",fontSize:11,fontWeight:"800"},tagTextActive:{color:"#FFF"},noTags:{color:"#888",fontSize:11},heading:{flexDirection:"row-reverse",alignItems:"baseline",justifyContent:"space-between",paddingTop:9,paddingBottom:10},headingText:{color:"#171717",fontSize:18,fontWeight:"900"},count:{color:"#888",fontSize:10},row:{gap:10},empty:{alignItems:"center",paddingVertical:50,paddingHorizontal:23},emptyTitle:{color:"#303030",fontSize:15,fontWeight:"900",marginTop:9},emptyText:{color:"#858585",fontSize:11,textAlign:"center",marginTop:5,lineHeight:18}
+const styles = StyleSheet.create({page:{flex:1,backgroundColor:"#F7F7F8"},list:{paddingHorizontal:12},row:{gap:10},hero:{marginHorizontal:-12,backgroundColor:"#111",padding:18,borderBottomLeftRadius:22,borderBottomRightRadius:22,flexDirection:"row-reverse",alignItems:"center",gap:11},fire:{width:44,height:44,borderRadius:14,backgroundColor:"#E11D48",alignItems:"center",justifyContent:"center"},heroCopy:{flex:1,alignItems:"flex-end"},heroTitle:{color:"#FFF",fontSize:27,fontWeight:"900"},heroText:{color:"#CFCFD1",fontSize:10,lineHeight:17,textAlign:"right",marginTop:4},tagSection:{backgroundColor:"#FFF",borderRadius:17,marginTop:12,padding:13,borderWidth:1,borderColor:"#E7E7EA"},tagHeader:{flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"center"},tagIcon:{width:35,height:35,borderRadius:11,backgroundColor:"#FFF0F3",alignItems:"center",justifyContent:"center"},tagTitle:{fontSize:13,fontWeight:"900",color:"#222",textAlign:"right"},tagSub:{fontSize:9,color:"#888",marginTop:2,textAlign:"right"},tags:{gap:7,paddingTop:11,paddingBottom:2},tag:{backgroundColor:"#F0F0F2",paddingHorizontal:12,paddingVertical:8,borderRadius:18},tagActive:{backgroundColor:"#111"},tagText:{fontSize:10,fontWeight:"800",color:"#555"},tagTextActive:{color:"#FFF"},heading:{flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"baseline",paddingTop:14,paddingBottom:10},headingText:{fontSize:17,fontWeight:"900",color:"#222"},count:{fontSize:10,color:"#888"},empty:{backgroundColor:"#FFF",borderRadius:17,alignItems:"center",paddingHorizontal:26,paddingVertical:55,borderWidth:1,borderColor:"#E7E7EA"},emptyTitle:{fontSize:15,fontWeight:"900",color:"#333",marginTop:9},emptyText:{fontSize:10,color:"#888",lineHeight:18,textAlign:"center",marginTop:4}
 });
