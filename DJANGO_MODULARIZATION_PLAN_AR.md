@@ -5,7 +5,7 @@
 ## قواعد النقل الإلزامية
 
 1. ننشئ branch مستقل لكل مرحلة ولا نعدل `main` مباشرة.
-2. ننقل النطاق الوظيفي كاملًا: models + migrations + admin + serializers + API/views + permissions + services + tests.
+2. ننقل النطاق الوظيفي كاملًا: models + migrations + admin + serializers + API/views + permissions + services + tests + واجهات HTML الإدارية الخاصة بالدومين.
 3. نحافظ على الجداول الحالية باستخدام `db_table` أو `SeparateDatabaseAndState` عند نقل model فعليًا.
 4. لا نحذف جدولًا أو نعيد تسميته أثناء refactor إلا عبر migration منفصلة ومقصودة.
 5. نحتفظ بطبقات compatibility مؤقتة عندما تكون هناك imports أو API paths قديمة.
@@ -13,9 +13,10 @@
    - `python manage.py check`
    - `python manage.py makemigrations --check`
    - `python manage.py migrate --plan`
-   - `python manage.py test`
+   - `python manage.py test marketplace <app>`
    - اختبار المسارات الرئيسية المرتبطة بالمرحلة.
 7. لا تبدأ المرحلة التالية قبل تثبيت نجاح المرحلة الحالية.
+8. نجاح CI وحده لا يكفي؛ الصفحات الإدارية الخاصة بكل تطبيق يجب أن تكون لها اختبارات HTTP/Template على الأقل، وتضاف اختبارات متصفح عند الحاجة.
 
 ## ترتيب المراحل
 
@@ -26,9 +27,21 @@
 - UserPreference
 - إعدادات المصادقة
 - إدارة المستخدمين في Django Admin
-- واجهات login/register/me
+- login/register/me
+- `/api/preferences/`
+- مركز HTML عربي مستقل لإدارة الحسابات
 
-الهدف الخاص: إنشاء حدود تطبيق `accounts` بدون المساس بجدول المستخدم الحالي، ثم تنفيذ نقل concrete User في خطوة schema مستقلة ومختبرة.
+الإنجاز:
+- تم إنشاء `backend/accounts` كتطبيق مستقل.
+- تم وضع `User` و`UserPreference` كـProxy Models على الجداول الحالية، دون إنشاء جداول جديدة أو تغيير `AUTH_USER_MODEL`.
+- تم نقل ملكية واجهات auth وpreferences إلى Accounts مع الحفاظ على نفس عناوين API.
+- تم نقل UserAdmin وUserPreferenceAdmin إلى Accounts.
+- تم إنشاء Dashboard عربي مستقل للحسابات يشمل الإحصاءات والبحث والتصفية والإضافة والتعديل والتفعيل/الإيقاف وتوثيق الهاتف والصلاحيات الإدارية وتغيير كلمة المرور والتفضيلات وإلغاء جلسات API والإجراءات الجماعية والتصدير CSV.
+- تمت إضافة اختبارات للـAPI والـProxy Models والواجهة الإدارية والحالات الجماعية.
+- تمت المحافظة على التوافق مع روابط UserAdmin القديمة.
+
+الحد الآمن المقصود:
+- نقل **concrete User** في حالة قاعدة البيانات نفسها من app label `marketplace` إلى `accounts` ليس إعادة تسمية ملفات؛ يحتاج migration state/data strategy مستقلة لأن User هو المرجع المركزي لمعظم الدومينات. لا ننفذ هذه العملية ضمن أول فصل مستقر، بل كعملية schema مستقلة بعد ثبات بقية الدومينات.
 
 ### المرحلة 2 — Catalog
 - Category
@@ -37,14 +50,16 @@
 - ProductVariant
 - CatalogOption
 - البحث والتصفية والهاشتاج
-- Admin وAPI واختبارات الكتالوج.
+- Admin وAPI واختبارات الكتالوج
+- Dashboard HTML خاص بالكتالوج.
 
 ### المرحلة 3 — Vendors
 - VendorProfile
 - VendorApplication
 - عمولة التاجر
 - vendor permissions
-- vendor admin/API.
+- vendor admin/API
+- Dashboard HTML خاص بالتجار.
 
 ### المرحلة 4 — Storefront
 - DesignTheme
@@ -52,7 +67,8 @@
 - StorefrontMedia
 - visual builder
 - ملفات وواجهات محرر المتجر
-- admin.
+- admin
+- Dashboard HTML/Builder ownership واضح.
 
 ### المرحلة 5 — Orders & Inventory
 - Order
@@ -61,7 +77,8 @@
 - VendorOrderItem
 - OrderStatusHistory
 - InventoryReservation
-- دورة الطلب بالكامل.
+- دورة الطلب بالكامل
+- Dashboard HTML للطلبات والمخزون.
 
 ### المرحلة 6 — Finance
 - Wallet
@@ -72,7 +89,8 @@
 - CouponRedemption
 - CurrencyRate
 - VendorCityShipping
-- القيود المالية والعمليات غير القابلة للحذف.
+- القيود المالية والعمليات غير القابلة للحذف
+- Dashboard HTML مالي كامل.
 
 ### المرحلة 7 — Communication & Support
 - Notification
@@ -80,7 +98,8 @@
 - Message
 - OrderChat
 - OrderChatMessage
-- Support endpoints/admin.
+- Support endpoints/admin
+- Dashboard HTML للدعم والتواصل.
 
 ### المرحلة 8 — Promotions & Customer Utilities
 - Coupon
@@ -88,7 +107,8 @@
 - GiftTransfer
 - Address
 - Loan
-- أي ميزات مساعدة مرتبطة بالعميل.
+- الميزات المساعدة المرتبطة بالعميل
+- Dashboard HTML خاص بها.
 
 ### المرحلة 9 — Admin/Dashboard cleanup
 بعد اكتمال نقل الدومينات:
@@ -99,7 +119,8 @@
 - توحيد Dashboard data source.
 - إضافة الصفحات الإدارية الناقصة.
 - إضافة E2E للوحة الإدارة والمحرر.
+- تحويل `marketplace` إلى compatibility layer مؤقتة ثم تنظيفها أخيرًا.
 
 ## تعريف نهاية المشروع
 
-في النهاية يكون `marketplace` غير موجود كـ"god app"، ويصبح مجرد مشروع/configuration layer، بينما كل domain مملوك لتطبيق Django واضح مع API وAdmin وtests ومهاجراته.
+في النهاية تكون كل domain رئيسية مملوكة لتطبيق Django واضح مع API وAdmin وواجهة HTML إدارية واختبارات ومهاجرات، بينما لا يبقى `marketplace` كـgod app. أي نقل للبنية الفيزيائية لجدول المستخدم أو جداول مركزية أخرى يجب أن يكون عملية migration مستقلة ومختبرة، وليس جزءًا من إعادة ترتيب الملفات.
