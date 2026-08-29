@@ -26,7 +26,7 @@ class CategoryForm(CatalogFormMixin):
     class Meta:
         model = Category
         fields = ["name", "slug", "parent", "image", "is_active", "sort_order"]
-        widgets = {"name": forms.TextInput(), "slug": forms.TextInput(attrs={"dir": "ltr"}), "sort_order": forms.NumberInput(min=0)}
+        widgets = {"name": forms.TextInput(), "slug": forms.TextInput(attrs={"dir": "ltr"}), "sort_order": forms.NumberInput(attrs={"min": 0})}
 
     def clean(self):
         cleaned = super().clean()
@@ -113,7 +113,7 @@ class ProductImageForm(forms.ModelForm):
     class Meta:
         model = ProductImage
         fields = ["image", "alt_text", "sort_order", "is_primary"]
-        widgets = {"sort_order": forms.NumberInput(min=0)}
+        widgets = {"sort_order": forms.NumberInput(attrs={"min": 0})}
 
 
 class ProductVariantForm(forms.ModelForm):
@@ -140,7 +140,7 @@ class CatalogOptionForm(forms.ModelForm):
         widgets = {
             "group": forms.TextInput(attrs={"placeholder": "color / size / material", "dir": "ltr"}),
             "slug": forms.TextInput(attrs={"dir": "ltr", "placeholder": "يُنشأ تلقائيًا"}),
-            "sort_order": forms.NumberInput(min=0),
+            "sort_order": forms.NumberInput(attrs={"min": 0}),
         }
 
     def clean_slug(self):
