@@ -1,5 +1,6 @@
 from django.contrib.auth import password_validation
 from django.db import transaction
+from rest_framework.authtoken.models import Token
 
 from .models import User, UserPreference
 
@@ -19,9 +20,15 @@ def set_account_action(user, action):
         user.is_staff = True
     elif action == "revoke-staff":
         user.is_staff = False
+    elif action == "revoke-api-token":
+        Token.objects.filter(user=user).delete()
+        return user
     else:
         raise ValueError("إجراء الحساب غير معروف.")
-    user.save(update_fields=["is_active", "is_phone_verified", "is_staff", "updated_at"] if hasattr(user, "updated_at") else ["is_active", "is_phone_verified", "is_staff"])
+    update_fields = ["is_active", "is_phone_verified", "is_staff"]
+    if hasattr(user, "updated_at"):
+        update_fields.append("updated_at")
+    user.save(update_fields=update_fields)
     return user
 
 
