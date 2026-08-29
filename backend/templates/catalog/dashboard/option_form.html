@@ -1,0 +1,6 @@
+{% extends "catalog/dashboard/base.html" %}
+{% block title %}تعديل خيار — الكتالوج{% endblock %}
+{% block content %}
+<header class="topbar"><div class="title"><div class="eyebrow">CATALOG OPTION</div><h1>تعديل خيار الكتالوج</h1><p>تحديث النوع والاسم والفئة والترتيب وحالة الاستخدام.</p></div><div class="actions"><a class="btn" href="{% url 'catalog-dashboard:options' %}">رجوع</a></div></header>
+<section class="card"><div class="body"><form method="post">{% csrf_token %}{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}<div class="form-grid">{% for field in form %}<div class="field"><label>{{ field.label }}</label>{{ field }}{% if field.errors %}{{ field.errors }}{% endif %}</div>{% endfor %}</div><div class="actions" style="margin-top:16px"><button class="btn primary">حفظ الخيار</button></div></form></div></section>
+{% endblock %}
