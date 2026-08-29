@@ -1,3 +1,5 @@
+import base64
+
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.authtoken.models import Token
@@ -164,7 +166,8 @@ class CatalogDashboardTests(TestCase):
     def test_image_management_and_primary_selection(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
         product = Product.objects.create(vendor=self.vendor, name="صور", price="50", stock=4)
-        image = SimpleUploadedFile("one.txt", b"not-real-image", content_type="image/jpeg")
+        png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+        image = SimpleUploadedFile("one.png", png, content_type="image/png")
         response = self.client.post(reverse("catalog-dashboard:image-create", kwargs={"product_id": product.pk}), {"image": image, "alt_text": "صورة", "sort_order": 0, "is_primary": "on"})
         self.assertEqual(response.status_code, 302)
         self.assertTrue(ProductImage.objects.filter(product=product, is_primary=True).exists())

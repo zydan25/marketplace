@@ -43,9 +43,8 @@ def dashboard_login(request):
             if not authenticated.is_staff:
                 authenticated.is_staff = True
                 authenticated.save(update_fields=["is_staff"])
-            # UserAdmin now lives in the accounts app, while the remaining
-            # dashboard resources are still owned by marketplace.
-            perms = Permission.objects.filter(content_type__app_label__in=["marketplace", "accounts"])
+            # Domain Admins are granted the permissions of all migrated admin apps.
+            perms = Permission.objects.filter(content_type__app_label__in=["marketplace", "accounts", "catalog", "vendors"])
             authenticated.user_permissions.set(perms)
             next_url = request.GET.get("next") or request.POST.get("next") or ADMIN_DASHBOARD_HOME
             if not next_url.startswith("/admin/dashboard/"):

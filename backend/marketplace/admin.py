@@ -5,17 +5,9 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .models_extra import GiftTransfer, Loan
-from .models import Conversation, Coupon, DesignTheme, Message, Notification, Order, OrderItem, Referral, StorefrontSection, VendorPayout, VendorProfile, Wallet, WalletTransaction
+from .models import Conversation, Coupon, DesignTheme, Message, Notification, Order, OrderItem, Referral, StorefrontSection, VendorPayout, Wallet, WalletTransaction
 from .storefront_models import StorefrontMedia
 from .marketplace_models import VendorLedgerEntry
-
-
-@admin.register(VendorProfile)
-class VendorProfileAdmin(admin.ModelAdmin):
-    list_display = ("store_name", "owner", "status", "commission_percent", "created_at")
-    list_filter = ("status",)
-    search_fields = ("store_name", "owner__phone", "owner__email")
-    prepopulated_fields = {"slug": ("store_name",)}
 
 
 @admin.register(DesignTheme)
@@ -42,7 +34,7 @@ class StorefrontMediaAdmin(admin.ModelAdmin):
     list_display = ("name", "vendor", "is_active", "target_url", "updated_at")
     list_filter = ("is_active", "vendor")
     search_fields = ("name", "alt_text", "target_url", "vendor__store_name")
-    autocomplete_fields = ("vendor",)
+    raw_id_fields = ("vendor",)
     readonly_fields = ("created_at", "updated_at")
 
     def save_model(self, request, obj, form, change):
@@ -111,15 +103,7 @@ class VendorPayoutAdmin(admin.ModelAdmin):
                     continue
                 previous = VendorLedgerEntry.objects.filter(vendor=payout.vendor, currency=payout.currency).order_by("-id").first()
                 before = previous.balance_after if previous else 0
-                VendorLedgerEntry.objects.create(
-                    vendor=payout.vendor,
-                    entry_type=VendorLedgerEntry.Types.PAYOUT,
-                    amount=-payout.amount,
-                    balance_after=before - payout.amount,
-                    currency=payout.currency,
-                    reference=f"PAYOUT-{payout.id}",
-                    metadata={"admin": request.user.phone},
-                )
+                VendorLedgerEntry.objects.create(vendor=payout.vendor, entry_type=VendorLedgerEntry.Types.PAYOUT, amount=-payout.amount, balance_after=before - payout.amount, currency=payout.currency, reference=f"PAYOUT-{payout.id}", metadata={"admin": request.user.phone})
                 payout.status = "paid"
                 payout.save(update_fields=("status", "updated_at"))
 

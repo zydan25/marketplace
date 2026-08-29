@@ -1,34 +1,7 @@
 from django.contrib import admin
-from django.utils import timezone
 
-from .marketplace_models import CouponRedemption, InventoryReservation, Payment, Shipment, VendorApplication, VendorLedgerEntry, VendorOrder, VendorOrderItem
-from .models import VendorProfile
+from .marketplace_models import CouponRedemption, InventoryReservation, Payment, Shipment, VendorLedgerEntry, VendorOrder, VendorOrderItem
 from .order_chat_models import OrderChat, OrderChatMessage
-
-
-@admin.register(VendorApplication)
-class VendorApplicationAdmin(admin.ModelAdmin):
-    list_display = ("store_name", "applicant", "phone", "status", "created_at", "reviewed_at")
-    list_filter = ("status", "created_at")
-    search_fields = ("store_name", "phone", "applicant__phone", "applicant__email")
-    readonly_fields = ("applicant", "created_at", "updated_at", "reviewed_by", "reviewed_at")
-    actions = ("approve_selected", "reject_selected")
-
-    @admin.action(description="اعتماد التجار المحددين")
-    def approve_selected(self, request, queryset):
-        for application in queryset.filter(status=VendorApplication.Status.PENDING).select_related("applicant"):
-            user = application.applicant
-            user.role = "vendor"
-            user.save(update_fields=["role"])
-            VendorProfile.objects.get_or_create(owner=user, defaults={"store_name": application.store_name, "description": application.description, "phone": application.phone, "address": application.address, "status": "active"})
-            application.status = VendorApplication.Status.APPROVED
-            application.reviewed_by = request.user
-            application.reviewed_at = timezone.now()
-            application.save(update_fields=["status", "reviewed_by", "reviewed_at", "updated_at"])
-
-    @admin.action(description="رفض طلبات التجار المحددين")
-    def reject_selected(self, request, queryset):
-        queryset.filter(status=VendorApplication.Status.PENDING).update(status=VendorApplication.Status.REJECTED, reviewed_by=request.user, reviewed_at=timezone.now())
 
 
 class VendorOrderItemInline(admin.TabularInline):

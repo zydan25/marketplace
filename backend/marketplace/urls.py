@@ -7,10 +7,9 @@ from .catalog_api import CurrencyRateViewSet
 from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
 from .secure_cart import SecureCartCalculateView
-from .secure_catalog import SecureDesignThemeViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
+from .secure_catalog import SecureDesignThemeViewSet, SecureStorefrontSectionViewSet
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
 from .launch_order_api import LaunchOrderViewSet
-from .secure_vendor import VendorApplicationViewSet
 from .order_chat_api import OrderChatViewSet
 from .vendor_finance_api import VendorFinanceViewSet
 from .support_api import AdminSupportCloseView, AdminSupportMessageView, AdminSupportView, SupportEmployeesView, SupportMessageView, SupportView
@@ -47,8 +46,6 @@ class CouponViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 router = DefaultRouter()
-router.register("vendors", SecureVendorViewSet, basename="vendor")
-router.register("vendor-applications", VendorApplicationViewSet, basename="vendor-application")
 router.register("themes", SecureDesignThemeViewSet, basename="theme")
 router.register("storefront-sections", SecureStorefrontSectionViewSet, basename="storefront-section")
 router.register("wallets", WalletViewSet, basename="wallet")
@@ -79,5 +76,6 @@ urlpatterns = [
     path("admin/support/<int:conversation_id>/close/", AdminSupportCloseView.as_view(), name="admin-support-close"),
     path("admin-dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
     path("", include("catalog.urls")),
+    path("", include("vendors.urls")),
     path("", include(router.urls)),
 ]
