@@ -54,6 +54,47 @@ async function persistAuthenticatedUser(user: MarketplaceUser) {
   await Auth.setUserInfo(toAuthUser(user));
 }
 
+function flattenError(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) return value.map(flattenError).filter(Boolean).join("، ");
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    const detail = (value as Record<string, unknown>).detail;
+    if (detail) return flattenError(detail);
+    const parts = entries
+      .filter(([key]) => key !== "detail")
+      .map(([key, val]) => {
+        const message = flattenError(val);
+        if (!message) return "";
+        const labels: Record<string, string> = {
+          phone: "رقم الهاتف",
+          password: "كلمة المرور",
+          non_field_errors: "تنبيه",
+          vendor_id: "المتجر",
+          category: "الفئة",
+          image: "الصورة",
+        };
+        return `${labels[key] || key}: ${message}`;
+      })
+      .filter(Boolean);
+    return parts.join("\n");
+  }
+  return "";
+}
+
+function friendlyError(status: number, raw: string) {
+  const normalized = raw.toLowerCase();
+  if (status === 401) return "انتهت جلسة الدخول. سجّل الدخول مرة أخرى.";
+  if (status === 403) return "ليس لديك صلاحية لتنفيذ هذا الإجراء.";
+  if (status === 404) return "العنصر المطلوب غير موجود أو لم يعد متاحًا.";
+  if (status === 409) return "لا يمكن تنفيذ العملية بسبب تعارض في البيانات.";
+  if (status === 429) return "تم تجاوز عدد المحاولات. انتظر قليلًا ثم حاول مرة أخرى.";
+  if (status >= 500) return "حدث خطأ في خادم المنصة. حاول مرة أخرى لاحقًا.";
+  if (normalized.includes("field required") || normalized.includes("this field is required")) return "توجد بيانات مطلوبة لم يتم إدخالها.";
+  return raw || `تعذر إكمال الطلب (${status}).`;
+}
+
 export async function djangoApi<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getToken();
   const headers = new Headers(init.headers);
@@ -66,13 +107,15 @@ export async function djangoApi<T>(path: string, init: RequestInit = {}): Promis
   const text = await response.text();
   let data: unknown = null;
   if (text) {
-    data = contentType.includes("application/json") ? JSON.parse(text) : { detail: text.slice(0, 300) };
+    if (contentType.includes("application/json")) {
+      try { data = JSON.parse(text); } catch { data = { detail: text.slice(0, 300) }; }
+    } else {
+      data = { detail: text.slice(0, 300) };
+    }
   }
   if (!response.ok) {
-    const detail = typeof data === "object" && data !== null && "detail" in data
-      ? String((data as { detail?: unknown }).detail ?? "")
-      : "";
-    throw new Error(detail || `تعذر الاتصال بخادم المنصة (${response.status})`);
+    const parsed = flattenError(data);
+    throw new Error(friendlyError(response.status, parsed));
   }
   return data as T;
 }
