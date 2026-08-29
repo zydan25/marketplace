@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 
 from marketplace.models import User, Wallet
 from marketplace.models_extra import UserPreference
-from .models import User as AccountsUser
+from .models import User as AccountsUser, UserPreference as AccountsUserPreference
 
 
 class AccountsStageOneTests(TestCase):
@@ -25,7 +25,7 @@ class AccountsStageOneTests(TestCase):
         self.assertEqual(proxy._meta.db_table, user._meta.db_table)
         self.assertTrue(AccountsUser._meta.proxy)
 
-    def test_preferences_proxy_uses_existing_table(self):
+    def test_preference_proxy_points_to_existing_table(self):
         user = User.objects.create_user(
             phone="711000010",
             username="711000010",
@@ -33,9 +33,11 @@ class AccountsStageOneTests(TestCase):
             role="customer",
         )
         preference = UserPreference.objects.create(user=user)
-        proxy = AccountsUser.preference.related_model if hasattr(AccountsUser, "preference") else None
-        self.assertIsNotNone(proxy)
-        self.assertEqual(preference.user_id, user.pk)
+        proxy = AccountsUserPreference.objects.get(pk=preference.pk)
+
+        self.assertEqual(proxy.pk, preference.pk)
+        self.assertEqual(proxy._meta.db_table, preference._meta.db_table)
+        self.assertTrue(AccountsUserPreference._meta.proxy)
 
     def test_registration_uses_accounts_route_and_creates_wallet(self):
         response = self.client.post(
