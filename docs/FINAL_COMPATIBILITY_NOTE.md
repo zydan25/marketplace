@@ -1,0 +1,1 @@
+The dedicated compatibility branch contains the client and vendor fixes and should be validated by CI before merging.
