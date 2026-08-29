@@ -4,42 +4,38 @@ from django.contrib.auth import password_validation
 from .models import User, UserPreference
 
 
+FORM_CONTROL = {"class": "control"}
+
+
+def _style_fields(form):
+    for field in form.fields.values():
+        if isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect)):
+            continue
+        existing = field.widget.attrs.get("class", "")
+        field.widget.attrs["class"] = f"{existing} control".strip()
+
+
 class UserCreateForm(forms.ModelForm):
-    password1 = forms.CharField(label="كلمة المرور", widget=forms.PasswordInput, required=True)
-    password2 = forms.CharField(label="تأكيد كلمة المرور", widget=forms.PasswordInput, required=True)
+    password1 = forms.CharField(label="كلمة المرور", widget=forms.PasswordInput(attrs=FORM_CONTROL), required=True)
+    password2 = forms.CharField(label="تأكيد كلمة المرور", widget=forms.PasswordInput(attrs=FORM_CONTROL), required=True)
 
     class Meta:
         model = User
         fields = (
-            "username",
-            "phone",
-            "first_name",
-            "middle_name",
-            "third_name",
-            "last_name",
-            "email",
-            "governorate",
-            "role",
-            "points_balance",
-            "is_active",
-            "is_staff",
-            "is_phone_verified",
+            "username", "phone", "first_name", "middle_name", "third_name", "last_name",
+            "email", "governorate", "role", "points_balance", "is_active", "is_staff", "is_phone_verified",
         )
         labels = {
-            "username": "اسم المستخدم",
-            "phone": "رقم الهاتف",
-            "first_name": "الاسم الأول",
-            "middle_name": "الاسم الأوسط",
-            "third_name": "الاسم الثالث",
-            "last_name": "اسم العائلة",
-            "email": "البريد الإلكتروني",
-            "governorate": "المحافظة",
-            "role": "الدور",
-            "points_balance": "رصيد النقاط",
-            "is_active": "الحساب نشط",
-            "is_staff": "صلاحية الإدارة",
+            "username": "اسم المستخدم", "phone": "رقم الهاتف", "first_name": "الاسم الأول",
+            "middle_name": "الاسم الأوسط", "third_name": "الاسم الثالث", "last_name": "اسم العائلة",
+            "email": "البريد الإلكتروني", "governorate": "المحافظة", "role": "الدور",
+            "points_balance": "رصيد النقاط", "is_active": "الحساب نشط", "is_staff": "صلاحية الإدارة",
             "is_phone_verified": "الهاتف موثق",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _style_fields(self)
 
     def clean_username(self):
         username = (self.cleaned_data.get("username") or "").strip()
@@ -97,42 +93,26 @@ class UserEditForm(forms.ModelForm):
     class Meta:
         model = User
         fields = (
-            "username",
-            "phone",
-            "first_name",
-            "middle_name",
-            "third_name",
-            "last_name",
-            "email",
-            "governorate",
-            "role",
-            "points_balance",
-            "is_active",
-            "is_staff",
-            "is_phone_verified",
+            "username", "phone", "first_name", "middle_name", "third_name", "last_name",
+            "email", "governorate", "role", "points_balance", "is_active", "is_staff", "is_phone_verified",
         )
         labels = {
-            "username": "اسم المستخدم",
-            "phone": "رقم الهاتف",
-            "first_name": "الاسم الأول",
-            "middle_name": "الاسم الأوسط",
-            "third_name": "الاسم الثالث",
-            "last_name": "اسم العائلة",
-            "email": "البريد الإلكتروني",
-            "governorate": "المحافظة",
-            "role": "الدور",
-            "points_balance": "رصيد النقاط",
-            "is_active": "الحساب نشط",
-            "is_staff": "صلاحية الإدارة",
+            "username": "اسم المستخدم", "phone": "رقم الهاتف", "first_name": "الاسم الأول",
+            "middle_name": "الاسم الأوسط", "third_name": "الاسم الثالث", "last_name": "اسم العائلة",
+            "email": "البريد الإلكتروني", "governorate": "المحافظة", "role": "الدور",
+            "points_balance": "رصيد النقاط", "is_active": "الحساب نشط", "is_staff": "صلاحية الإدارة",
             "is_phone_verified": "الهاتف موثق",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _style_fields(self)
 
     def clean_username(self):
         username = (self.cleaned_data.get("username") or "").strip()
         if not username:
             raise forms.ValidationError("اسم المستخدم مطلوب.")
-        qs = User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk)
-        if qs.exists():
+        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("اسم المستخدم مستخدم مسبقًا.")
         return username
 
@@ -140,20 +120,32 @@ class UserEditForm(forms.ModelForm):
         phone = (self.cleaned_data.get("phone") or "").strip()
         if not phone:
             raise forms.ValidationError("رقم الهاتف مطلوب.")
-        qs = User.objects.filter(phone=phone).exclude(pk=self.instance.pk)
-        if qs.exists():
+        if User.objects.filter(phone=phone).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("رقم الهاتف مستخدم مسبقًا.")
         return phone
+
+    def clean_points_balance(self):
+        value = self.cleaned_data.get("points_balance")
+        if value is not None and value < 0:
+            raise forms.ValidationError("رصيد النقاط لا يمكن أن يكون سالبًا.")
+        return value
 
 
 class PreferenceForm(forms.ModelForm):
     class Meta:
         model = UserPreference
         fields = ("currency", "notifications_enabled")
-        labels = {
-            "currency": "العملة المفضلة",
-            "notifications_enabled": "تفعيل الإشعارات",
-        }
+        labels = {"currency": "العملة المفضلة", "notifications_enabled": "تفعيل الإشعارات"}
         widgets = {
-            "currency": forms.Select(choices=(("YER", "ريال يمني (YER)"), ("SAR", "ريال سعودي (SAR)"), ("USD", "دولار أمريكي (USD)"))),
+            "currency": forms.Select(
+                choices=(
+                    ("YER", "ريال يمني (YER)"),
+                    ("SAR", "ريال سعودي (SAR)"),
+                    ("USD", "دولار أمريكي (USD)"),
+                )
+            )
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _style_fields(self)
