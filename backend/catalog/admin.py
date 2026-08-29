@@ -10,7 +10,6 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug")
     list_editable = ("is_active", "sort_order")
     prepopulated_fields = {"slug": ("name",)}
-    autocomplete_fields = ("parent",)
 
 
 @admin.register(Product)
@@ -49,7 +48,6 @@ class ProductVariantAdmin(admin.ModelAdmin):
     list_filter = ("is_active", "color", "size")
     search_fields = ("product__name", "product__sku", "sku", "color", "size")
     list_editable = ("price_override", "stock", "is_active")
-    autocomplete_fields = ("product",)
     readonly_fields = ("reserved_stock",)
 
     @admin.display(description="المتاح", ordering="stock")
@@ -63,7 +61,6 @@ class CatalogOptionAdmin(admin.ModelAdmin):
     list_filter = ("group", "is_active")
     search_fields = ("name", "slug", "group")
     list_editable = ("sort_order", "is_active")
-    autocomplete_fields = ("category",)
     ordering = ("group", "sort_order", "name")
 
 
