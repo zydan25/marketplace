@@ -59,7 +59,11 @@ class CatalogApiTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
         response = self.client.post("/api/variants/", {"product": self.product.pk, "color": "أسود", "size": "M", "stock": 4}, format="json")
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(ProductVariant.objects.filter(product=self.product, color="أسود", size="M").exists())
+        variant = ProductVariant.objects.get(product=self.product, color="أسود", size="M")
+        response = self.client.patch(f"/api/variants/{variant.pk}/", {"stock": 5}, format="json")
+        self.assertEqual(response.status_code, 200)
+        variant.refresh_from_db()
+        self.assertEqual(variant.stock, 5)
 
     def test_admin_can_manage_price_groups_and_options(self):
         token, _ = Token.objects.get_or_create(user=self.admin)
@@ -69,6 +73,10 @@ class CatalogApiTests(TestCase):
         opt = self.client.post("/api/catalog-options/", {"group": "color", "name": "أسود", "category": self.category.pk, "sort_order": 1}, format="json")
         self.assertEqual(opt.status_code, 201)
         self.assertTrue(CatalogOption.objects.filter(group="color", name="أسود").exists())
+
+    def test_public_cannot_write_catalog(self):
+        response = self.client.post("/api/categories/", {"name": "غير مسموح", "slug": "not-allowed"}, format="json")
+        self.assertEqual(response.status_code, 401)
 
 
 class CatalogDashboardTests(TestCase):
@@ -98,9 +106,43 @@ class CatalogDashboardTests(TestCase):
         self.assertEqual(response.status_code, 302)
         product = Product.objects.get(name="هاتف")
         self.assertTrue(product.slug)
+        self.assertTrue(product.sku.startswith("SKU-"))
         response = self.client.post(reverse("catalog-dashboard:variant-create", kwargs={"product_id": product.pk}), {"sku": "", "color": "أسود", "size": "L", "price_override": "950", "stock": "3", "is_active": "on"})
         self.assertEqual(response.status_code, 302)
         self.assertTrue(ProductVariant.objects.filter(product=product, color="أسود", size="L").exists())
+
+    def test_edit_variant_option_and_price_group(self):
+        category = Category.objects.create(name="أجهزة", slug="devices-edit", is_active=True)
+        product = Product.objects.create(vendor=self.vendor, name="حاسوب", price="2000", stock=9)
+        product.categories.add(category)
+        variant = ProductVariant.objects.create(product=product, sku="EDIT-V1", color="أسود", size="M", stock=2)
+        response = self.client.get(reverse("catalog-dashboard:variant-edit", kwargs={"variant_id": variant.pk}))
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(reverse("catalog-dashboard:variant-edit", kwargs={"variant_id": variant.pk}), {"sku": "EDIT-V2", "color": "أبيض", "size": "L", "price_override": "1900", "stock": "4", "is_active": "on"})
+        self.assertEqual(response.status_code, 302)
+        variant.refresh_from_db()
+        self.assertEqual(variant.sku, "EDIT-V2")
+        option = CatalogOption.objects.create(group="color", name="أحمر", slug="red", category=category, sort_order=2)
+        response = self.client.post(reverse("catalog-dashboard:option-update", kwargs={"option_id": option.pk}), {"group": "color", "name": "أحمر فاتح", "slug": "red-light", "category": category.pk, "sort_order": 3, "is_active": "on"})
+        self.assertEqual(response.status_code, 302)
+        option.refresh_from_db()
+        self.assertEqual(option.name, "أحمر فاتح")
+        group = PriceGroup.objects.create(name="تجزئة", code="RETAIL", adjustment_type="percentage", percentage=0, fixed_amount=0, is_active=True)
+        response = self.client.post(reverse("catalog-dashboard:price-group-update", kwargs={"group_id": group.pk}), {"name": "جملة", "code": "WHOLESALE2", "adjustment_type": "fixed", "percentage": 0, "fixed_amount": 25, "is_active": "on"})
+        self.assertEqual(response.status_code, 302)
+        group.refresh_from_db()
+        self.assertEqual(group.code, "WHOLESALE2")
+
+    def test_product_bulk_action_and_export(self):
+        one = Product.objects.create(vendor=self.vendor, name="واحد", price="10", stock=1, is_published=False)
+        two = Product.objects.create(vendor=self.vendor, name="اثنان", price="20", stock=1, is_published=False)
+        response = self.client.post(reverse("catalog-dashboard:products-bulk"), {"bulk_action": "publish", "selected_products": [one.pk, two.pk]})
+        self.assertEqual(response.status_code, 302)
+        one.refresh_from_db(); two.refresh_from_db()
+        self.assertTrue(one.is_published); self.assertTrue(two.is_published)
+        response = self.client.get(reverse("catalog-dashboard:products-export"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("واحد", response.content.decode("utf-8-sig"))
 
     def test_category_toggle_is_safe(self):
         category = Category.objects.create(name="ملابس", slug="clothes", is_active=True)
@@ -113,3 +155,16 @@ class CatalogDashboardTests(TestCase):
         self.client.force_login(self.vendor_user)
         response = self.client.get(reverse("catalog-dashboard:home"))
         self.assertEqual(response.status_code, 403)
+
+    def test_legacy_catalog_link_redirects_to_new_center(self):
+        response = self.client.get("/admin/marketplace/product/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("catalog-dashboard:products"))
+
+    def test_image_management_and_primary_selection(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        product = Product.objects.create(vendor=self.vendor, name="صور", price="50", stock=4)
+        image = SimpleUploadedFile("one.txt", b"not-real-image", content_type="image/jpeg")
+        response = self.client.post(reverse("catalog-dashboard:image-create", kwargs={"product_id": product.pk}), {"image": image, "alt_text": "صورة", "sort_order": 0, "is_primary": "on"})
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(ProductImage.objects.filter(product=product, is_primary=True).exists())
