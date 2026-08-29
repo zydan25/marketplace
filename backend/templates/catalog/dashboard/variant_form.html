@@ -1,0 +1,6 @@
+{% extends "catalog/dashboard/base.html" %}
+{% block title %}تعديل الصنف — الكتالوج{% endblock %}
+{% block content %}
+<header class="topbar"><div class="title"><div class="eyebrow">PRODUCT VARIANT</div><h1>تعديل صنف المنتج</h1><p>{{ product.name }} · {{ product.sku }}</p></div><div class="actions"><a class="btn" href="{% url 'catalog-dashboard:product-detail' product_id=product.pk %}">رجوع للمنتج</a></div></header>
+<section class="card"><div class="body"><form method="post">{% csrf_token %}{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}<div class="form-grid">{% for field in form %}<div class="field"><label>{{ field.label }}</label>{{ field }}{% if field.errors %}{{ field.errors }}{% endif %}</div>{% endfor %}</div><div class="actions" style="margin-top:16px"><button class="btn primary">حفظ الصنف</button></div></form></div></section>
+{% endblock %}
