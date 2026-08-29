@@ -1,0 +1,11 @@
+{% extends "accounts/dashboard/base.html" %}
+{% block title %}إضافة حساب — الحسابات{% endblock %}
+{% block content %}
+<header class="topbar"><div class="title"><div class="eyebrow">ACCOUNTS / NEW</div><h1>إضافة حساب جديد</h1><p>أنشئ حسابًا بصلاحيات محددة من شاشة واحدة.</p></div><div class="actions"><a class="btn" href="{% url 'accounts-dashboard:users' %}">← العودة للمستخدمين</a></div></header>
+<section class="card"><div class="panel-head"><h2>بيانات الحساب</h2><span>بيانات الهوية والوصول</span></div><div class="body">
+{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+<form method="post" enctype="multipart/form-data" novalidate>{% csrf_token %}<div class="form-grid">
+{% for field in form %}{% if field.name == 'is_active' or field.name == 'is_staff' or field.name == 'is_phone_verified' %}<div class="field check"><input type="checkbox" id="{{ field.id_for_label }}" name="{{ field.html_name }}" {% if field.value %}checked{% endif %}><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field.errors }}</div>{% else %}<div class="field {% if field.name == 'password1' or field.name == 'password2' %}full{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}{{ field.errors }}</div>{% endif %}{% endfor %}
+</div><div class="section-note" style="margin-top:12px">سيتم إنشاء التفضيلات الافتراضية تلقائيًا. لا يتم تخزين كلمة المرور كنص صريح.</div><div class="actions" style="margin-top:14px"><button class="btn blue" type="submit">حفظ وإنشاء الحساب</button><a class="btn" href="{% url 'accounts-dashboard:users' %}">إلغاء</a></div></form>
+</div></section>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "accounts/dashboard/base.html" %}
+{% block title %}نظرة عامة — الحسابات{% endblock %}
+{% block content %}
+<header class="topbar"><div class="title"><div class="eyebrow">ACCOUNTS CENTER</div><h1>إدارة الحسابات</h1><p>مركز عربي مستقل لمتابعة المستخدمين والصلاحيات والمصادقة والتفضيلات.</p></div><div class="actions"><a class="btn blue" href="{% url 'accounts-dashboard:user-create' %}">＋ إضافة حساب</a><a class="btn" href="{% url 'accounts-dashboard:users' %}">👥 جميع المستخدمين</a></div></header>
+<section class="cards">
+<div class="card stat"><div class="kicker">إجمالي الحسابات</div><div class="value">{{ stats.total }}</div><div class="meta">كل الأدوار</div></div>
+<div class="card stat"><div class="kicker">العملاء</div><div class="value">{{ stats.customers }}</div><div class="meta">حسابات العملاء</div></div>
+<div class="card stat"><div class="kicker">التجار</div><div class="value">{{ stats.vendors }}</div><div class="meta">حسابات التجار</div></div>
+<div class="card stat"><div class="kicker">المديرون</div><div class="value">{{ stats.admins }}</div><div class="meta">صلاحية الإدارة</div></div>
+<div class="card stat"><div class="kicker">الحسابات النشطة</div><div class="value">{{ stats.active }}</div><div class="meta">يمكنها تسجيل الدخول</div></div>
+<div class="card stat"><div class="kicker">الحسابات الموقوفة</div><div class="value">{{ stats.inactive }}</div><div class="meta">الوصول معطل</div></div>
+<div class="card stat"><div class="kicker">هواتف موثقة</div><div class="value">{{ stats.verified }}</div><div class="meta">تم التحقق منها</div></div>
+<div class="card stat"><div class="kicker">هواتف غير موثقة</div><div class="value">{{ stats.unverified }}</div><div class="meta">تحتاج متابعة</div></div>
+</section>
+<div class="grid2">
+<section class="card"><div class="panel-head"><h2>آخر الحسابات المسجلة</h2><a href="{% url 'accounts-dashboard:users' %}">عرض الكل</a></div><div class="body list">
+{% for user in recent_users %}<div class="row"><div class="user-cell"><div class="avatar">{{ user.first_name|default:user.username|default:"م"|slice:":1" }}</div><div><div class="name">{{ user.get_full_name|default:user.phone|default:user.username }}</div><div class="sub">{{ user.phone|default:"بدون هاتف" }} · {{ user.date_joined|date:"Y-m-d H:i" }}</div></div></div><span class="badge {% if user.role == 'admin' %}red-b{% elif user.role == 'vendor' %}blue-b{% else %}green-b{% endif %}">{{ user.get_role_display }}</span></div>{% empty %}<div class="empty">لا توجد حسابات بعد.</div>{% endfor %}</div></section>
+<section class="card"><div class="panel-head"><h2>إجراءات شائعة</h2><span>آمنة ومباشرة</span></div><div class="body"><div class="action-grid">
+<a class="action-box" href="{% url 'accounts-dashboard:users' %}?status=inactive"><b>الحسابات الموقوفة</b><span>راجع الحسابات غير النشطة وأعد تفعيلها.</span></a>
+<a class="action-box" href="{% url 'accounts-dashboard:users' %}?verified=no"><b>الهواتف غير الموثقة</b><span>تابع الحسابات التي لم يتم التحقق من هاتفها.</span></a>
+<a class="action-box" href="{% url 'accounts-dashboard:users' %}?role=vendor"><b>حسابات التجار</b><span>راجع الحسابات ذات دور التاجر.</span></a>
+<a class="action-box" href="{% url 'accounts-dashboard:users' %}?role=admin"><b>المديرون</b><span>راجع حسابات الإدارة وصلاحيات الدخول.</span></a>
+<a class="action-box" href="{% url 'accounts-dashboard:user-create' %}"><b>حساب جديد</b><span>أنشئ عميلًا أو تاجرًا أو مديرًا مباشرة.</span></a>
+<a class="action-box" href="{% url 'accounts-dashboard:users-export' %}"><b>تصدير CSV</b><span>تقرير كامل قابل للفتح في Excel.</span></a>
+</div></div></section>
+</div>
+<section class="grid3"><div class="card"><div class="panel-head"><h2>حدود Accounts</h2></div><div class="body"><p class="section-note">تشمل هذه الوحدة User، الأدوار، المصادقة، حالة الحساب، توثيق الهاتف وكلمات المرور والتفضيلات. الطلبات والمال والكتالوج والتجار تبقى خارجها.</p></div></div><div class="card"><div class="panel-head"><h2>السلامة</h2></div><div class="body"><p class="section-note">لا يوجد حذف مباشر للمستخدمين هنا. الإيقاف يحافظ على العلاقات مع الطلبات والسجلات ويمنع فقد البيانات.</p></div></div><div class="card"><div class="panel-head"><h2>قاعدة البيانات</h2></div><div class="body"><p class="section-note">المرحلة تستخدم Proxy Models، لذلك لا تعيد إنشاء جدول المستخدم أو جدول التفضيلات الموجودين أصلًا.</p></div></div></section>
+{% endblock %}

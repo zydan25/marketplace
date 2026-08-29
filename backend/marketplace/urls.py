@@ -2,10 +2,10 @@ from django.urls import include, path
 from rest_framework import serializers, viewsets
 from rest_framework.routers import DefaultRouter
 
-from .catalog_api import CatalogOptionViewSet, CatalogTreeView, CurrencyRateViewSet, PreferencesView
+from accounts.preferences_api import PreferencesView
+from .catalog_api import CatalogOptionViewSet, CatalogTreeView, CurrencyRateViewSet
 from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
-from .secure_auth import SecureLoginView, SecureRegisterView
 from .secure_cart import SecureCartCalculateView
 from .secure_catalog import SecureCategoryViewSet, SecureDesignThemeViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
 from .secure_vendor_catalog import VendorProductViewSet
@@ -17,20 +17,35 @@ from .vendor_finance_api import VendorFinanceViewSet
 from .support_api import AdminSupportCloseView, AdminSupportMessageView, AdminSupportView, SupportEmployeesView, SupportMessageView, SupportView
 from .vendor_shipping_api import VendorCityShippingViewSet
 from .serializers import CouponSerializer
-from .views import AdminDashboardView, WalletViewSet, me
+from .views import AdminDashboardView, WalletViewSet
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
 
+
 class PriceGroupSerializer(serializers.ModelSerializer):
-    class Meta: model = PriceGroup; fields = "__all__"
+    class Meta:
+        model = PriceGroup
+        fields = "__all__"
+
+
 class CitySerializer(serializers.ModelSerializer):
     price_group = PriceGroupSerializer(read_only=True)
-    class Meta: model = City; fields = "__all__"
+
+    class Meta:
+        model = City
+        fields = "__all__"
+
+
 class CityViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = City.objects.filter(is_active=True)
     serializer_class = CitySerializer
+
+
 class CouponViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CouponSerializer
-    def get_queryset(self): return CouponModel.objects.filter(is_active=True)
+
+    def get_queryset(self):
+        return CouponModel.objects.filter(is_active=True)
+
 
 router = DefaultRouter()
 router.register("vendors", SecureVendorViewSet, basename="vendor")
@@ -54,10 +69,9 @@ router.register("addresses", AddressViewSet, basename="address")
 router.register("loans", LoanViewSet, basename="loan")
 router.register("gifts", GiftTransferViewSet, basename="gift")
 
+
 urlpatterns = [
-    path("auth/login/", SecureLoginView.as_view(), name="login"),
-    path("auth/register/", SecureRegisterView.as_view(), name="register"),
-    path("auth/me/", me, name="me"),
+    path("auth/", include("accounts.urls")),
     path("cart/calculate/", SecureCartCalculateView.as_view(), name="cart-calculate"),
     path("home/", DynamicHomeView.as_view(), name="home-global"),
     path("stores/<slug:slug>/home/", DynamicHomeView.as_view(), name="home-store"),

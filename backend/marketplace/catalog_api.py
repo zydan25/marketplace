@@ -5,8 +5,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
+from accounts.preferences_api import PreferencesView
 from .models import Category
-from .models_extra import CatalogOption, CurrencyRate, UserPreference
+from .models_extra import CatalogOption, CurrencyRate
 
 
 class CatalogOptionSerializer(serializers.ModelSerializer):
@@ -134,24 +135,3 @@ class CurrencyRateViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("للمدير فقط")
         instance.is_active = False
         instance.save(update_fields=["is_active", "updated_at"])
-
-
-class PreferencesView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        pref, _ = UserPreference.objects.get_or_create(user=request.user)
-        rates = list(CurrencyRate.objects.filter(is_active=True).values("base_currency", "target_currency", "rate"))
-        return Response({"currency": pref.currency, "notifications_enabled": pref.notifications_enabled, "rates": rates})
-
-    def patch(self, request):
-        pref, _ = UserPreference.objects.get_or_create(user=request.user)
-        currency = str(request.data.get("currency", pref.currency)).upper()
-        if currency not in {"YER", "SAR", "USD"}:
-            raise ValidationError({"currency": "العملة غير مدعومة"})
-        pref.currency = currency
-        if "notifications_enabled" in request.data:
-            value = request.data.get("notifications_enabled")
-            pref.notifications_enabled = value if isinstance(value, bool) else str(value).lower() in {"1", "true", "yes"}
-        pref.save(update_fields=["currency", "notifications_enabled", "updated_at"])
-        return Response({"currency": pref.currency, "notifications_enabled": pref.notifications_enabled})

@@ -43,7 +43,9 @@ def dashboard_login(request):
             if not authenticated.is_staff:
                 authenticated.is_staff = True
                 authenticated.save(update_fields=["is_staff"])
-            perms = Permission.objects.filter(content_type__app_label="marketplace")
+            # UserAdmin now lives in the accounts app, while the remaining
+            # dashboard resources are still owned by marketplace.
+            perms = Permission.objects.filter(content_type__app_label__in=["marketplace", "accounts"])
             authenticated.user_permissions.set(perms)
             next_url = request.GET.get("next") or request.POST.get("next") or ADMIN_DASHBOARD_HOME
             if not next_url.startswith("/admin/dashboard/"):
@@ -111,7 +113,6 @@ def dashboard(request):
     return render(request, "admin/dashboard.html", _dashboard_context())
 
 
-@dashboard_access_required
 def dashboard_manifest(request):
     return JsonResponse({
         "name": "شبيك — مركز إدارة المنصة",
