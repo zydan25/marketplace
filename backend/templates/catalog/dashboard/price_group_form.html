@@ -1,0 +1,6 @@
+{% extends "catalog/dashboard/base.html" %}
+{% block title %}تعديل مجموعة أسعار — الكتالوج{% endblock %}
+{% block content %}
+<header class="topbar"><div class="title"><div class="eyebrow">PRICE GROUP</div><h1>تعديل مجموعة الأسعار</h1><p>تحديث الاسم والرمز وطريقة التعديل والقيمة والحالة.</p></div><div class="actions"><a class="btn" href="{% url 'catalog-dashboard:price-groups' %}">رجوع</a></div></header>
+<section class="card"><div class="body"><form method="post">{% csrf_token %}{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}<div class="form-grid">{% for field in form %}<div class="field"><label>{{ field.label }}</label>{{ field }}{% if field.errors %}{{ field.errors }}{% endif %}</div>{% endfor %}</div><div class="actions" style="margin-top:16px"><button class="btn primary">حفظ المجموعة</button></div></form></div></section>
+{% endblock %}
