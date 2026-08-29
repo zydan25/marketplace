@@ -18,6 +18,15 @@ from .services import ensure_preference, set_account_action
 
 
 ACCOUNTS_HOME = "/admin/dashboard/accounts/"
+BULK_ACTIONS = {
+    "activate": "تفعيل الحسابات المحددة",
+    "deactivate": "إيقاف الحسابات المحددة",
+    "verify-phone": "توثيق الهواتف المحددة",
+    "unverify-phone": "إلغاء توثيق الهواتف المحددة",
+    "grant-staff": "منح صلاحية الإدارة للحسابات المحددة",
+    "revoke-staff": "سحب صلاحية الإدارة من الحسابات المحددة",
+    "revoke-api-token": "إلغاء جلسات API للحسابات المحددة",
+}
 
 
 def accounts_dashboard_access_required(view):
@@ -85,12 +94,38 @@ def accounts_dashboard(request):
 
 @accounts_dashboard_access_required
 def users_list(request):
+    if request.method == "POST":
+        action = request.POST.get("bulk_action", "")
+        selected_ids = [value for value in request.POST.getlist("selected_users") if str(value).isdigit()]
+        if action not in BULK_ACTIONS:
+            messages.error(request, "إجراء جماعي غير صالح.")
+        elif not selected_ids:
+            messages.warning(request, "حدد حسابًا واحدًا على الأقل أولًا.")
+        else:
+            selected = list(User.objects.filter(pk__in=selected_ids))
+            changed = 0
+            skipped_self = False
+            for user in selected:
+                if user.pk == request.user.pk and action in {"deactivate", "revoke-staff", "revoke-api-token"}:
+                    skipped_self = True
+                    continue
+                try:
+                    set_account_action(user, action)
+                except ValueError:
+                    continue
+                changed += 1
+            messages.success(request, f"تم تنفيذ: {BULK_ACTIONS[action]} على {changed} حسابًا.")
+            if skipped_self:
+                messages.warning(request, "تم تجاهل حسابك الحالي لحمايتك من فقدان وصول الإدارة أو جلسة API.")
+        query = request.GET.copy()
+        return redirect(f"{reverse('accounts-dashboard:users')}?{urlencode(query, doseq=True)}" if query else reverse("accounts-dashboard:users"))
+
     qs = _user_list_queryset(request)
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
     query = request.GET.copy()
     query.pop("page", None)
-    return render(request, "accounts/dashboard/users.html", {"page_obj": page_obj, "query_string": urlencode(query), "filters": {"q": request.GET.get("q", ""), "role": request.GET.get("role", ""), "status": request.GET.get("status", ""), "verified": request.GET.get("verified", "")}, "role_choices": User.Roles.choices})
+    return render(request, "accounts/dashboard/users.html", {"page_obj": page_obj, "query_string": urlencode(query), "filters": {"q": request.GET.get("q", ""), "role": request.GET.get("role", ""), "status": request.GET.get("status", ""), "verified": request.GET.get("verified", "")}, "role_choices": User.Roles.choices, "bulk_actions": BULK_ACTIONS})
 
 
 @accounts_dashboard_access_required
