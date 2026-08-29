@@ -3,12 +3,11 @@ from rest_framework import serializers, viewsets
 from rest_framework.routers import DefaultRouter
 
 from accounts.preferences_api import PreferencesView
-from .catalog_api import CatalogOptionViewSet, CatalogTreeView, CurrencyRateViewSet
+from .catalog_api import CurrencyRateViewSet
 from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
 from .secure_cart import SecureCartCalculateView
-from .secure_catalog import SecureCategoryViewSet, SecureDesignThemeViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
-from .secure_vendor_catalog import VendorProductViewSet
+from .secure_catalog import SecureDesignThemeViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
 from .launch_order_api import LaunchOrderViewSet
 from .secure_vendor import VendorApplicationViewSet
@@ -50,8 +49,6 @@ class CouponViewSet(viewsets.ReadOnlyModelViewSet):
 router = DefaultRouter()
 router.register("vendors", SecureVendorViewSet, basename="vendor")
 router.register("vendor-applications", VendorApplicationViewSet, basename="vendor-application")
-router.register("categories", SecureCategoryViewSet, basename="category")
-router.register("products", VendorProductViewSet, basename="product")
 router.register("themes", SecureDesignThemeViewSet, basename="theme")
 router.register("storefront-sections", SecureStorefrontSectionViewSet, basename="storefront-section")
 router.register("wallets", WalletViewSet, basename="wallet")
@@ -60,7 +57,6 @@ router.register("orders", LaunchOrderViewSet, basename="order")
 router.register("notifications", SecureNotificationViewSet, basename="notification")
 router.register("conversations", SecureConversationViewSet, basename="conversation")
 router.register("order-chats", OrderChatViewSet, basename="order-chat")
-router.register("catalog-options", CatalogOptionViewSet, basename="catalog-option")
 router.register("currency-rates", CurrencyRateViewSet, basename="currency-rate")
 router.register("vendor-city-shipping", VendorCityShippingViewSet, basename="vendor-city-shipping")
 router.register("coupons", CouponViewSet, basename="coupon")
@@ -69,13 +65,11 @@ router.register("addresses", AddressViewSet, basename="address")
 router.register("loans", LoanViewSet, basename="loan")
 router.register("gifts", GiftTransferViewSet, basename="gift")
 
-
 urlpatterns = [
     path("auth/", include("accounts.urls")),
     path("cart/calculate/", SecureCartCalculateView.as_view(), name="cart-calculate"),
     path("home/", DynamicHomeView.as_view(), name="home-global"),
     path("stores/<slug:slug>/home/", DynamicHomeView.as_view(), name="home-store"),
-    path("catalog/tree/", CatalogTreeView.as_view(), name="catalog-tree"),
     path("preferences/", PreferencesView.as_view(), name="preferences"),
     path("support/", SupportView.as_view(), name="support"),
     path("support/messages/", SupportMessageView.as_view(), name="support-messages"),
@@ -84,5 +78,6 @@ urlpatterns = [
     path("admin/support/<int:conversation_id>/messages/", AdminSupportMessageView.as_view(), name="admin-support-message"),
     path("admin/support/<int:conversation_id>/close/", AdminSupportCloseView.as_view(), name="admin-support-close"),
     path("admin-dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
+    path("", include("catalog.urls")),
     path("", include(router.urls)),
 ]

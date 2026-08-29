@@ -24,6 +24,7 @@ urlpatterns = [
     path("admin/dashboard/logout/", dashboard_logout, name="admin-dashboard-logout"),
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
+    path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
     path("admin/dashboard/manifest.json", dashboard_manifest, name="admin-dashboard-manifest"),
     path("admin/dashboard/sw.js", dashboard_worker, name="admin-dashboard-sw"),
     path("admin/dashboard/icon.svg", dashboard_icon, name="admin-dashboard-icon"),
