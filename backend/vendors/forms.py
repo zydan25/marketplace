@@ -22,9 +22,11 @@ class VendorProfileForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["owner"].queryset = User.objects.filter(is_staff=False).order_by("phone", "email")
         if self.instance.pk:
+            self.fields["owner"].queryset = User.objects.filter(pk=self.instance.owner_id)
             self.fields["owner"].disabled = True
+        else:
+            self.fields["owner"].queryset = User.objects.filter(is_staff=False, role="customer").order_by("phone", "email")
 
     def clean_commission_percent(self):
         value = self.cleaned_data["commission_percent"]
