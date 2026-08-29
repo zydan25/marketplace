@@ -24,8 +24,18 @@ LEGACY_RESOURCE_MAP = {
     "pricegroup": "price-groups",
 }
 
+CATALOG_DASHBOARD_REDIRECTS = {
+    "product": "catalog-dashboard:products",
+    "category": "catalog-dashboard:categories",
+    "productvariant": "catalog-dashboard:products",
+    "pricegroup": "catalog-dashboard:price-groups",
+}
+
 
 def legacy_resource_redirect(request, resource):
+    catalog_target = CATALOG_DASHBOARD_REDIRECTS.get(resource)
+    if catalog_target:
+        return redirect(catalog_target)
     target = LEGACY_RESOURCE_MAP.get(resource)
     if not target:
         return redirect("admin-dashboard")
