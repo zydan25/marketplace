@@ -1,3 +1,5 @@
+import json
+
 from django import forms
 
 from marketplace.models import User
@@ -29,6 +31,20 @@ class VendorProfileForm(forms.ModelForm):
         if value < 0 or value > 100:
             raise forms.ValidationError("العمولة يجب أن تكون بين 0 و100٪.")
         return value
+
+    def clean_settings(self):
+        value = self.cleaned_data.get("settings")
+        if isinstance(value, dict):
+            return value
+        if value in (None, ""):
+            return {}
+        try:
+            parsed = json.loads(value)
+        except (TypeError, ValueError):
+            raise forms.ValidationError("إعدادات المتجر يجب أن تكون JSON صالحًا.")
+        if not isinstance(parsed, dict):
+            raise forms.ValidationError("إعدادات المتجر يجب أن تكون كائن JSON.")
+        return parsed
 
 
 class VendorApplicationReviewForm(forms.ModelForm):
