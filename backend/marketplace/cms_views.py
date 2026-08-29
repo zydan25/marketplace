@@ -34,7 +34,7 @@ def resolve_products(request, vendor, config):
     elif source == "category" and str(category_id).isdigit(): qs = qs.filter(categories__id=int(category_id))
     elif source == "trending": qs = qs.filter(is_trending=True).order_by("-sold_count","-created_at")
     else: qs = qs.order_by("-created_at")
-    rows=max(1,min(int(config.get("rows",2) or 2),6));columns=max(2,min(int(config.get("columns",2) or 2),4));pages=3 if config.get("scroll",True) else 1);limit=min(rows*columns*pages,40)
+    rows=max(1,min(int(config.get("rows",2) or 2),6));columns=max(2,min(int(config.get("columns",2) or 2),4));pages=3 if config.get("scroll",True) else 1;limit=min(rows*columns*pages,40)
     products=list(qs.select_related("vendor").prefetch_related("categories")[:max(1,limit)])
     return [product_card(request,product) for product in products]
 
@@ -66,7 +66,7 @@ def normalize_section_config(request, section, vendor):
     if section.section_type=="category":
         custom=custom_category_circles(request,config)
         if custom:
-            config["circles"]=sorted(custom,key=lambda item:item.get("sortOrder",0));config["category_ids"]= [item.get("category_id") for item in custom if str(item.get("category_id","")).isdigit()]
+            config["circles"]=sorted(custom,key=lambda item:item.get("sortOrder",0));config["category_ids"]= [item.get("category_id") for item in custom if str(item.get("category_id"," ")).strip().isdigit()]
         else:
             ids=[int(x) for x in config.get("category_ids",[]) if str(x).isdigit()]
             if ids:
