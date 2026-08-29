@@ -3,10 +3,11 @@ from rest_framework import serializers, viewsets
 from rest_framework.routers import DefaultRouter
 
 from accounts.preferences_api import PreferencesView
+from .catalog_api import CurrencyRateViewSet
 from .cms_views import DynamicHomeView
 from .models import City, Coupon as CouponModel, PriceGroup
 from .secure_cart import SecureCartCalculateView
-from .secure_catalog import SecureDesignThemeViewSet, SecureStorefrontSectionViewSet
+from .secure_catalog import SecureDesignThemeViewSet, SecureStorefrontSectionViewSet, SecureVendorViewSet
 from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
 from .launch_order_api import LaunchOrderViewSet
 from .secure_vendor import VendorApplicationViewSet
@@ -17,7 +18,6 @@ from .vendor_shipping_api import VendorCityShippingViewSet
 from .serializers import CouponSerializer
 from .views import AdminDashboardView, WalletViewSet
 from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
-from .secure_catalog import SecureVendorViewSet
 
 
 class PriceGroupSerializer(serializers.ModelSerializer):
@@ -57,7 +57,7 @@ router.register("orders", LaunchOrderViewSet, basename="order")
 router.register("notifications", SecureNotificationViewSet, basename="notification")
 router.register("conversations", SecureConversationViewSet, basename="conversation")
 router.register("order-chats", OrderChatViewSet, basename="order-chat")
-router.register("currency-rates", __import__("marketplace.catalog_api", fromlist=["CurrencyRateViewSet"]).CurrencyRateViewSet, basename="currency-rate")
+router.register("currency-rates", CurrencyRateViewSet, basename="currency-rate")
 router.register("vendor-city-shipping", VendorCityShippingViewSet, basename="vendor-city-shipping")
 router.register("coupons", CouponViewSet, basename="coupon")
 router.register("cities", CityViewSet, basename="city")
