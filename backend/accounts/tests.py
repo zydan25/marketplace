@@ -1,8 +1,10 @@
+from django.urls import reverse
 from django.test import TestCase
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from marketplace.models import User, Wallet
+from marketplace.models_extra import UserPreference
 from .models import User as AccountsUser
 
 
@@ -22,6 +24,18 @@ class AccountsStageOneTests(TestCase):
         self.assertEqual(proxy.pk, user.pk)
         self.assertEqual(proxy._meta.db_table, user._meta.db_table)
         self.assertTrue(AccountsUser._meta.proxy)
+
+    def test_preferences_proxy_uses_existing_table(self):
+        user = User.objects.create_user(
+            phone="711000010",
+            username="711000010",
+            password="SafePass123!",
+            role="customer",
+        )
+        preference = UserPreference.objects.create(user=user)
+        proxy = AccountsUser.preference.related_model if hasattr(AccountsUser, "preference") else None
+        self.assertIsNotNone(proxy)
+        self.assertEqual(preference.user_id, user.pk)
 
     def test_registration_uses_accounts_route_and_creates_wallet(self):
         response = self.client.post(
@@ -53,3 +67,103 @@ class AccountsStageOneTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["phone"], "711000003")
+
+
+class AccountsDashboardTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            phone="700000001",
+            username="700000001",
+            password="AdminPass123!",
+            role="admin",
+            is_staff=True,
+            is_active=True,
+        )
+        self.user = User.objects.create_user(
+            phone="700000002",
+            username="700000002",
+            password="CustomerPass123!",
+            role="customer",
+            first_name="أحمد",
+            is_active=True,
+        )
+        self.client.force_login(self.admin)
+
+    def test_dashboard_home_and_users_are_html_pages(self):
+        response = self.client.get(reverse("accounts-dashboard:home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "إدارة الحسابات")
+        response = self.client.get(reverse("accounts-dashboard:users"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "أحمد")
+
+    def test_user_edit_and_action_keep_account_lifecycle_safe(self):
+        response = self.client.post(
+            reverse("accounts-dashboard:user-save", kwargs={"user_id": self.user.pk}),
+            {
+                "username": self.user.username,
+                "phone": self.user.phone,
+                "first_name": "أحمد محمد",
+                "middle_name": "",
+                "third_name": "",
+                "last_name": "",
+                "email": "ahmed@example.com",
+                "governorate": "صنعاء",
+                "role": "customer",
+                "points_balance": 12,
+                "is_active": "on",
+                "is_phone_verified": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "أحمد محمد")
+        self.assertTrue(self.user.is_phone_verified)
+        response = self.client.post(
+            reverse("accounts-dashboard:user-action", kwargs={"user_id": self.user.pk, "action": "deactivate"})
+        )
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+
+    def test_account_create_and_preference_update(self):
+        response = self.client.post(
+            reverse("accounts-dashboard:user-create"),
+            {
+                "username": "700000003",
+                "phone": "700000003",
+                "first_name": "جديد",
+                "middle_name": "",
+                "third_name": "",
+                "last_name": "مستخدم",
+                "email": "new@example.com",
+                "governorate": "تعز",
+                "role": "customer",
+                "points_balance": 0,
+                "is_active": "on",
+                "password1": "NewSafePass123!",
+                "password2": "NewSafePass123!",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        created = User.objects.get(phone="700000003")
+        self.assertTrue(created.check_password("NewSafePass123!"))
+        self.assertTrue(UserPreference.objects.filter(user=created).exists())
+
+        response = self.client.post(
+            reverse("accounts-dashboard:user-preferences-save", kwargs={"user_id": created.pk}),
+            {"currency": "SAR", "notifications_enabled": "on"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(UserPreference.objects.get(user=created).currency, "SAR")
+
+    def test_non_admin_cannot_open_accounts_dashboard(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("accounts-dashboard:home"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_export_is_csv(self):
+        response = self.client.get(reverse("accounts-dashboard:users-export"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("700000002", response.content.decode("utf-8-sig"))
