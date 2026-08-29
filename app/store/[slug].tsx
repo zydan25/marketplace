@@ -6,75 +6,34 @@ import { ScreenContainer } from "@/components/screen-container";
 import { ProductCard } from "@/components/product-card";
 import { ShareButton } from "@/components/share-button";
 import { apiCall } from "@/lib/_core/api";
-import { getProducts, type StoreProduct } from "@/lib/product-api";
+import { getStoreProducts, type StoreProduct } from "@/lib/product-api";
 
-type Section = { id:number|string; title?:string; type?:string; section_type?:string; sort_order?:number; is_visible?:boolean; config?:Record<string,any> };
-type StorePayload = { store?:{store_name?:string;slug?:string;description?:string;logo_url?:string|null;cover_url?:string|null}|null; theme?:{tokens?:Record<string,any>}|null; data?:Section[] };
-type Circle = { id?:number|string; title?:string; name?:string; url?:string; targetCategory?:string; imageUrl?:string };
-type Slide = { id?:number|string; title?:string; subtitle?:string; ctaLabel?:string; url?:string; imageUrl?:string; image_url?:string };
+type Section={id:number|string;title?:string;type?:string;section_type?:string;sort_order?:number;is_visible?:boolean;config?:Record<string,any>};
+type StorePayload={store?:{store_name?:string;slug?:string;description?:string;logo_url?:string|null;cover_url?:string|null}|null;theme?:{tokens?:Record<string,any>}|null;data?:Section[]};
+type Circle={id?:number|string;title?:string;name?:string;url?:string;targetCategory?:string;imageUrl?:string;visible?:boolean};
+type Slide={id?:number|string;title?:string;subtitle?:string;ctaLabel?:string;url?:string;imageUrl?:string;image_url?:string;visible?:boolean};
 
-export default function StoreScreen() {
-  const params = useLocalSearchParams<{ slug?:string }>();
-  const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
-  const [data,setData] = useState<StorePayload|null>(null);
-  const [products,setProducts] = useState<StoreProduct[]>([]);
-  const [loading,setLoading] = useState(true);
-  useEffect(() => {
-    if (!slug) return;
-    Promise.all([apiCall<StorePayload>(`/api/stores/${encodeURIComponent(slug)}/home/`),getProducts()])
-      .then(([home,all]) => { setData(home); setProducts(all.filter(p => p.vendor.slug === slug)); })
-      .catch(() => undefined).finally(() => setLoading(false));
-  },[slug]);
-  if (loading) return <ScreenContainer><View style={s.center}><ActivityIndicator color="#E60023"/></View></ScreenContainer>;
-  if (!data?.store) return <ScreenContainer><View style={s.center}><Text>المتجر غير موجود أو غير نشط.</Text></View></ScreenContainer>;
-  const store=data.store;
-  const primary=String(data.theme?.tokens?.primary ?? "#E60023");
-  const background=String(data.theme?.tokens?.background ?? "#F5F5F5");
-  const sections=[...(data.data ?? [])].filter(x => x.is_visible !== false).sort((a,b)=>Number(a.sort_order??0)-Number(b.sort_order??0));
-  return (
-    <ScreenContainer edges={["top","bottom","left","right"]} style={{backgroundColor:background}}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={()=>router.back()}><MaterialIcons name="arrow-forward" size={25} color="#111"/></TouchableOpacity>
-        <Text style={s.title}>{store.store_name}</Text>
-        <ShareButton type="store" id={String(store.slug??slug)} title={store.store_name??"متجر"}/>
-      </View>
-      <ScrollView contentContainerStyle={s.page}>
-        <View style={s.storeCard}>
-          {store.cover_url ? <Image source={{uri:store.cover_url}} style={s.cover}/> : null}
-          <View style={s.logo}>{store.logo_url ? <Image source={{uri:store.logo_url}} style={s.logoImage}/> : <MaterialIcons name="storefront" size={34} color={primary}/>}</View>
-          <Text style={s.storeName}>{store.store_name}</Text>
-          {store.description ? <Text style={s.description}>{store.description}</Text> : null}
-        </View>
-        {sections.map(section => <StoreSection key={String(section.id)} section={section} products={products} primary={primary}/>)}
-        <Text style={s.productsTitle}>منتجات المتجر ({products.length})</Text>
-        <View style={s.productsGrid}>{products.map(product => <View key={String(product.id)} style={s.productCell}><ProductCard product={product}/></View>)}</View>
-        {!products.length ? <Text style={s.empty}>لا توجد منتجات منشورة في هذا المتجر.</Text> : null}
-      </ScrollView>
-    </ScreenContainer>
-  );
+export default function StoreScreen(){
+ const params=useLocalSearchParams<{slug?:string}>(); const slug=Array.isArray(params.slug)?params.slug[0]:params.slug;
+ const [data,setData]=useState<StorePayload|null>(null); const [products,setProducts]=useState<StoreProduct[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState("");
+ useEffect(()=>{if(!slug){setLoading(false);return} let mounted=true; setLoading(true); setError(""); Promise.all([apiCall<StorePayload>(`/api/stores/${encodeURIComponent(slug)}/home/`),getStoreProducts(slug)]).then(([home,items])=>{if(!mounted)return;setData(home);setProducts(items.filter(p=>p.vendor.slug===slug))}).catch(e=>{if(mounted)setError(e instanceof Error?e.message:"تعذر تحميل المتجر.")}).finally(()=>mounted&&setLoading(false)); return()=>{mounted=false}},[slug]);
+ if(loading)return <ScreenContainer><View style={s.center}><ActivityIndicator color="#E60023"/></View></ScreenContainer>;
+ if(error||!data?.store)return <ScreenContainer><View style={s.center}><MaterialIcons name="storefront" size={42} color="#999"/><Text style={s.errorTitle}>المتجر غير متاح</Text><Text style={s.empty}>{error||"المتجر غير موجود أو غير نشط."}</Text><TouchableOpacity style={s.retry} onPress={()=>router.back()}><Text style={s.retryText}>العودة</Text></TouchableOpacity></View></ScreenContainer>;
+ const store=data.store; const primary=String(data.theme?.tokens?.primary??"#E60023"); const background=String(data.theme?.tokens?.background??"#F5F5F5"); const sections=[...(data.data??[])].filter(x=>x.is_visible!==false).sort((a,b)=>Number(a.sort_order??0)-Number(b.sort_order??0));
+ return <ScreenContainer edges={["top","bottom","left","right"]} style={{backgroundColor:background}}><View style={s.header}><TouchableOpacity onPress={()=>router.back()}><MaterialIcons name="arrow-forward" size={25} color="#111"/></TouchableOpacity><Text style={s.title}>{store.store_name}</Text><ShareButton type="store" id={String(store.slug??slug)} title={store.store_name??"متجر"}/></View><ScrollView contentContainerStyle={s.page}><View style={s.storeCard}>{store.cover_url?<Image source={{uri:store.cover_url}} style={s.cover}/>:null}<View style={s.logo}>{store.logo_url?<Image source={{uri:store.logo_url}} style={s.logoImage}/>:<MaterialIcons name="storefront" size={34} color={primary}/>}</View><Text style={s.storeName}>{store.store_name}</Text>{store.description?<Text style={s.description}>{store.description}</Text>:null}</View>{sections.map(section=><StoreSection key={String(section.id)} section={section} products={products} primary={primary}/>)}<Text style={s.productsTitle}>منتجات المتجر ({products.length})</Text>{products.length?<View style={s.productsGrid}>{products.map(product=><View key={String(product.id)} style={s.productCell}><ProductCard product={product}/></View>)}</View>:<Text style={s.empty}>لا توجد منتجات منشورة في هذا المتجر.</Text>}</ScrollView></ScreenContainer>
 }
 
-function StoreSection({section,products,primary}:{section:Section;products:StoreProduct[];primary:string}) {
-  const c=section.config ?? {};
-  const type=String(section.section_type ?? section.type ?? "");
-  const slides:Slide[]=Array.isArray(c.slides)?c.slides:[];
-  const circles:Circle[]=Array.isArray(c.circles)?c.circles:[];
-  const embedded:Circle[]=Array.isArray(c.category_circles)?c.category_circles:[];
-  const ids:number[]=Array.isArray(c.products)?c.products.map((x:any)=>Number(x?.id)).filter((x:number)=>Number.isFinite(x)):[];
-  const limit=Math.max(2,Number(c.rows??2)*Number(c.columns??2));
-  const selected=ids.length?ids.map(id=>products.find(p=>Number(p.id)===id)).filter(Boolean) as StoreProduct[]:products.slice(0,limit);
-  if(!["hero","banner","category","product_grid","trend"].includes(type)) return null;
-  return (
-    <View style={s.section}>
-      {(type==="hero"||type==="banner")&&slides.length>0 ? <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={s.slides}>{slides.map((slide,index)=>{
-        const uri=String(slide.imageUrl??slide.image_url??"");
-        return <Pressable key={String(slide.id??index)} style={s.hero} onPress={()=>openUrl(slide.url)}>{uri?<Image source={{uri}} style={s.heroImage}/>:<View style={s.placeholder}/>}<View style={s.shade}/><View style={s.heroText}><Text style={s.heroTitle}>{String(slide.title??section.title??"")}</Text>{slide.subtitle?<Text style={s.heroSub}>{slide.subtitle}</Text>:null}{slide.ctaLabel?<View style={[s.button,{borderColor:primary}]}><Text style={s.buttonText}>{slide.ctaLabel}</Text></View>:null}</View></Pressable>;
-      })}</ScrollView>:null}
-      {type==="category"&&circles.length>0 ? <CategoryRow circles={circles} primary={primary}/>:null}
-      {(type==="product_grid"||type==="trend")&&selected.length>0 ? <View style={s.gridSection}><View style={s.sectionHeader}><Text style={s.sectionTitle}>{section.title||(type==="trend"?"الأكثر رواجًا":"منتجات مختارة")}</Text><View style={[s.accent,{backgroundColor:primary}]}/></View>{Boolean(c.show_categories)&&embedded.length>0?<CategoryRow circles={embedded} primary={primary}/>:null}<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.productScroll}>{selected.map(product=><View key={String(product.id)} style={s.horizontalProduct}><ProductCard product={product}/></View>)}</ScrollView></View>:null}
-    </View>
-  );
+function StoreSection({section,products,primary}:{section:Section;products:StoreProduct[];primary:string}){
+ const c=section.config??{}; const type=String(section.section_type??section.type??""); const title=section.title??(type==="trend"?"الأكثر رواجًا":type==="category"?"الفئات":"");
+ const slides:Slide[]=Array.isArray(c.slides)?c.slides.filter((x:any)=>x?.visible!==false):[]; const circles:Circle[]=Array.isArray(c.circles)?c.circles.filter((x:any)=>x?.visible!==false):[]; const embedded:Circle[]=Array.isArray(c.category_circles)?c.category_circles.filter((x:any)=>x?.visible!==false):[];
+ const selected=Array.isArray(c.products)&&c.products.length?c.products.map((x:any)=>products.find(p=>Number(p.id)===Number(x?.id))).filter(Boolean) as StoreProduct[]:products.slice(0,Math.max(2,Number(c.rows??2)*Number(c.columns??2)));
+ if(!["hero","banner","category","product_grid","trend"].includes(type))return null;
+ if(type==="hero"||type==="banner")return <View style={s.section}>{slides.length?<ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={s.slides}>{slides.map((slide,index)=>{const uri=String(slide.imageUrl??slide.image_url??"");return <Pressable key={String(slide.id??index)} style={s.hero} onPress={()=>openUrl(slide.url)}>{uri?<Image source={{uri}} style={s.heroImage}/>:<View style={s.placeholder}><MaterialIcons name="image" size={34} color="#AAA"/><Text style={s.placeholderText}>صورة البانر</Text></View>}<View style={s.shade}/><View style={s.heroText}>{slide.title?<Text style={s.heroTitle}>{String(slide.title)}</Text>:null}{slide.subtitle?<Text style={s.heroSub}>{String(slide.subtitle)}</Text>:null}{slide.ctaLabel?<View style={[s.button,{borderColor:primary}]}><Text style={s.buttonText}>{slide.ctaLabel}</Text></View>:null}</View></Pressable>})}</ScrollView>:<SectionEmpty title={title||"بانر المتجر"} text="لم تتم إضافة صور أو عروض إلى هذا القسم بعد."/>}</View>;
+ if(type==="category")return <View style={s.section}>{circles.length?<><SectionHeading title={title||"الفئات"} primary={primary}/><CategoryRow circles={circles} primary={primary}/></>:<SectionEmpty title={title||"الفئات"} text="لا توجد فئات مضافة إلى هذا القسم بعد."/>}</View>;
+ return <View style={s.section}><View style={s.gridSection}><SectionHeading title={title||"منتجات مختارة"} primary={primary}/>{Boolean(c.show_categories)&&embedded.length?<CategoryRow circles={embedded} primary={primary}/>:null}{selected.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.productScroll}>{selected.map(product=><View key={String(product.id)} style={s.horizontalProduct}><ProductCard product={product}/></View>)}</ScrollView>:<Text style={s.emptySection}>لا توجد منتجات مطابقة لهذا القسم حاليًا.</Text>}</View></View>
 }
-function CategoryRow({circles,primary}:{circles:Circle[];primary:string}) { return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.circleRow}>{circles.map((circle,index)=><Pressable key={String(circle.id??index)} style={s.circleItem} onPress={()=>openUrl(circle.url??`/collection?category=${encodeURIComponent(String(circle.targetCategory??""))}`)}><View style={[s.circle,{borderColor:`${primary}30`}]}>{circle.imageUrl?<Image source={{uri:String(circle.imageUrl)}} style={StyleSheet.absoluteFillObject}/>:<MaterialIcons name="category" size={24} color={primary}/>}</View><Text numberOfLines={1} style={s.circleText}>{String(circle.title??circle.name??"")}</Text></Pressable>)}</ScrollView>; }
-function openUrl(url?:string){const value=String(url??"").trim();if(value.startsWith("/"))router.push(value as never);}
-const s=StyleSheet.create({center:{flex:1,alignItems:"center",justifyContent:"center"},header:{height:56,paddingHorizontal:16,backgroundColor:"#FFF",flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderColor:"#EEE"},title:{fontSize:16,fontWeight:"900",color:"#111"},page:{padding:12,paddingBottom:80},storeCard:{backgroundColor:"#FFF",borderRadius:14,padding:14,alignItems:"flex-end",marginBottom:10},cover:{width:"100%",height:150,borderRadius:12,marginBottom:10},logo:{width:70,height:70,borderRadius:35,backgroundColor:"#FFF",borderWidth:2,borderColor:"#EEE",alignItems:"center",justifyContent:"center",overflow:"hidden"},logoImage:{width:"100%",height:"100%"},storeName:{fontSize:21,fontWeight:"900",color:"#111",marginTop:8},description:{fontSize:11,lineHeight:18,color:"#666",textAlign:"right",marginTop:5},section:{marginBottom:10},slides:{gap:10},hero:{width:350,height:210,borderRadius:16,overflow:"hidden",backgroundColor:"#EEE",position:"relative"},heroImage:{width:"100%",height:"100%"},placeholder:{flex:1,backgroundColor:"#EEE"},shade:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,.28)"},heroText:{position:"absolute",right:15,bottom:14,maxWidth:"80%",alignItems:"flex-end"},heroTitle:{color:"#FFF",fontSize:21,fontWeight:"900"},heroSub:{color:"#FFF",fontSize:10,lineHeight:16,marginTop:4},button:{backgroundColor:"#FFF",borderWidth:1,borderRadius:18,paddingHorizontal:12,paddingVertical:6,marginTop:7},buttonText:{color:"#111",fontSize:9,fontWeight:"900"},circleRow:{gap:12,paddingVertical:6},circleItem:{width:70,alignItems:"center"},circle:{width:58,height:58,borderRadius:29,borderWidth:2,backgroundColor:"#FFF",alignItems:"center",justifyContent:"center",overflow:"hidden"},circleText:{width:68,marginTop:4,fontSize:9,fontWeight:"800",color:"#333",textAlign:"center"},gridSection:{backgroundColor:"#FFF",borderRadius:14,padding:10},sectionHeader:{flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-between",marginBottom:7},sectionTitle:{fontSize:15,fontWeight:"900",color:"#111"},accent:{width:28,height:4,borderRadius:2},productScroll:{gap:9},horizontalProduct:{width:160},productsTitle:{fontSize:17,fontWeight:"900",color:"#111",textAlign:"right",marginVertical:9},productsGrid:{flexDirection:"row-reverse",flexWrap:"wrap",justifyContent:"space-between",rowGap:10},productCell:{width:"48%"},empty:{padding:30,color:"#888",textAlign:"center"}});
+function SectionHeading({title,primary}:{title:string;primary:string}){return <View style={s.sectionHeader}><Text style={s.sectionTitle}>{title}</Text><View style={[s.accent,{backgroundColor:primary}]}/></View>}
+function SectionEmpty({title,text}:{title:string;text:string}){return <View style={s.sectionEmpty}><Text style={s.sectionTitle}>{title}</Text><Text style={s.emptySection}>{text}</Text></View>}
+function CategoryRow({circles,primary}:{circles:Circle[];primary:string}){return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.circleRow}>{circles.map((circle,index)=><Pressable key={String(circle.id??index)} style={s.circleItem} onPress={()=>openUrl(circle.url??`/collection?category=${encodeURIComponent(String(circle.targetCategory??""))}`)}><View style={[s.circle,{borderColor:`${primary}30`}]}>{circle.imageUrl?<Image source={{uri:String(circle.imageUrl)}} style={StyleSheet.absoluteFillObject}/>:<MaterialIcons name="category" size={24} color={primary}/>}</View><Text numberOfLines={1} style={s.circleText}>{String(circle.title??circle.name??"")}</Text></Pressable>)}</ScrollView>}
+function openUrl(url?:string){const value=String(url??"").trim();if(value.startsWith("/"))router.push(value as never)}
+const s=StyleSheet.create({center:{flex:1,alignItems:"center",justifyContent:"center",padding:30},header:{height:56,paddingHorizontal:16,backgroundColor:"#FFF",flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderColor:"#EEE"},title:{fontSize:16,fontWeight:"900",color:"#111"},page:{padding:12,paddingBottom:90},storeCard:{backgroundColor:"#FFF",borderRadius:14,padding:14,alignItems:"flex-end",marginBottom:10},cover:{width:"100%",height:150,borderRadius:12,marginBottom:10},logo:{width:70,height:70,borderRadius:35,backgroundColor:"#FFF",borderWidth:2,borderColor:"#EEE",alignItems:"center",justifyContent:"center",overflow:"hidden"},logoImage:{width:"100%",height:"100%"},storeName:{fontSize:21,fontWeight:"900",color:"#111",marginTop:8},description:{fontSize:11,lineHeight:18,color:"#666",textAlign:"right",marginTop:5},section:{marginBottom:10},slides:{gap:10},hero:{width:350,height:210,borderRadius:16,overflow:"hidden",backgroundColor:"#EEE",position:"relative"},heroImage:{width:"100%",height:"100%"},placeholder:{flex:1,alignItems:"center",justifyContent:"center"},placeholderText:{fontSize:10,color:"#999",marginTop:5},shade:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,.28)"},heroText:{position:"absolute",right:15,bottom:14,maxWidth:"80%",alignItems:"flex-end"},heroTitle:{color:"#FFF",fontSize:21,fontWeight:"900"},heroSub:{color:"#FFF",fontSize:10,lineHeight:16,marginTop:4},button:{backgroundColor:"#FFF",borderWidth:1,borderRadius:18,paddingHorizontal:12,paddingVertical:6,marginTop:7},buttonText:{color:"#111",fontSize:9,fontWeight:"900"},circleRow:{gap:12,paddingVertical:6},circleItem:{width:70,alignItems:"center"},circle:{width:58,height:58,borderRadius:29,borderWidth:2,backgroundColor:"#FFF",alignItems:"center",justifyContent:"center",overflow:"hidden"},circleText:{width:68,marginTop:4,fontSize:9,fontWeight:"800",color:"#333",textAlign:"center"},gridSection:{backgroundColor:"#FFF",borderRadius:14,padding:10},sectionHeader:{flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-between",marginBottom:7},sectionTitle:{fontSize:15,fontWeight:"900",color:"#111"},accent:{width:28,height:4,borderRadius:2},productScroll:{gap:9},horizontalProduct:{width:160},productsTitle:{fontSize:17,fontWeight:"900",color:"#111",textAlign:"right",marginVertical:9},productsGrid:{flexDirection:"row-reverse",flexWrap:"wrap",justifyContent:"space-between",rowGap:10},productCell:{width:"48%"},sectionEmpty:{backgroundColor:"#FFF",borderRadius:14,padding:14},emptySection:{paddingVertical:18,color:"#888",textAlign:"right",fontSize:11,lineHeight:18},empty:{padding:30,color:"#888",textAlign:"center"},errorTitle:{fontSize:16,fontWeight:"900",color:"#222",marginTop:8},retry:{marginTop:10,backgroundColor:"#111",paddingHorizontal:20,paddingVertical:11,borderRadius:20},retryText:{color:"#FFF",fontWeight:"800"}});

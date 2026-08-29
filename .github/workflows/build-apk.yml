@@ -51,8 +51,28 @@ jobs:
         run: pnpm exec expo config --type public > /tmp/expo-config-customer.json
       - name: Validate TypeScript
         run: pnpm check
-      - name: Build Customer APK
-        run: pnpm dlx eas-cli@latest build --platform android --profile customer --non-interactive --no-wait
+      - name: Build Customer APK and wait
+        run: pnpm dlx eas-cli@latest build --platform android --profile customer --non-interactive --wait
+      - name: Locate Customer build
+        id: customer_build
+        run: |
+          BUILD_ID=$(pnpm dlx eas-cli@latest build:list --platform android --status finished --build-profile customer --git-commit-hash "$GITHUB_SHA" --limit 1 --json | jq -r '.[0].id // empty')
+          test -n "$BUILD_ID" || { echo "Could not locate finished Customer build for $GITHUB_SHA"; exit 1; }
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+      - name: Download Customer APK
+        run: |
+          rm -f ./*.apk
+          pnpm dlx eas-cli@latest build:download --build-id "${{ steps.customer_build.outputs.build_id }}" --non-interactive
+          APK=$(find . -maxdepth 2 -type f -name '*.apk' | head -n 1)
+          test -n "$APK" || { echo "Customer APK was not downloaded."; exit 1; }
+          cp "$APK" customer.apk
+      - name: Publish Customer APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shbyk-customer-apk
+          path: customer.apk
+          if-no-files-found: error
+          retention-days: 14
 
   vendor:
     name: Build Vendor APK
@@ -88,5 +108,25 @@ jobs:
         run: pnpm exec expo config --type public > /tmp/expo-config-vendor.json
       - name: Validate TypeScript
         run: pnpm check
-      - name: Build Vendor APK
-        run: pnpm dlx eas-cli@latest build --platform android --profile vendor --non-interactive --no-wait
+      - name: Build Vendor APK and wait
+        run: pnpm dlx eas-cli@latest build --platform android --profile vendor --non-interactive --wait
+      - name: Locate Vendor build
+        id: vendor_build
+        run: |
+          BUILD_ID=$(pnpm dlx eas-cli@latest build:list --platform android --status finished --build-profile vendor --git-commit-hash "$GITHUB_SHA" --limit 1 --json | jq -r '.[0].id // empty')
+          test -n "$BUILD_ID" || { echo "Could not locate finished Vendor build for $GITHUB_SHA"; exit 1; }
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+      - name: Download Vendor APK
+        run: |
+          rm -f ./*.apk
+          pnpm dlx eas-cli@latest build:download --build-id "${{ steps.vendor_build.outputs.build_id }}" --non-interactive
+          APK=$(find . -maxdepth 2 -type f -name '*.apk' | head -n 1)
+          test -n "$APK" || { echo "Vendor APK was not downloaded."; exit 1; }
+          cp "$APK" vendor.apk
+      - name: Publish Vendor APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shbyk-vendor-apk
+          path: vendor.apk
+          if-no-files-found: error
+          retention-days: 14

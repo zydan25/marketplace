@@ -1,82 +1,24 @@
-import { useState, useEffect } from "react";
-import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoApi } from "@/lib/django-api";
 
-type Theme = { id: number; name: string; tokens: Record<string, string>; layout: Record<string, unknown>; is_active: boolean };
-
-export default function VendorDesignScreen() {
-  const [theme, setTheme] = useState<Theme | null>(null);
-  const [name, setName] = useState("");
-  const [primary, setPrimary] = useState("#E60023");
-  const [background, setBackground] = useState("#FFFFFF");
-  const [showHero, setShowHero] = useState(true);
-  const [showCategories, setShowCategories] = useState(true);
-  const [showFlashSale, setShowFlashSale] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    djangoApi<{ results?: Theme[] }>("/api/themes/").then((data) => {
-      const own = (data.results ?? []).find((item) => item.name || item.id);
-      if (own) {
-        setTheme(own);
-        setName(own.name);
-        setPrimary(own.tokens?.primary || "#E60023");
-        setBackground(own.tokens?.background || "#FFFFFF");
-        setShowHero(own.layout?.showHero !== false);
-        setShowCategories(own.layout?.showCategories !== false);
-        setShowFlashSale(own.layout?.showFlashSale !== false);
-      }
-    }).catch(() => undefined).finally(() => setLoading(false));
-  }, []);
-
-  async function save() {
-    const validHex = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value.trim());
-    if (!validHex(primary) || !validHex(background)) return Alert.alert("لون غير صالح", "استخدم رمز HEX بالشكل #RRGGBB.");
-    setSaving(true);
-    try {
-      const payload = {
-        name: name.trim() || "هوية متجري",
-        is_active: true,
-        tokens: { primary: primary.trim().toUpperCase(), background: background.trim().toUpperCase(), owner: "vendor" },
-        layout: { showHero, showCategories, showFlashSale, productGrid: 2, direction: "rtl" },
-        sections: ["hero", "categories", "flash_sale", "products"],
-      };
-      const result = theme ? await djangoApi<Theme>(`/api/themes/${theme.id}/`, { method: "PATCH", body: JSON.stringify(payload) }) : await djangoApi<Theme>("/api/themes/", { method: "POST", body: JSON.stringify(payload) });
-      setTheme(result);
-      Alert.alert("تم الحفظ", "تم تحديث هوية وتصميم متجرك.");
-    } catch (error) {
-      Alert.alert("تعذر الحفظ", error instanceof Error ? error.message : "حدث خطأ");
-    } finally { setSaving(false); }
-  }
-
-  if (loading) return <ScreenContainer><View style={styles.center}><Text style={styles.muted}>جارٍ تحميل إعدادات التصميم...</Text></View></ScreenContainer>;
-  return <ScreenContainer className="bg-[#F8F9FA]" edges={["top", "bottom", "left", "right"]}>
-    <View style={styles.header}><TouchableOpacity onPress={() => router.back()}><MaterialIcons name="arrow-forward" size={25} color="#111" /></TouchableOpacity><Text style={styles.title}>تخصيص المتجر</Text><View style={{ width: 25 }} /></View>
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={[styles.preview, { backgroundColor: primary }]}><View style={[styles.previewDot, { backgroundColor: background }]} /><View style={styles.previewCopy}><Text style={styles.previewName}>{name || "هوية متجري"}</Text><Text style={styles.previewText}>معاينة هوية وألوان المتجر</Text></View><MaterialIcons name="storefront" size={27} color="#FFF" /></View>
-      <View style={styles.card}>
-        <Text style={styles.heading}>هوية المتجر</Text>
-        <Text style={styles.label}>اسم الهوية</Text><TextInput value={name} onChangeText={setName} placeholder="هوية متجري" style={styles.input} textAlign="right" />
-        <Text style={styles.label}>اللون الرئيسي</Text><View style={styles.colorRow}><View style={[styles.swatch, { backgroundColor: validColor(primary) ? primary : "#DDD" }]} /><TextInput value={primary} onChangeText={setPrimary} style={[styles.input, { flex: 1, marginBottom: 0 }]} textAlign="left" autoCapitalize="characters" /></View>
-        <Text style={styles.label}>لون خلفية المتجر</Text><View style={styles.colorRow}><View style={[styles.swatch, { backgroundColor: validColor(background) ? background : "#DDD" }]} /><TextInput value={background} onChangeText={setBackground} style={[styles.input, { flex: 1, marginBottom: 0 }]} textAlign="left" autoCapitalize="characters" /></View>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.heading}>أقسام واجهة المتجر</Text>
-        <Option label="العرض الرئيسي والبنرات" value={showHero} onChange={setShowHero} />
-        <Option label="الأقسام والفئات الدائرية" value={showCategories} onChange={setShowCategories} />
-        <Option label="شريط العروض السريعة" value={showFlashSale} onChange={setShowFlashSale} />
-        <Text style={styles.note}>تتحكم هذه الخيارات في هوية العرض فقط، ولا تسمح بتجاوز سياسات المنصة أو صلاحيات الإدارة.</Text>
-      </View>
-      <TouchableOpacity style={styles.button} onPress={save} disabled={saving}><Text style={styles.buttonText}>{saving ? "جارٍ الحفظ..." : "حفظ ونشر التصميم"}</Text></TouchableOpacity>
-    </ScrollView>
-  </ScreenContainer>;
+type Theme={id:number;name:string;vendor?:number|null;is_global?:boolean;tokens?:Record<string,unknown>;layout?:Record<string,unknown>;is_active?:boolean};
+type Palette={name:string;primary:string;background:string};
+const PALETTES:Palette[]=[{name:"شُبيك",primary:"#E60023",background:"#F6F7F9"},{name:"محيط",primary:"#1769E0",background:"#F3F7FC"},{name:"زمرد",primary:"#168451",background:"#F1F7F3"},{name:"بنفسجي",primary:"#7652E8",background:"#F7F5FC"},{name:"رملي",primary:"#B5651D",background:"#FBF6EF"}];
+const hex=(v:string)=>/^#[0-9a-fA-F]{6}$/.test(v.trim());
+const asHex=(v:unknown,d:string)=>typeof v==="string"&&hex(v)?v.toUpperCase():d;
+export default function VendorDesignScreen(){
+ const [theme,setTheme]=useState<Theme|null>(null);const [name,setName]=useState("هوية متجري");const [primary,setPrimary]=useState(PALETTES[0].primary);const [background,setBackground]=useState(PALETTES[0].background);const [showHero,setShowHero]=useState(true);const [showCategories,setShowCategories]=useState(true);const [showFlash,setShowFlash]=useState(true);const [showProducts,setShowProducts]=useState(true);const [radius,setRadius]=useState(16);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);
+ useEffect(()=>{let alive=true;(async()=>{try{const d=await djangoApi<{results?:Theme[]}>("/api/themes/");const t=(d.results??[]).find(x=>x.is_global===false||Boolean(x.vendor));if(!alive)return;if(t){setTheme(t);setName(t.name||"هوية متجري");setPrimary(asHex(t.tokens?.primary,PALETTES[0].primary));setBackground(asHex(t.tokens?.background,PALETTES[0].background));const l=t.layout??{};setShowHero(l.showHero!==false);setShowCategories(l.showCategories!==false);setShowFlash(l.showFlashSale!==false);setShowProducts(l.showProducts!==false);setRadius(Math.min(28,Math.max(8,Number(l.radius??16)||16)));}}catch{}finally{if(alive)setLoading(false)}})();return()=>{alive=false}},[]);
+ const selected=useMemo(()=>PALETTES.find(p=>p.primary===primary&&p.background===background),[primary,background]);
+ async function save(){if(!hex(primary)||!hex(background)){Alert.alert("لون غير صالح","استخدم الشكل #RRGGBB.");return}setSaving(true);try{const body={name:name.trim()||"هوية متجري",is_active:true,tokens:{primary,background,surface:"#FFFFFF",owner:"vendor"},layout:{showHero,showCategories,showFlashSale:showFlash,showProducts,radius,direction:"rtl"},sections:[...(showHero?["hero"]:[]),...(showCategories?["categories"]:[]),...(showFlash?["flash_sale"]:[]),...(showProducts?["products"]:[])]};const r=theme?await djangoApi<Theme>(`/api/themes/${theme.id}/`,{method:"PATCH",body:JSON.stringify(body)}):await djangoApi<Theme>("/api/themes/",{method:"POST",body:JSON.stringify(body)});setTheme(r);Alert.alert("تم الحفظ","تم نشر التصميم بنجاح.")}catch(e){Alert.alert("تعذر الحفظ",e instanceof Error?e.message:"حدث خطأ أثناء حفظ التصميم.")}finally{setSaving(false)}}
+ if(loading)return <ScreenContainer><View style={s.center}><ActivityIndicator size="large" color="#E60023"/><Text style={s.muted}>جارٍ تجهيز المصمم...</Text></View></ScreenContainer>;
+ return <ScreenContainer className="bg-[#F3F4F6]"><ScrollView contentContainerStyle={s.page}><View style={s.header}><TouchableOpacity style={s.icon} onPress={()=>router.back()}><MaterialIcons name="arrow-forward" size={23} color="#111"/></TouchableOpacity><View style={s.headerText}><Text style={s.title}>مصمم واجهة المتجر</Text><Text style={s.sub}>صمّم الهوية وشاهد النتيجة قبل النشر</Text></View><TouchableOpacity style={s.preview} onPress={()=>router.push("/vendor/storefront" as never)}><MaterialIcons name="visibility" size={18} color={primary}/><Text style={{color:primary,fontWeight:"900",fontSize:11}}>معاينة</Text></TouchableOpacity></View><View style={s.hero}><View style={[s.heroBadge,{backgroundColor:primary}]}><MaterialIcons name="auto-awesome" size={22} color="#FFF"/></View><View style={s.heroText}><Text style={s.heroKicker}>استوديو المتجر</Text><Text style={s.heroTitle}>واجهة عربية حديثة لهوية متجرك</Text><Text style={s.heroDesc}>اختر الألوان، فعّل المكونات المناسبة، واضبط نعومة البطاقات بسهولة.</Text></View></View><Card title="اسم الهوية"><TextInput value={name} onChangeText={setName} textAlign="right" style={s.input} placeholder="اسم الهوية"/></Card><SectionTitle title="لوحات ألوان جاهزة"/><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>{PALETTES.map(p=><TouchableOpacity key={p.name} style={[s.palette,{borderColor:selected?.name===p.name?p.primary:"#E4E5E8"}]} onPress={()=>{setPrimary(p.primary);setBackground(p.background)}}><View style={{height:58,backgroundColor:p.primary}}/><View style={{height:24,backgroundColor:p.background}}/><View style={s.paletteFoot}><Text style={s.smallBold}>{p.name}</Text>{selected?.name===p.name?<MaterialIcons name="check-circle" size={18} color={p.primary}/>:null}</View></TouchableOpacity>)}</ScrollView><SectionTitle title="مكونات الصفحة"/><Card title="ما الذي يظهر للعميل؟"><Toggle title="الرئيسية والبنرات" value={showHero} onChange={setShowHero} color={primary}/><Toggle title="الفئات" value={showCategories} onChange={setShowCategories} color={primary}/><Toggle title="العروض السريعة" value={showFlash} onChange={setShowFlash} color={primary}/><Toggle title="شبكة المنتجات" value={showProducts} onChange={setShowProducts} color={primary}/></Card><SectionTitle title="استدارة البطاقات"/><Card title={`${radius}px`}><View style={s.rowButtons}>{[8,12,16,20,24,28].map(v=><TouchableOpacity key={v} style={[s.radius,{borderColor:radius===v?primary:"#E1E2E5"}]} onPress={()=>setRadius(v)}><Text style={{color:radius===v?primary:"#555",fontWeight:"900"}}>{v}</Text></TouchableOpacity>)}</View><View style={[s.sample,{borderColor:primary,borderRadius:radius}]}><Text style={s.sampleTitle}>معاينة البطاقة</Text><Text style={s.muted}>شكل البطاقات في المتجر العام</Text></View></Card><TouchableOpacity disabled={saving} style={[s.save,{backgroundColor:primary}]} onPress={save}>{saving?<ActivityIndicator color="#FFF"/>:<><MaterialIcons name="publish" size={19} color="#FFF"/><Text style={s.saveText}>حفظ ونشر التصميم</Text></>}</TouchableOpacity></ScrollView></ScreenContainer>;
 }
-function validColor(value: string) { return /^#[0-9a-fA-F]{6}$/.test(value.trim()); }
-function Option({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {
-  return <View style={styles.option}><Switch value={value} onValueChange={onChange} trackColor={{ true: "#E60023" }} /><Text style={styles.optionText}>{label}</Text></View>;
-}
-const styles = StyleSheet.create({ header: { height: 60, paddingHorizontal: 16, backgroundColor: "#FFF", flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#EEE" }, title: { fontSize: 19, fontWeight: "900", color: "#111" }, content: { padding: 12, paddingBottom: 60 }, preview: { borderRadius: 14, padding: 18, flexDirection: "row-reverse", alignItems: "center", gap: 12, marginBottom: 12 }, previewDot: { width: 32, height: 32, borderRadius: 16 }, previewCopy: { flex: 1, alignItems: "flex-end" }, previewName: { color: "#FFF", fontSize: 17, fontWeight: "900" }, previewText: { color: "#EEE", fontSize: 11, marginTop: 3 }, card: { backgroundColor: "#FFF", borderRadius: 12, padding: 16, marginBottom: 12 }, heading: { fontSize: 17, fontWeight: "900", textAlign: "right", marginBottom: 18, color: "#111" }, label: { fontSize: 12, fontWeight: "700", textAlign: "right", marginBottom: 8, color: "#444" }, input: { backgroundColor: "#F8F9FA", borderWidth: 1, borderColor: "#E5E5E5", borderRadius: 8, padding: 12, marginBottom: 15, color: "#111" }, colorRow: { flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 15 }, swatch: { width: 42, height: 42, borderRadius: 8, borderWidth: 1, borderColor: "#DDD" }, option: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", paddingVertical: 11, borderBottomWidth: 1, borderColor: "#F0F0F0" }, optionText: { fontSize: 14, fontWeight: "700", color: "#333" }, note: { color: "#777", fontSize: 11, lineHeight: 18, textAlign: "right", marginTop: 15 }, button: { backgroundColor: "#E60023", padding: 16, borderRadius: 9, alignItems: "center" }, buttonText: { color: "#FFF", fontWeight: "900", fontSize: 15 }, center:{flex:1,alignItems:"center",justifyContent:"center"}, muted:{color:"#777"} });
+function Card({title,children}:{title:string;children:React.ReactNode}){return <View style={s.card}><Text style={s.cardTitle}>{title}</Text>{children}</View>}
+function SectionTitle({title}:{title:string}){return <View style={s.sectionTitle}><MaterialIcons name="tune" size={18} color="#E60023"/><Text style={s.sectionTitleText}>{title}</Text></View>}
+function Toggle({title,value,onChange,color}:{title:string;value:boolean;onChange:(v:boolean)=>void;color:string}){return <View style={s.toggle}><Text style={s.toggleText}>{title}</Text><Switch value={value} onValueChange={onChange} trackColor={{false:"#D8D9DC",true:color}}/></View>}
+const s=StyleSheet.create({center:{flex:1,alignItems:"center",justifyContent:"center"},muted:{fontSize:10,color:"#888",marginTop:4},page:{padding:13,paddingBottom:80},header:{height:64,backgroundColor:"#FFF",borderRadius:16,paddingHorizontal:10,flexDirection:"row-reverse",alignItems:"center",gap:8},icon:{width:40,height:40,borderRadius:12,backgroundColor:"#F4F4F5",alignItems:"center",justifyContent:"center"},headerText:{flex:1,alignItems:"flex-end"},title:{fontSize:17,fontWeight:"900",color:"#111"},sub:{fontSize:9,color:"#888",marginTop:2},preview:{height:38,paddingHorizontal:10,borderWidth:1,borderColor:"#E5E5E8",borderRadius:12,flexDirection:"row-reverse",alignItems:"center",gap:5},hero:{marginTop:12,backgroundColor:"#15171B",borderRadius:20,padding:15,flexDirection:"row-reverse",gap:10,alignItems:"center"},heroBadge:{width:45,height:45,borderRadius:14,alignItems:"center",justifyContent:"center"},heroText:{flex:1,alignItems:"flex-end"},heroKicker:{color:"#BFC2C8",fontSize:9},heroTitle:{color:"#FFF",fontSize:18,fontWeight:"900",textAlign:"right",marginTop:3},heroDesc:{color:"#D0D1D5",fontSize:10,lineHeight:18,textAlign:"right",marginTop:4},card:{backgroundColor:"#FFF",borderRadius:17,padding:13,marginTop:10,borderWidth:1,borderColor:"#E7E7E9"},cardTitle:{fontSize:11,fontWeight:"900",color:"#222",textAlign:"right",marginBottom:8},input:{height:45,backgroundColor:"#F7F7F8",borderRadius:11,borderWidth:1,borderColor:"#E3E3E6",paddingHorizontal:12,color:"#111"},sectionTitle:{flexDirection:"row-reverse",alignItems:"center",gap:7,marginTop:16,marginBottom:7},sectionTitleText:{fontSize:14,fontWeight:"900",color:"#161616"},row:{gap:9},palette:{width:126,borderRadius:14,overflow:"hidden",backgroundColor:"#FFF",borderWidth:2},paletteFoot:{padding:8,flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"center"},smallBold:{fontSize:10,fontWeight:"900",color:"#222"},toggle:{height:48,flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderColor:"#F0F0F2"},toggleText:{fontSize:11,fontWeight:"800",color:"#222"},rowButtons:{flexDirection:"row-reverse",gap:7},radius:{flex:1,height:36,borderRadius:10,borderWidth:1,alignItems:"center",justifyContent:"center",backgroundColor:"#FAFAFB"},sample:{marginTop:13,padding:15,borderWidth:1.5,backgroundColor:"#FFF"},sampleTitle:{fontSize:11,fontWeight:"900",color:"#222",textAlign:"right"},save:{height:52,borderRadius:15,marginTop:16,flexDirection:"row-reverse",alignItems:"center",justifyContent:"center",gap:7},saveText:{color:"#FFF",fontSize:12,fontWeight:"900"}})
