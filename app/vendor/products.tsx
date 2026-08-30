@@ -1,128 +1,19 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { djangoApi } from "@/lib/django-api";
 import { formatYER } from "@/lib/catalog";
 
-type Product = {
-  id: number;
-  name: string;
-  price: string;
-  stock: number;
-  main_image_url?: string | null;
-  is_published: boolean;
-};
+type Product = { id:number; name:string; price:string; stock:number; main_image_url?:string|null; is_published:boolean };
+type ProductListResponse = Product[] | {results?:Product[]};
 
-type ProductListResponse = Product[] | { results?: Product[] };
-
-export default function VendorProductsScreen() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  async function load() {
-    try {
-      setLoading(true);
-      const data = await djangoApi<ProductListResponse>("/api/products/");
-      const list = Array.isArray(data) ? data : (data.results ?? []);
-      setProducts(list);
-      setFilteredProducts(list);
-    } catch (error) {
-      Alert.alert("تعذر التحميل", error instanceof Error ? error.message : "حدث خطأ");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { load(); }, []);
-
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredProducts(products);
-    } else {
-      const q = searchQuery.toLowerCase();
-      setFilteredProducts(products.filter(p => p.name.toLowerCase().includes(q)));
-    }
-  }, [searchQuery, products]);
-
-  return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]} className="bg-[#F7F7F7]">
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-          <MaterialIcons name="arrow-forward" size={24} color="#111" />
-        </TouchableOpacity>
-        <Text style={styles.title}>منتجاتي</Text>
-        <TouchableOpacity onPress={() => router.push("/vendor/product/create" as never)} style={styles.addBtn}>
-          <MaterialIcons name="add" size={22} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <MaterialIcons name="search" size={22} color="#777" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="ابحث عن منتج..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          textAlign="right"
-        />
-      </View>
-
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color="#E60023" size="large" />
-        </View>
-      ) : (
-        <FlatList
-          data={filteredProducts}
-          keyExtractor={item => String(item.id)}
-          numColumns={3}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <MaterialIcons name="inventory-2" size={48} color="#CCC" />
-              <Text style={styles.emptyText}>لا توجد منتجات.</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <TouchableOpacity 
-              style={styles.productCard} 
-              onPress={() => router.push(`/vendor/product/${item.id}` as never)}
-            >
-              <View style={styles.imageCircle}>
-                {item.main_image_url ? (
-                  <Image source={{ uri: item.main_image_url }} style={styles.productImage} />
-                ) : (
-                  <MaterialIcons name="image" size={32} color="#BBB" />
-                )}
-              </View>
-              <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-              <Text style={styles.productPrice}>{formatYER(Number(item.price))}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      )}
-    </ScreenContainer>
-  );
+export default function VendorProductsScreen(){
+ const [products,setProducts]=useState<Product[]>([]); const [filteredProducts,setFilteredProducts]=useState<Product[]>([]); const [loading,setLoading]=useState(true); const [searchQuery,setSearchQuery]=useState("");
+ async function load(){try{setLoading(true);const data=await djangoApi<ProductListResponse>("/api/products/?mine=1");const list=Array.isArray(data)?data:(data.results??[]);setProducts(list);setFilteredProducts(list)}catch(error){Alert.alert("تعذر التحميل",error instanceof Error?error.message:"حدث خطأ")}finally{setLoading(false)}}
+ useEffect(()=>{load()},[]); useEffect(()=>{const q=searchQuery.trim().toLowerCase();setFilteredProducts(q?products.filter(p=>p.name.toLowerCase().includes(q)):products)},[searchQuery,products]);
+ return <ScreenContainer edges={["top","bottom","left","right"]} className="bg-[#F7F7F7]"><View style={styles.header}><TouchableOpacity onPress={()=>router.back()} style={styles.headerBtn}><MaterialIcons name="arrow-forward" size={24} color="#111"/></TouchableOpacity><Text style={styles.title}>منتجاتي</Text><TouchableOpacity onPress={()=>router.push("/vendor/product/create" as never)} style={styles.addBtn}><MaterialIcons name="add" size={22} color="#FFF"/></TouchableOpacity></View><View style={styles.searchContainer}><MaterialIcons name="search" size={22} color="#777"/><TextInput style={styles.searchInput} placeholder="ابحث عن منتج..." value={searchQuery} onChangeText={setSearchQuery} textAlign="right"/></View>{loading?<View style={styles.center}><ActivityIndicator color="#E60023" size="large"/></View>:<FlatList data={filteredProducts} keyExtractor={item=>String(item.id)} numColumns={3} contentContainerStyle={styles.listContent} ListEmptyComponent={<View style={styles.emptyBox}><MaterialIcons name="inventory-2" size={48} color="#CCC"/><Text style={styles.emptyText}>لا توجد منتجات.</Text></View>} renderItem={({item})=><TouchableOpacity style={styles.productCard} onPress={()=>router.push(`/vendor/product/${item.id}` as never)}><View style={styles.imageCircle}>{item.main_image_url?<Image source={{uri:item.main_image_url}} style={styles.productImage}/>:<MaterialIcons name="image" size={32} color="#BBB"/>}</View><Text style={styles.productName} numberOfLines={2}>{item.name}</Text><Text style={styles.productPrice}>{formatYER(Number(item.price))}</Text></TouchableOpacity>}/>}</ScreenContainer>
 }
-
-const styles = StyleSheet.create({
-  header: { height: 60, paddingHorizontal: 16, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFF", borderBottomWidth: 1, borderColor: "#EEE" },
-  headerBtn: { padding: 8 },
-  title: { fontSize: 18, fontWeight: "900", color: "#111" },
-  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#E60023", alignItems: "center", justifyContent: "center" },
-  searchContainer: { flexDirection: "row-reverse", alignItems: "center", backgroundColor: "#FFF", margin: 16, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: "#E5E5E5", height: 46 },
-  searchInput: { flex: 1, height: "100%", paddingHorizontal: 10, fontSize: 14, color: "#111", textAlign: "right" },
-  listContent: { padding: 8, paddingBottom: 100 },
-  productCard: { flex: 1, alignItems: "center", padding: 8, marginBottom: 16 },
-  imageCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#FFF", overflow: "hidden", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#E5E5E5", marginBottom: 8, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3 },
-  productImage: { width: "100%", height: "100%" },
-  productName: { fontSize: 12, fontWeight: "700", color: "#333", textAlign: "center", marginBottom: 4 },
-  productPrice: { fontSize: 11, fontWeight: "900", color: "#E60023" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  emptyBox: { padding: 60, alignItems: "center", justifyContent: "center" },
-  emptyText: { color: "#999", marginTop: 15, fontSize: 14, fontWeight: "700" },
-});
+const styles=StyleSheet.create({header:{height:60,paddingHorizontal:16,flexDirection:"row-reverse",justifyContent:"space-between",alignItems:"center",backgroundColor:"#FFF",borderBottomWidth:1,borderColor:"#EEE"},headerBtn:{padding:8},title:{fontSize:18,fontWeight:"900",color:"#111"},addBtn:{width:36,height:36,borderRadius:18,backgroundColor:"#E60023",alignItems:"center",justifyContent:"center"},searchContainer:{flexDirection:"row-reverse",alignItems:"center",backgroundColor:"#FFF",margin:16,paddingHorizontal:12,borderRadius:10,borderWidth:1,borderColor:"#E5E5E5",height:46},searchInput:{flex:1,height:"100%",paddingHorizontal:10,fontSize:14,color:"#111",textAlign:"right"},listContent:{padding:8,paddingBottom:100},productCard:{flex:1,alignItems:"center",padding:8,marginBottom:16},imageCircle:{width:80,height:80,borderRadius:40,backgroundColor:"#FFF",overflow:"hidden",alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:"#E5E5E5",marginBottom:8,elevation:2,shadowColor:"#000",shadowOffset:{width:0,height:2},shadowOpacity:.05,shadowRadius:3},productImage:{width:"100%",height:"100%"},productName:{fontSize:12,fontWeight:"700",color:"#333",textAlign:"center",marginBottom:4},productPrice:{fontSize:11,fontWeight:"900",color:"#E60023"},center:{flex:1,justifyContent:"center",alignItems:"center"},emptyBox:{padding:60,alignItems:"center",justifyContent:"center"},emptyText:{color:"#999",marginTop:15,fontSize:14,fontWeight:"700"}});
