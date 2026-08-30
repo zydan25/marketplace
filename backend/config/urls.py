@@ -7,7 +7,8 @@ from marketplace.dashboard_crud import resource_create, resource_delete, resourc
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
 from marketplace.root_views import landing_page
-from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
+from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image
+from marketplace.visual_storefront_v9 import visual_editor_v9, import_global_media, import_global_categories
 
 urlpatterns = [
     path("", landing_page, name="landing-page"),
@@ -23,13 +24,13 @@ urlpatterns = [
     path("admin/dashboard/resource/<slug:resource>/<int:pk>/delete/", resource_delete, name="admin-crud-delete"),
 
     # Visual storefront builder.
-    path("admin/marketplace/storefront-editor/", visual_editor, name="admin-storefront-editor"),
+    path("admin/marketplace/storefront-editor/", visual_editor_v9, name="admin-storefront-editor"),
     path("admin/marketplace/storefront-editor/section/create/", create_section, name="admin-storefront-section-create"),
     path("admin/marketplace/storefront-editor/section/<int:pk>/", update_section, name="admin-storefront-section-update"),
     path("admin/marketplace/storefront-editor/upload-image/", upload_storefront_image, name="admin-storefront-image-upload"),
     path("admin/marketplace/storefront-editor/reorder/", reorder_sections, name="admin-storefront-section-reorder"),
 
-    # Compatibility aliases used by the editor JavaScript.
+    # Compatibility aliases used by all builder generations.
     path("admin/marketplace/storefront-builder/create/", create_section, name="admin-storefront-builder-create"),
     path("admin/marketplace/storefront-builder/<int:pk>/save/", update_section, name="admin-storefront-builder-save"),
     path("admin/marketplace/storefront-builder/<int:pk>/delete/", update_section, name="admin-storefront-builder-delete"),
@@ -38,6 +39,8 @@ urlpatterns = [
     path("admin/marketplace/storefront-builder/upload/", upload_storefront_image, name="admin-storefront-builder-upload"),
     path("admin/marketplace/storefront-builder/reorder/", reorder_sections, name="admin-storefront-builder-reorder"),
     path("admin/marketplace/storefront-builder/reorder-by-numbers/", reorder_sections, name="admin-storefront-builder-reorder-by-numbers"),
+    path("admin/marketplace/storefront-builder/import-global-media/", import_global_media, name="admin-storefront-builder-import-global-media"),
+    path("admin/marketplace/storefront-builder/import-global-categories/", import_global_categories, name="admin-storefront-builder-import-global-categories"),
 
     path("admin/marketplace/<slug:resource>/", legacy_resource_redirect, name="admin-legacy-resource"),
     path("admin/", admin.site.urls),
