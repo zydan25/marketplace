@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .marketplace_models import VendorLedgerEntry
-from .models import VendorPayout, VendorProfile
+from .models import VendorPayout, VendorProfile, Wallet
 
 
 class VendorPayoutSerializer(serializers.ModelSerializer):
@@ -51,18 +51,23 @@ class VendorFinanceViewSet(viewsets.ReadOnlyModelViewSet):
             raise PermissionDenied("المستحقات للتاجر فقط")
         vendor = self._vendor_for_request()
         ledger = VendorLedgerEntry.objects.filter(vendor=vendor)
+        currency = ledger.order_by("-id").values_list("currency", flat=True).first() or "YER"
         earned = ledger.filter(entry_type=VendorLedgerEntry.Types.SALE).aggregate(v=Sum("amount"))["v"] or Decimal("0")
         paid_amount = VendorPayout.objects.filter(vendor=vendor, status="paid").aggregate(v=Sum("amount"))["v"] or Decimal("0")
         pending_amount = VendorPayout.objects.filter(vendor=vendor, status__in=["pending", "approved"]).aggregate(v=Sum("amount"))["v"] or Decimal("0")
         available = max(Decimal("0"), earned - paid_amount - pending_amount)
+        wallet, _ = Wallet.objects.get_or_create(user=vendor.owner, defaults={"currency": currency})
+        wallet_balance = wallet.balance if wallet.currency == currency else Decimal("0")
         return Response({
             "vendor": vendor.id,
             "vendor_name": vendor.store_name,
-            "currency": ledger.order_by("-id").values_list("currency", flat=True).first() or "YER",
+            "currency": currency,
             "earned": str(earned),
             "paid": str(paid_amount),
             "pending": str(pending_amount),
             "available": str(available),
+            "wallet_balance": str(wallet_balance),
+            "wallet_currency": wallet.currency,
             "payouts": VendorPayoutSerializer(VendorPayout.objects.filter(vendor=vendor).order_by("-created_at")[:20], many=True).data,
         })
 
