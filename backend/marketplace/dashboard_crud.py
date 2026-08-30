@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .dashboard import dashboard_access_required
 from .models import Conversation, Category, Coupon, DesignTheme, Notification, Order, Product, StorefrontSection, User, VendorProfile, VendorPayout, Wallet
 from .models_extended import City, PriceGroup, ProductVariant
+from .models_extra import CatalogOption, CurrencyRate
+from .storefront_models import StorefrontMedia
 from .marketplace_models import Payment, Shipment, VendorApplication, VendorLedgerEntry, VendorOrder
 
 
@@ -19,13 +21,30 @@ class JsonTextarea(forms.Textarea):
 
 class DashboardForm(forms.ModelForm):
     class Meta:
-        widgets = {"config": JsonTextarea(), "settings": JsonTextarea(), "tokens": JsonTextarea(), "layout": JsonTextarea(), "sections": JsonTextarea(), "details": JsonTextarea(), "shipping_address": JsonTextarea(), "metadata": JsonTextarea(), "audience": JsonTextarea()}
+        widgets = {
+            "config": JsonTextarea(),
+            "settings": JsonTextarea(),
+            "tokens": JsonTextarea(),
+            "layout": JsonTextarea(),
+            "sections": JsonTextarea(),
+            "details": JsonTextarea(),
+            "shipping_address": JsonTextarea(),
+            "metadata": JsonTextarea(),
+            "audience": JsonTextarea(),
+        }
 
 
 class ProductForm(DashboardForm):
     class Meta:
         model = Product
         fields = ["vendor", "categories", "sku", "name", "slug", "description", "brand", "material", "shipping_note", "return_policy", "price", "sale_price", "currency", "stock", "colors", "sizes", "hashtags", "details", "main_image", "is_published", "is_trending"]
+        widgets = DashboardForm.Meta.widgets
+
+
+class TrendingProductForm(DashboardForm):
+    class Meta:
+        model = Product
+        fields = ["name", "vendor", "categories", "hashtags", "details", "main_image", "is_published", "is_trending"]
         widgets = DashboardForm.Meta.widgets
 
 
@@ -58,15 +77,31 @@ class OrderForm(DashboardForm):
         widgets = DashboardForm.Meta.widgets
 
 
+class CurrencyRateForm(DashboardForm):
+    class Meta:
+        model = CurrencyRate
+        fields = ["base_currency", "target_currency", "rate", "is_active", "updated_by"]
+        widgets = DashboardForm.Meta.widgets
+
+    def clean(self):
+        data = super().clean()
+        base, target = data.get("base_currency"), data.get("target_currency")
+        if base and target and base == target:
+            self.add_error("target_currency", "لا يمكن تحويل العملة إلى نفسها.")
+        return data
+
+
 RESOURCE = {
     "users": (User, UserForm, ["phone", "first_name", "last_name", "role", "is_active"], "المستخدمون"),
     "vendors": (VendorProfile, VendorForm, ["store_name", "owner", "status", "commission_percent"], "التجار"),
     "products": (Product, ProductForm, ["name", "sku", "vendor", "price", "stock", "is_published", "is_trending"], "المنتجات"),
+    "trending": (Product, TrendingProductForm, ["name", "vendor", "hashtags", "is_trending", "is_published"], "الترندات"),
     "categories": (Category, None, ["name", "slug", "parent", "is_active", "sort_order"], "الفئات"),
     "orders": (Order, OrderForm, ["order_number", "customer", "status", "total", "payment_status", "created_at"], "الطلبات"),
     "vendor-orders": (VendorOrder, None, ["order_number", "vendor", "status", "subtotal", "total", "vendor_net", "created_at"], "طلبات التجار"),
     "coupons": (Coupon, None, ["code", "discount_percent", "discount_amount", "minimum_order", "is_active"], "الكوبونات"),
     "storefront": (StorefrontSection, None, ["title", "section_type", "vendor", "sort_order", "is_visible"], "أقسام الواجهة"),
+    "storefront-media": (StorefrontMedia, None, ["name", "vendor", "target_url", "is_active", "updated_at"], "البنرات والوسائط"),
     "themes": (DesignTheme, None, ["name", "vendor", "is_global", "is_active"], "الثيمات"),
     "notifications": (Notification, None, ["title", "recipient", "product", "is_read", "created_at"], "الإشعارات"),
     "conversations": (Conversation, None, ["customer", "vendor", "order", "subject", "is_closed", "created_at"], "المحادثات"),
@@ -79,6 +114,8 @@ RESOURCE = {
     "price-groups": (PriceGroup, None, ["name", "code", "adjustment_type", "percentage", "fixed_amount", "is_active"], "مجموعات الأسعار"),
     "variants": (ProductVariant, None, ["product", "sku", "color", "size", "price_override", "stock", "reserved_stock", "is_active"], "الأصناف والمخزون"),
     "applications": (VendorApplication, None, ["store_name", "applicant", "phone", "status", "created_at"], "طلبات التجار"),
+    "currency-rates": (CurrencyRate, CurrencyRateForm, ["base_currency", "target_currency", "rate", "is_active", "updated_at"], "أسعار العملات"),
+    "catalog-options": (CatalogOption, None, ["group", "name", "category", "sort_order", "is_active"], "خيارات الكتالوج"),
 }
 
 
@@ -92,12 +129,18 @@ def _form_for(model, explicit=None):
 def _model_queryset(resource):
     model = RESOURCE[resource][0]
     qs = model.objects.all()
-    if resource == "products":
-        qs = qs.select_related("vendor", "vendor__owner")
+    if resource in {"products", "trending"}:
+        qs = qs.select_related("vendor", "vendor__owner").prefetch_related("categories")
     elif resource == "vendors":
         qs = qs.select_related("owner")
     elif resource == "orders":
         qs = qs.select_related("customer")
+    elif resource == "storefront-media":
+        qs = qs.select_related("vendor")
+    elif resource == "currency-rates":
+        qs = qs.select_related("updated_by")
+    if resource == "trending":
+        qs = qs.filter(is_trending=True)
     return qs
 
 
@@ -107,6 +150,8 @@ def _display_value(obj, field_name):
         return "—"
     if isinstance(value, bool):
         return "نعم" if value else "لا"
+    if field_name in {"categories"}:
+        return "، ".join(str(x) for x in value.all())
     return str(value)
 
 
@@ -138,7 +183,10 @@ def resource_create(request, resource):
         form = Form(request.POST, request.FILES)
         if form.is_valid():
             try:
-                form.save()
+                obj = form.save()
+                if resource == "trending" and not obj.is_trending:
+                    obj.is_trending = True
+                    obj.save(update_fields=["is_trending", "updated_at"])
             except IntegrityError as exc:
                 form.add_error(None, f"تعذر الحفظ بسبب تعارض بيانات فريدة: {exc}")
             else:
@@ -159,7 +207,10 @@ def resource_update(request, resource, pk):
         form = Form(request.POST, request.FILES, instance=obj)
         if form.is_valid():
             try:
-                form.save()
+                obj = form.save()
+                if resource == "trending" and not obj.is_trending:
+                    obj.is_trending = True
+                    obj.save(update_fields=["is_trending", "updated_at"])
             except IntegrityError as exc:
                 form.add_error(None, f"تعذر التحديث بسبب تعارض بيانات فريدة: {exc}")
             else:
@@ -176,6 +227,19 @@ def resource_delete(request, resource, pk):
     model, _, _, label = RESOURCE[resource]
     obj = get_object_or_404(model, pk=pk)
     if request.method == "POST":
-        obj.delete()
+        if resource == "trending":
+            obj.is_trending = False
+            obj.save(update_fields=["is_trending", "updated_at"])
+        elif resource == "storefront-media":
+            obj.is_active = False
+            obj.save(update_fields=["is_active", "updated_at"])
+        elif resource == "currency-rates":
+            obj.is_active = False
+            obj.save(update_fields=["is_active", "updated_at"])
+        elif resource == "catalog-options":
+            obj.is_active = False
+            obj.save(update_fields=["is_active", "updated_at"])
+        else:
+            obj.delete()
         return redirect("admin-crud-list", resource=resource)
     return render(request, "admin/crud_delete.html", {"resource": resource, "label": label, "object": obj})
