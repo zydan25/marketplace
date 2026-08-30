@@ -33,7 +33,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
-          package-manager-cache: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -51,7 +50,21 @@ jobs:
         run: pnpm check
 
       - name: Check EAS credentials
-        run: test -n "$EXPO_TOKEN" || { echo "EXPO_TOKEN is missing from GitHub Actions secrets."; exit 1; }
+        run: |
+          test -n "$EXPO_TOKEN" || { echo "EXPO_TOKEN is missing from GitHub Actions secrets."; exit 1; }
 
       - name: Submit preview build to EAS
         run: pnpm dlx eas-cli@latest build --platform android --profile ${{ matrix.variant }} --non-interactive --no-wait
+
+      - name: Write build metadata
+        run: |
+          mkdir -p artifacts
+          printf 'variant=%s\ncommit=%s\n' "${{ matrix.variant }}" "$GITHUB_SHA" > "artifacts/${{ matrix.variant }}-preview.txt"
+
+      - name: Upload build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.variant }}-preview-metadata
+          path: artifacts/${{ matrix.variant }}-preview.txt
+          if-no-files-found: error
+          retention-days: 14
