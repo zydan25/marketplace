@@ -2,7 +2,7 @@ name: Marketplace CI
 
 on:
   push:
-    branches: [main, "refactor/**"]
+    branches: [main, "refactor/**", "work/**"]
   pull_request:
     branches: [main]
 
