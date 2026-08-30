@@ -88,15 +88,11 @@ class VendorFinanceViewSet(viewsets.ReadOnlyModelViewSet):
         wallet, _ = Wallet.objects.select_for_update().get_or_create(user=request.user, defaults={"currency": "YER"})
         if wallet.is_locked:
             raise PermissionDenied("المحفظة مقفلة")
-        if wallet.currency != "YER":
-            currency = wallet.currency
-        else:
-            currency = wallet.currency
         pending = VendorPayout.objects.select_for_update().filter(vendor=vendor, status__in=["pending", "approved"], vendor_order__isnull=True, order__isnull=True).aggregate(v=Sum("amount"))["v"] or Decimal("0")
         available = max(Decimal("0"), wallet.balance - pending)
         if amount > available:
-            raise ValidationError({"amount": f"المتاح للسحب {available} {currency}"})
-        payout = VendorPayout.objects.create(vendor=vendor, amount=amount, currency=currency, status="pending", reference=f"PAYOUT-REQ-{uuid.uuid4().hex[:10].upper()}")
+            raise ValidationError({"amount": f"المتاح للسحب {available} {wallet.currency}"})
+        payout = VendorPayout.objects.create(vendor=vendor, amount=amount, currency=wallet.currency, status="pending", reference=f"PAYOUT-REQ-{uuid.uuid4().hex[:10].upper()}")
         return Response(VendorPayoutSerializer(payout).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"])
@@ -136,15 +132,7 @@ class VendorFinanceViewSet(viewsets.ReadOnlyModelViewSet):
             raise ValidationError({"wallet": f"رصيد المحفظة غير كافٍ: {wallet.balance} {wallet.currency}."})
         wallet.balance -= amount
         wallet.save(update_fields=["balance", "updated_at"])
-        WalletTransaction.objects.create(
-            wallet=wallet,
-            transaction_type=WalletTransaction.Types.WITHDRAWAL,
-            amount=-amount,
-            balance_after=wallet.balance,
-            reference=payout.reference or f"PAYOUT-{payout.id}",
-            note=(request.data.get("note") or f"صرف طلب سحب التاجر {payout.vendor.store_name}").strip(),
-            metadata={"vendor_payout_id": payout.id, "processed_by": request.user.id},
-        )
+        WalletTransaction.objects.create(wallet=wallet, transaction_type=WalletTransaction.Types.WITHDRAWAL, amount=-amount, balance_after=wallet.balance, reference=payout.reference or f"PAYOUT-{payout.id}", note=(request.data.get("note") or f"صرف طلب سحب التاجر {payout.vendor.store_name}").strip(), metadata={"vendor_payout_id": payout.id, "processed_by": request.user.id})
         payout.status = "paid"
         payout.note = (request.data.get("note") or payout.note or "").strip()
         payout.save(update_fields=["status", "note", "updated_at"])
