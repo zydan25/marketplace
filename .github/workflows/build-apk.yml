@@ -28,19 +28,22 @@ jobs:
       EAS_PROJECT_OWNER: zydan2626
       EAS_PROJECT_SLUG: shbyk-lbyk
     steps:
-      - name: Checkout main branch
+      - name: Checkout branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: work/main-storefront-v2
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          package-manager-cache: false
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9.12.0
           run_install: false
+      - name: Verify pnpm
+        run: pnpm --version
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Validate EAS project
@@ -85,19 +88,22 @@ jobs:
       EAS_PROJECT_OWNER: zydan2626
       EAS_PROJECT_SLUG: shbyk-lbyk
     steps:
-      - name: Checkout main branch
+      - name: Checkout branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: work/main-storefront-v2
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          package-manager-cache: false
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9.12.0
           run_install: false
+      - name: Verify pnpm
+        run: pnpm --version
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Validate EAS project
