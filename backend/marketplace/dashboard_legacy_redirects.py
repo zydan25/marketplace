@@ -15,13 +15,18 @@ LEGACY_RESOURCE_MAP = {
     "vendorledgerentry": "ledger",
     "wallet": "wallets",
     "storefrontsection": "storefront",
+    "storefrontmedia": "storefront-media",
     "designtheme": "themes",
     "notification": "notifications",
     "conversation": "conversations",
+    "orderchat": "conversations",
     "user": "users",
     "coupon": "coupons",
     "city": "cities",
     "pricegroup": "price-groups",
+    "currencyrate": "currency-rates",
+    "catalogoption": "catalog-options",
+    "trending": "trending",
 }
 
 
