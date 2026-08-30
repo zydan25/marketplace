@@ -1,1 +1,1 @@
-export { default } from "./storefront-designer";
+export { default } from "./theme-library";
