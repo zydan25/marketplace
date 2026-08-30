@@ -2,11 +2,6 @@ name: Build Preview APKs
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "work/**"
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -26,11 +21,9 @@ jobs:
       EAS_PROJECT_SLUG: shbyk-lbyk
       APP_VARIANT: ${{ matrix.variant }}
     steps:
-      - name: Checkout current branch/PR
+      - name: Checkout selected ref
         uses: actions/checkout@v4
 
-      # Do not ask setup-node to discover/cache pnpm. That was the source of
-      # the previous "Unable to locate executable file: pnpm" failure.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
