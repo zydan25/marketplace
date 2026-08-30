@@ -1,17 +1,21 @@
 import base64
 import binascii
 import hashlib
+from copy import deepcopy
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db.models import Q
 from rest_framework import serializers, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
 
 from .api_policy import IsVendorOrAdmin
 from .models import DesignTheme, StorefrontSection, VendorProfile
 from .serializers import DesignThemeSerializer, VendorSerializer
+from .theme_presets import presets
 from catalog.api import CategoryViewSet as SecureCategoryViewSet
 from catalog.api import ProductViewSet as SecureProductViewSet
 
@@ -65,9 +69,10 @@ class SecureVendorViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = VendorProfile.objects.select_related("owner")
+        public_action = self.action in {"list", "retrieve"}
         if user.is_authenticated and (user.is_staff or getattr(user, "role", None) == "admin"):
             pass
-        elif user.is_authenticated and getattr(user, "role", None) == "vendor":
+        elif user.is_authenticated and getattr(user, "role", None) == "vendor" and not public_action:
             qs = qs.filter(owner=user)
         else:
             qs = qs.filter(status="active")
@@ -121,6 +126,67 @@ class SecureDesignThemeViewSet(viewsets.ModelViewSet):
             raise ValidationError("لا يوجد متجر نشط مرتبط بالحساب")
         return vendor
 
+    @action(detail=False, methods=["get"])
+    def presets(self, request):
+        if not (request.user.is_staff or request.user.role == "admin"):
+            raise PermissionDenied("معاينة القوالب الجاهزة للإدارة فقط")
+        return Response(presets())
+
+    @action(detail=False, methods=["post"])
+    def install_preset(self, request):
+        if not (request.user.is_staff or request.user.role == "admin"):
+            raise PermissionDenied("تثبيت القوالب الجاهزة للإدارة فقط")
+        key = str(request.data.get("preset", "")).strip()
+        preset = presets().get(key)
+        if not preset:
+            raise ValidationError({"preset": "القالب غير موجود."})
+        theme = DesignTheme.objects.create(
+            owner=request.user,
+            name=str(request.data.get("name") or preset["name"]),
+            is_global=True,
+            is_active=False,
+            tokens=deepcopy(preset["tokens"]),
+            layout=deepcopy(preset["layout"]),
+            sections=deepcopy(preset["sections"]),
+        )
+        return Response(DesignThemeSerializer(theme).data, status=201)
+
+    @action(detail=True, methods=["post"])
+    def duplicate(self, request, pk=None):
+        if not (request.user.is_staff or request.user.role == "admin"):
+            raise PermissionDenied("نسخ التصميم للإدارة فقط")
+        source = self.get_object()
+        clone = DesignTheme.objects.create(
+            owner=request.user,
+            vendor=None if source.is_global else source.vendor,
+            name=str(request.data.get("name") or f"نسخة — {source.name}"),
+            is_global=source.is_global,
+            is_active=False,
+            tokens=deepcopy(source.tokens or {}),
+            layout=deepcopy(source.layout or {}),
+            sections=deepcopy(source.sections or []),
+        )
+        return Response(DesignThemeSerializer(clone).data, status=201)
+
+    @action(detail=True, methods=["post"])
+    def activate(self, request, pk=None):
+        if not (request.user.is_staff or request.user.role == "admin"):
+            raise PermissionDenied("تفعيل التصميم للإدارة فقط")
+        theme = self.get_object()
+        if theme.is_global:
+            DesignTheme.objects.filter(is_global=True, is_active=True).exclude(pk=theme.pk).update(is_active=False)
+        elif theme.vendor_id:
+            DesignTheme.objects.filter(vendor_id=theme.vendor_id, is_active=True).exclude(pk=theme.pk).update(is_active=False)
+        theme.is_active = True
+        theme.save(update_fields=["is_active", "updated_at"])
+        return Response(DesignThemeSerializer(theme).data)
+
+    def _vendor_queryset(self):
+        vendor = VendorProfile.objects.filter(owner=self.request.user, status="active").first()
+        if not vendor:
+            raise ValidationError("لا يوجد متجر نشط مرتبط بالحساب")
+        return vendor
+
     def perform_create(self, serializer):
         user = self.request.user
         if user.is_staff or user.role == "admin":
@@ -160,7 +226,6 @@ class SecureStorefrontSectionViewSet(viewsets.ModelViewSet):
         if user.is_staff or user.role == "admin":
             return qs
         if user.role == "vendor":
-            # Vendors must retain access to hidden sections so they can edit, re-enable, or delete them.
             return qs.filter(vendor__owner=user)
         return qs.filter(vendor__isnull=True, is_visible=True)
 
