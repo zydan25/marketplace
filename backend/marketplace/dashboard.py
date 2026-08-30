@@ -11,7 +11,6 @@ from django.utils import timezone
 from .marketplace_models import Payment, VendorApplication, VendorLedgerEntry, VendorOrder
 from .models import Category, Notification, Order, Product, StorefrontSection, User, VendorPayout, VendorProfile, Wallet
 
-
 ADMIN_DASHBOARD_LOGIN = "/admin/dashboard/login/"
 ADMIN_DASHBOARD_HOME = "/admin/dashboard/"
 
@@ -111,7 +110,6 @@ def dashboard(request):
     return render(request, "admin/dashboard.html", _dashboard_context())
 
 
-@dashboard_access_required
 def dashboard_manifest(request):
     return JsonResponse({
         "name": "شبيك — مركز إدارة المنصة",
