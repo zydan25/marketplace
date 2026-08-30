@@ -10,7 +10,6 @@ import { CartProvider } from "@/lib/cart-context";
 import { ThemeProvider } from "@/lib/theme-provider";
 
 I18nManager.allowRTL(true);
-
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ duration: 450, fade: true });
 
@@ -40,14 +39,10 @@ export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
 
 export default function RootLayout() {
   const [welcomeVisible, setWelcomeVisible] = useState(true);
-
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      SplashScreen.hideAsync().catch(() => undefined);
-    });
+    const frame = requestAnimationFrame(() => { SplashScreen.hideAsync().catch(() => undefined); });
     return () => cancelAnimationFrame(frame);
   }, []);
-
   const finishWelcome = useCallback(() => setWelcomeVisible(false), []);
 
   return (
@@ -63,6 +58,7 @@ export default function RootLayout() {
             <Stack.Screen name="admin/index" />
             <Stack.Screen name="admin/products" />
             <Stack.Screen name="admin/storefront" />
+            <Stack.Screen name="admin/storefront-designer" />
             <Stack.Screen name="product/[id]" />
             <Stack.Screen name="search" />
             <Stack.Screen name="checkout" options={{ presentation: "fullScreenModal" }} />
