@@ -1,6 +1,6 @@
 from urllib.parse import quote
 
-from django.db.models import Q
+from django.db.models import F, Q
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -22,41 +22,24 @@ def product_card(request, product):
     image = product.main_image.url if product.main_image else ""
     categories = list(product.categories.values("id", "name", "slug"))
     return {
-        "id": product.id,
-        "title": product.name,
-        "name": product.name,
-        "price": str(product.effective_price),
-        "originalPrice": str(product.price),
+        "id": product.id, "title": product.name, "name": product.name,
+        "price": str(product.effective_price), "originalPrice": str(product.price),
         "salePrice": str(product.sale_price) if product.sale_price is not None else None,
-        "currency": product.currency,
-        "imageUrl": absolute(request, image),
-        "url": f"/product/{product.id}",
-        "slug": product.slug,
-        "vendorSlug": product.vendor.slug,
-        "rating": float(product.rating),
-        "reviewsCount": product.reviews_count,
-        "isTrending": product.is_trending,
-        "availableStock": product.available_stock,
-        "categories": categories,
-        "hashtags": product.hashtags or [],
+        "currency": product.currency, "imageUrl": absolute(request, image),
+        "url": f"/product/{product.id}", "slug": product.slug, "vendorSlug": product.vendor.slug,
+        "rating": float(product.rating), "reviewsCount": product.reviews_count,
+        "isTrending": product.is_trending, "availableStock": product.available_stock,
+        "categories": categories, "hashtags": product.hashtags or [],
     }
 
 
 def category_circles(request, categories):
     return [{
-        "id": category.id,
-        "title": category.name,
-        "name": category.name,
-        "targetCategory": category.slug,
-        "categorySlug": category.slug,
-        # The current collection screen historically filters by the Arabic name.
-        # Keep the route name-compatible while exposing the canonical slug too.
-        "url": f"/collection?category={quote(category.name)}",
-        "route": f"/collection?category={quote(category.name)}",
+        "id": category.id, "title": category.name, "name": category.name,
+        "targetCategory": category.slug, "categorySlug": category.slug,
+        "url": f"/collection?category={quote(category.name)}", "route": f"/collection?category={quote(category.name)}",
         "imageUrl": absolute(request, category.image.url) if category.image else "",
-        "visible": True,
-        "isActive": True,
-        "sortOrder": index,
+        "visible": True, "isActive": True, "sortOrder": index,
     } for index, category in enumerate(categories)]
 
 
@@ -78,7 +61,7 @@ def resolve_products(request, vendor, config):
     elif source == "best_selling":
         qs = qs.order_by("-sold_count", "-created_at")
     elif source == "discounts":
-        qs = qs.exclude(sale_price__isnull=True).filter(sale_price__lt=models.F("price")).order_by("-created_at")
+        qs = qs.filter(sale_price__isnull=False, sale_price__lt=F("price")).order_by("-created_at")
     else:
         qs = qs.order_by("-created_at")
     rows = max(1, min(int(config.get("rows", 2) or 2), 6))
@@ -90,11 +73,7 @@ def resolve_products(request, vendor, config):
 
 
 def vendor_categories(request, vendor):
-    qs = Category.objects.filter(
-        is_active=True,
-        products__vendor=vendor,
-        products__is_published=True,
-    ).distinct().order_by("sort_order", "name")
+    qs = Category.objects.filter(is_active=True, products__vendor=vendor, products__is_published=True).distinct().order_by("sort_order", "name")
     return category_circles(request, qs)
 
 
@@ -107,52 +86,30 @@ def normalize_section_config(request, section, vendor):
         url = config.get("target_url") or config.get("url") or ""
         if target_type == "category" and target_id:
             category = Category.objects.filter(pk=target_id, is_active=True).first()
-            if category:
-                url = f"/collection?category={quote(category.name)}"
+            if category: url = f"/collection?category={quote(category.name)}"
         elif target_type == "product" and target_id:
             product = Product.objects.filter(pk=target_id, is_published=True).first()
-            if product:
-                url = f"/product/{product.pk}"
-        config["slides"] = [{
-            "id": f"{section.id}-main",
-            "title": config.get("title") or section.title,
-            "subtitle": config.get("subtitle") or config.get("description") or "",
-            "ctaLabel": config.get("button_label") or config.get("ctaLabel") or "",
-            "url": url,
-            "imageUrl": absolute(request, image),
-            "mobileImageUrl": absolute(request, config.get("mobile_image_url") or config.get("mobileImageUrl")),
-            "visible": True,
-            "isActive": True,
-            "sortOrder": 0,
-        }]
+            if product: url = f"/product/{product.pk}"
+        config["slides"] = [{"id":f"{section.id}-main","title":config.get("title") or section.title,"subtitle":config.get("subtitle") or config.get("description") or "","ctaLabel":config.get("button_label") or config.get("ctaLabel") or "","url":url,"imageUrl":absolute(request,image),"mobileImageUrl":absolute(request,config.get("mobile_image_url") or config.get("mobileImageUrl")),"visible":True,"isActive":True,"sortOrder":0}]
     if section.section_type == "category":
         ids = [int(x) for x in (config.get("category_ids") or []) if str(x).isdigit()]
         if ids:
-            cats = {item.id: item for item in Category.objects.filter(id__in=ids, is_active=True)}
+            cats = {item.id:item for item in Category.objects.filter(id__in=ids,is_active=True)}
             ordered = [cats[x] for x in ids if x in cats]
         else:
-            ordered = list(
-                Category.objects.filter(
-                    is_active=True,
-                    **({"products__vendor": vendor, "products__is_published": True} if vendor else {}),
-                ).distinct().order_by("sort_order", "name")
-            )
+            ordered = list(Category.objects.filter(is_active=True, **({"products__vendor":vendor,"products__is_published":True} if vendor else {})).distinct().order_by("sort_order","name"))
         config["circles"] = category_circles(request, ordered)
         config["category_ids"] = [item.id for item in ordered]
     if section.section_type in {"product_grid", "trend"}:
-        if section.section_type == "trend":
-            config["source"] = "trending"
+        if section.section_type == "trend": config["source"] = "trending"
         if config.get("source") == "category" and not config.get("category_id"):
             config["category_id"] = config.get("source_category_id")
-        config["columns"] = max(1, min(int(config.get("columns", 2) or 2), 6))
-        config["rows"] = max(1, min(int(config.get("rows", 2) or 2), 6))
-        config["scroll"] = bool(config.get("scroll", True))
-        config["products"] = resolve_products(request, vendor, config)
+        config["columns"] = max(1,min(int(config.get("columns",2) or 2),6))
+        config["rows"] = max(1,min(int(config.get("rows",2) or 2),6))
+        config["scroll"] = bool(config.get("scroll",True))
+        config["products"] = resolve_products(request,vendor,config)
         if config.get("show_categories"):
-            config["category_circles"] = vendor_categories(request, vendor) if vendor else category_circles(
-                request,
-                Category.objects.filter(is_active=True).order_by("sort_order", "name"),
-            )
+            config["category_circles"] = vendor_categories(request,vendor) if vendor else category_circles(request,Category.objects.filter(is_active=True).order_by("sort_order","name"))
     return config
 
 
@@ -163,109 +120,27 @@ class DynamicHomeView(APIView):
         vendor = None
         if slug:
             vendor = VendorProfile.objects.filter(slug=slug, status="active").first()
-            if not vendor:
-                return Response({"detail": "المتجر غير موجود"}, status=404)
-            raw_sections = StorefrontSection.objects.filter(vendor=vendor, is_visible=True).order_by("sort_order", "id")
+            if not vendor: return Response({"detail":"المتجر غير موجود"},status=404)
+            raw_sections = StorefrontSection.objects.filter(vendor=vendor,is_visible=True).order_by("sort_order","id")
         else:
-            raw_sections = StorefrontSection.objects.filter(vendor__isnull=True, is_visible=True).order_by("sort_order", "id")
-
-        data = []
+            raw_sections = StorefrontSection.objects.filter(vendor__isnull=True,is_visible=True).order_by("sort_order","id")
+        data=[]
         for section in raw_sections:
-            if (section.config or {}).get("published", True):
-                data.append({
-                    "id": section.id,
-                    "type": section.section_type,
-                    "title": section.title,
-                    "sort_order": section.sort_order,
-                    "is_visible": section.is_visible,
-                    "config": normalize_section_config(request, section, vendor),
-                })
+            if (section.config or {}).get("published",True):
+                data.append({"id":section.id,"type":section.section_type,"title":section.title,"sort_order":section.sort_order,"is_visible":section.is_visible,"config":normalize_section_config(request,section,vendor)})
 
-        # Global categories are always available to the public home. A custom
-        # category section can coexist with them; the editor controls whether
-        # they are duplicated by its ordering/config rather than suppressing data.
-        categories = list(
-            Category.objects.filter(is_active=True).order_by("sort_order", "name")
-            if vendor is None
-            else Category.objects.filter(
-                is_active=True,
-                products__vendor=vendor,
-                products__is_published=True,
-            ).distinct().order_by("sort_order", "name")
-        )
-        if categories and not any(item["type"] == "category" and item["id"] == "system-categories" for item in data):
-            data.append({
-                "id": "system-categories",
-                "type": "category",
-                "title": "الفئات",
-                "sort_order": -100,
-                "is_visible": True,
-                "config": {"circles": category_circles(request, categories)},
-            })
+        categories = list(Category.objects.filter(is_active=True).order_by("sort_order","name") if vendor is None else Category.objects.filter(is_active=True,products__vendor=vendor,products__is_published=True).distinct().order_by("sort_order","name"))
+        if categories and not any(item["id"]=="system-categories" for item in data):
+            data.append({"id":"system-categories","type":"category","title":"الفئات","sort_order":-100,"is_visible":True,"config":{"circles":category_circles(request,categories)}})
 
-        media_qs = StorefrontMedia.objects.filter(is_active=True)
-        if vendor:
-            # Vendor pages can use the global media as a shared fallback while
-            # still receiving their own media if it exists.
-            media = list(media_qs.filter(Q(vendor=vendor) | Q(vendor__isnull=True)).order_by("updated_at", "id"))
-        else:
-            media = list(media_qs.filter(vendor__isnull=True).order_by("updated_at", "id"))
-        if media:
-            represented_media_ids = {
-                str(slide.get("id"))
-                for section in data
-                for slide in (section.get("config", {}).get("slides") or [])
-                if slide.get("id") is not None
-            }
-            legacy_media = [item for item in media if str(item.id) not in represented_media_ids]
-            if legacy_media:
-                data.append({
-                    "id": "system-media",
-                    "type": "banner",
-                    "title": "العروض",
-                    "sort_order": -90,
-                    "is_visible": True,
-                    "config": {
-                        "slides": [
-                            {
-                                "id": item.id,
-                                "title": item.name,
-                                "subtitle": item.alt_text,
-                                "ctaLabel": "استكشف الآن" if item.target_url else "",
-                                "url": item.target_url or "",
-                                "imageUrl": absolute(request, item.image.url) if item.image else "",
-                                "visible": True,
-                                "isActive": True,
-                                "sortOrder": index,
-                            }
-                            for index, item in enumerate(legacy_media)
-                        ]
-                    },
-                })
+        media_qs=StorefrontMedia.objects.filter(is_active=True)
+        media=list(media_qs.filter(Q(vendor=vendor)|Q(vendor__isnull=True)).order_by("updated_at","id") if vendor else media_qs.filter(vendor__isnull=True).order_by("updated_at","id"))
+        represented={str(slide.get("id")) for section in data for slide in (section.get("config",{}).get("slides") or []) if slide.get("id") is not None}
+        legacy_media=[item for item in media if str(item.id) not in represented]
+        if legacy_media:
+            data.append({"id":"system-media","type":"banner","title":"العروض","sort_order":-90,"is_visible":True,"config":{"slides":[{"id":item.id,"title":item.name,"subtitle":item.alt_text,"ctaLabel":"استكشف الآن" if item.target_url else "","url":item.target_url or "","imageUrl":absolute(request,item.image.url) if item.image else "","visible":True,"isActive":True,"sortOrder":index} for index,item in enumerate(legacy_media)]}})
 
-        theme_obj = None
-        if vendor:
-            theme_obj = DesignTheme.objects.filter(Q(vendor=vendor) | Q(is_global=True, is_active=True)).order_by("-vendor_id", "-updated_at").first()
-        else:
-            theme_obj = DesignTheme.objects.filter(is_global=True, is_active=True).order_by("-updated_at").first()
-        theme = {
-            "id": theme_obj.id,
-            "name": theme_obj.name,
-            "tokens": theme_obj.tokens or {},
-            "layout": theme_obj.layout or {},
-        } if theme_obj else None
-
-        data.sort(key=lambda item: (item.get("sort_order", 0), str(item.get("id", ""))))
-        return Response({
-            "success": True,
-            "store": {
-                "id": vendor.id if vendor else None,
-                "store_name": vendor.store_name if vendor else None,
-                "slug": vendor.slug if vendor else None,
-                "description": vendor.description if vendor else None,
-                "logo_url": absolute(request, vendor.logo.url) if vendor and vendor.logo else None,
-                "cover_url": absolute(request, vendor.cover.url) if vendor and vendor.cover else None,
-            },
-            "theme": theme,
-            "data": data,
-        })
+        theme_obj=(DesignTheme.objects.filter(Q(vendor=vendor)|Q(is_global=True,is_active=True)).order_by("-vendor_id","-updated_at").first() if vendor else DesignTheme.objects.filter(is_global=True,is_active=True).order_by("-updated_at").first())
+        theme={"id":theme_obj.id,"name":theme_obj.name,"tokens":theme_obj.tokens or {},"layout":theme_obj.layout or {}} if theme_obj else None
+        data.sort(key=lambda item:(item.get("sort_order",0),str(item.get("id",""))))
+        return Response({"success":True,"store":{"id":vendor.id if vendor else None,"store_name":vendor.store_name if vendor else None,"slug":vendor.slug if vendor else None,"description":vendor.description if vendor else None,"logo_url":absolute(request,vendor.logo.url) if vendor and vendor.logo else None,"cover_url":absolute(request,vendor.cover.url) if vendor and vendor.cover else None},"theme":theme,"data":data})
