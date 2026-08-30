@@ -9,7 +9,8 @@ import { apiCall } from "@/lib/_core/api";
 import { getProducts, type StoreProduct } from "@/lib/product-api";
 
 type Section = { id:number|string; title?:string; type?:string; section_type?:string; sort_order?:number; is_visible?:boolean; config?:Record<string,any> };
-type StorePayload = { store?:{store_name?:string;slug?:string;description?:string;logo_url?:string|null;cover_url?:string|null}|null; theme?:{tokens?:Record<string,any>}|null; data?:Section[] };
+type StorePayload = { store?:{id?:number;store_name?:string;slug?:string;description?:string;logo_url?:string|null;cover_url?:string|null}|null; theme?:{tokens?:Record<string,any>}|null; data?:Section[] };
+type VendorFallback = { id:number; store_name:string; slug:string; description?:string; logo_url?:string|null; cover_url?:string|null; status?:string };
 type Circle = { id?:number|string; title?:string; name?:string; url?:string; targetCategory?:string; imageUrl?:string };
 type Slide = { id?:number|string; title?:string; subtitle?:string; ctaLabel?:string; url?:string; imageUrl?:string; image_url?:string };
 
@@ -19,14 +20,36 @@ export default function StoreScreen() {
   const [data,setData] = useState<StorePayload|null>(null);
   const [products,setProducts] = useState<StoreProduct[]>([]);
   const [loading,setLoading] = useState(true);
+  const [loadError,setLoadError] = useState<string | null>(null);
   useEffect(() => {
     if (!slug) return;
-    Promise.all([apiCall<StorePayload>(`/api/stores/${encodeURIComponent(slug)}/home/`),getProducts()])
-      .then(([home,all]) => { setData(home); setProducts(all.filter(p => p.vendor.slug === slug)); })
-      .catch(() => undefined).finally(() => setLoading(false));
+    let cancelled=false;
+    async function load(){
+      try {
+        setLoading(true); setLoadError(null);
+        const allPromise=getProducts();
+        let home:StorePayload|null=null;
+        try { home=await apiCall<StorePayload>(`/api/stores/${encodeURIComponent(slug)}/home/`); }
+        catch {
+          // Some older deployments exposed the vendor endpoint correctly while the
+          // storefront endpoint was temporarily unavailable. Fall back to the
+          // public vendor record so the store itself remains reachable.
+          const vendor=await apiCall<VendorFallback>(`/api/vendors/${encodeURIComponent(slug)}/`);
+          home={store:vendor,data:[],theme:null};
+        }
+        const all=await allPromise;
+        if(cancelled)return;
+        setData(home); setProducts(all.filter(p=>p.vendor.slug===slug));
+      } catch(error) {
+        if(cancelled)return;
+        setData(null); setProducts([]); setLoadError(error instanceof Error?error.message:"تعذر تحميل المتجر.");
+      } finally { if(!cancelled)setLoading(false); }
+    }
+    void load();
+    return ()=>{cancelled=true};
   },[slug]);
   if (loading) return <ScreenContainer><View style={s.center}><ActivityIndicator color="#E60023"/></View></ScreenContainer>;
-  if (!data?.store) return <ScreenContainer><View style={s.center}><Text>المتجر غير موجود أو غير نشط.</Text></View></ScreenContainer>;
+  if (!data?.store) return <ScreenContainer><View style={s.center}><MaterialIcons name="store-off" size={44} color="#999"/><Text style={s.emptyTitle}>تعذر فتح المتجر</Text><Text style={s.empty}>{loadError||"المتجر غير موجود أو غير نشط."}</Text><TouchableOpacity style={s.backButton} onPress={()=>router.back()}><Text style={s.backText}>العودة</Text></TouchableOpacity></View></ScreenContainer>;
   const store=data.store;
   const primary=String(data.theme?.tokens?.primary ?? "#E60023");
   const background=String(data.theme?.tokens?.background ?? "#F5F5F5");
@@ -60,9 +83,10 @@ function StoreSection({section,products,primary}:{section:Section;products:Store
   const slides:Slide[]=Array.isArray(c.slides)?c.slides:[];
   const circles:Circle[]=Array.isArray(c.circles)?c.circles:[];
   const embedded:Circle[]=Array.isArray(c.category_circles)?c.category_circles:[];
-  const ids:number[]=Array.isArray(c.products)?c.products.map((x:any)=>Number(x?.id)).filter((x:number)=>Number.isFinite(x)):[];
-  const limit=Math.max(2,Number(c.rows??2)*Number(c.columns??2));
-  const selected=ids.length?ids.map(id=>products.find(p=>Number(p.id)===id)).filter(Boolean) as StoreProduct[]:products.slice(0,limit);
+  const productRows=Array.isArray(c.products)?c.products:[];
+  const ids=productRows.map((x:any)=>Number(x?.id)).filter((x:number)=>Number.isFinite(x));
+  const configuredLimit=Math.max(1,Number(c.rows??2)*Number(c.columns??2));
+  const selected=ids.length?ids.map(id=>products.find(p=>Number(p.id)===id)).filter(Boolean) as StoreProduct[]:products.slice(0,configuredLimit);
   if(!["hero","banner","category","product_grid","trend"].includes(type)) return null;
   return (
     <View style={s.section}>
@@ -77,4 +101,4 @@ function StoreSection({section,products,primary}:{section:Section;products:Store
 }
 function CategoryRow({circles,primary}:{circles:Circle[];primary:string}) { return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.circleRow}>{circles.map((circle,index)=><Pressable key={String(circle.id??index)} style={s.circleItem} onPress={()=>openUrl(circle.url??`/collection?category=${encodeURIComponent(String(circle.targetCategory??""))}`)}><View style={[s.circle,{borderColor:`${primary}30`}]}>{circle.imageUrl?<Image source={{uri:String(circle.imageUrl)}} style={StyleSheet.absoluteFillObject}/>:<MaterialIcons name="category" size={24} color={primary}/>}</View><Text numberOfLines={1} style={s.circleText}>{String(circle.title??circle.name??"")}</Text></Pressable>)}</ScrollView>; }
 function openUrl(url?:string){const value=String(url??"").trim();if(value.startsWith("/"))router.push(value as never);}
-const s=StyleSheet.create({center:{flex:1,alignItems:"center",justifyContent:"center"},header:{height:56,paddingHorizontal:16,backgroundColor:"#FFF",flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderColor:"#EEE"},title:{fontSize:16,fontWeight:"900",color:"#111"},page:{padding:12,paddingBottom:80},storeCard:{backgroundColor:"#FFF",borderRadius:14,padding:14,alignItems:"flex-end",marginBottom:10},cover:{width:"100%",height:150,borderRadius:12,marginBottom:10},logo:{width:70,height:70,borderRadius:35,backgroundColor:"#FFF",borderWidth:2,borderColor:"#EEE",alignItems:"center",justifyContent:"center",overflow:"hidden"},logoImage:{width:"100%",height:"100%"},storeName:{fontSize:21,fontWeight:"900",color:"#111",marginTop:8},description:{fontSize:11,lineHeight:18,color:"#666",textAlign:"right",marginTop:5},section:{marginBottom:10},slides:{gap:10},hero:{width:350,height:210,borderRadius:16,overflow:"hidden",backgroundColor:"#EEE",position:"relative"},heroImage:{width:"100%",height:"100%"},placeholder:{flex:1,backgroundColor:"#EEE"},shade:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,.28)"},heroText:{position:"absolute",right:15,bottom:14,maxWidth:"80%",alignItems:"flex-end"},heroTitle:{color:"#FFF",fontSize:21,fontWeight:"900"},heroSub:{color:"#FFF",fontSize:10,lineHeight:16,marginTop:4},button:{backgroundColor:"#FFF",borderWidth:1,borderRadius:18,paddingHorizontal:12,paddingVertical:6,marginTop:7},buttonText:{color:"#111",fontSize:9,fontWeight:"900"},circleRow:{gap:12,paddingVertical:6},circleItem:{width:70,alignItems:"center"},circle:{width:58,height:58,borderRadius:29,borderWidth:2,backgroundColor:"#FFF",alignItems:"center",justifyContent:"center",overflow:"hidden"},circleText:{width:68,marginTop:4,fontSize:9,fontWeight:"800",color:"#333",textAlign:"center"},gridSection:{backgroundColor:"#FFF",borderRadius:14,padding:10},sectionHeader:{flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-between",marginBottom:7},sectionTitle:{fontSize:15,fontWeight:"900",color:"#111"},accent:{width:28,height:4,borderRadius:2},productScroll:{gap:9},horizontalProduct:{width:160},productsTitle:{fontSize:17,fontWeight:"900",color:"#111",textAlign:"right",marginVertical:9},productsGrid:{flexDirection:"row-reverse",flexWrap:"wrap",justifyContent:"space-between",rowGap:10},productCell:{width:"48%"},empty:{padding:30,color:"#888",textAlign:"center"}});
+const s=StyleSheet.create({center:{flex:1,alignItems:"center",justifyContent:"center",padding:28},header:{height:56,paddingHorizontal:16,backgroundColor:"#FFF",flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderColor:"#EEE"},title:{fontSize:16,fontWeight:"900",color:"#111"},page:{padding:12,paddingBottom:80},storeCard:{backgroundColor:"#FFF",borderRadius:14,padding:14,alignItems:"flex-end",marginBottom:10},cover:{width:"100%",height:150,borderRadius:12,marginBottom:10},logo:{width:70,height:70,borderRadius:35,backgroundColor:"#FFF",borderWidth:2,borderColor:"#EEE",alignItems:"center",justifyContent:"center",overflow:"hidden"},logoImage:{width:"100%",height:"100%"},storeName:{fontSize:21,fontWeight:"900",color:"#111",marginTop:8},description:{fontSize:11,lineHeight:18,color:"#666",textAlign:"right",marginTop:5},section:{marginBottom:10},slides:{gap:10},hero:{width:350,height:210,borderRadius:16,overflow:"hidden",backgroundColor:"#EEE",position:"relative"},heroImage:{width:"100%",height:"100%"},placeholder:{flex:1,backgroundColor:"#EEE"},shade:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,.28)"},heroText:{position:"absolute",right:15,bottom:14,maxWidth:"80%",alignItems:"flex-end"},heroTitle:{color:"#FFF",fontSize:21,fontWeight:"900"},heroSub:{color:"#FFF",fontSize:10,lineHeight:16,marginTop:4},button:{backgroundColor:"#FFF",borderWidth:1,borderRadius:18,paddingHorizontal:12,paddingVertical:6,marginTop:7},buttonText:{color:"#111",fontSize:9,fontWeight:"900"},circleRow:{gap:12,paddingVertical:6},circleItem:{width:70,alignItems:"center"},circle:{width:58,height:58,borderRadius:29,borderWidth:2,backgroundColor:"#FFF",alignItems:"center",justifyContent:"center",overflow:"hidden"},circleText:{width:68,marginTop:4,fontSize:9,fontWeight:"800",color:"#333",textAlign:"center"},gridSection:{backgroundColor:"#FFF",borderRadius:14,padding:10},sectionHeader:{flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-between",marginBottom:7},sectionTitle:{fontSize:15,fontWeight:"900",color:"#111"},accent:{width:28,height:4,borderRadius:2},productScroll:{gap:9},horizontalProduct:{width:160},productsTitle:{fontSize:17,fontWeight:"900",color:"#111",textAlign:"right",marginVertical:9},productsGrid:{flexDirection:"row-reverse",flexWrap:"wrap",justifyContent:"space-between",rowGap:10},productCell:{width:"48%"},empty:{padding:30,color:"#888",textAlign:"center"},emptyTitle:{fontSize:17,fontWeight:"900",color:"#222",marginTop:10},backButton:{marginTop:16,paddingHorizontal:20,paddingVertical:10,borderRadius:22,backgroundColor:"#111"},backText:{color:"#FFF",fontWeight:"900"}});
