@@ -1,11 +1,9 @@
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.permissions import SAFE_METHODS
+from django.db.models import Q
 
 from .models import DesignTheme, Product, StorefrontSection, VendorProfile
-from .secure_catalog import (
-    SecureDesignThemeViewSet,
-    SecureProductViewSet,
-    SecureStorefrontSectionViewSet,
-)
+from .secure_catalog import SecureDesignThemeViewSet, SecureProductViewSet, SecureStorefrontSectionViewSet
 from .serializers import ProductSerializer
 
 
@@ -13,24 +11,13 @@ class VendorProductSerializer(ProductSerializer):
     """Keep vendor product edits backward-compatible when the client identifies variants by SKU."""
 
     def to_internal_value(self, data):
-        """Inject existing variant ids before nested validation runs.
-
-        The previous implementation tried to add ids in ``update()``, but DRF
-        validates nested ProductVariant rows before calling ``update``. An edit
-        therefore failed with a 400 when an unchanged variant reused its own SKU.
-        """
         if self.instance is not None and isinstance(data, dict) and "variants" in data and isinstance(data.get("variants"), list):
-            existing_by_sku = {
-                str(variant.sku).strip(): variant.id
-                for variant in self.instance.variants.all()
-                if variant.sku
-            }
+            existing_by_sku = {str(variant.sku).strip(): variant.id for variant in self.instance.variants.all() if variant.sku}
             normalized_rows = []
             for raw_row in data["variants"]:
                 row = dict(raw_row) if isinstance(raw_row, dict) else raw_row
                 if isinstance(row, dict) and not row.get("id"):
-                    sku = str(row.get("sku", "")).strip()
-                    existing_id = existing_by_sku.get(sku)
+                    existing_id = existing_by_sku.get(str(row.get("sku", "")).strip())
                     if existing_id:
                         row["id"] = existing_id
                 normalized_rows.append(row)
@@ -45,20 +32,23 @@ class VendorProductViewSet(SecureProductViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Product.objects.select_related("vendor", "vendor__owner").prefetch_related(
-            "categories", "image_items", "variants"
-        )
+        qs = Product.objects.select_related("vendor", "vendor__owner").prefetch_related("categories", "image_items", "variants")
         if getattr(user, "is_staff", False) or getattr(user, "role", None) == "admin":
             return qs
-        if getattr(user, "role", None) != "vendor":
-            return qs.filter(is_published=True, vendor__status="active")
-        return qs.filter(vendor__owner=user)
+        public_qs = qs.filter(is_published=True, vendor__status="active")
+        if getattr(user, "role", None) == "vendor":
+            own_qs = qs.filter(vendor__owner=user)
+            if self.action in {"retrieve"}:
+                return qs.filter(Q(vendor__owner=user) | Q(is_published=True, vendor__status="active")).distinct()
+            if self.request.query_params.get("mine") in {"1", "true", "yes"}:
+                return own_qs
+            return public_qs
+        return public_qs
 
     def _vendor_for_write(self):
         user = self.request.user
         own_vendor = VendorProfile.objects.filter(owner=user).first()
         requested_id = self.request.data.get("vendor_id")
-
         if user.is_staff or getattr(user, "role", None) == "admin":
             if requested_id:
                 vendor = VendorProfile.objects.filter(id=requested_id).first()
@@ -73,7 +63,6 @@ class VendorProductViewSet(SecureProductViewSet):
             if active.count() == 1:
                 return active.first()
             raise ValidationError({"vendor_id": "حدد المتجر الذي سيُضاف إليه المنتج."})
-
         if getattr(user, "role", None) != "vendor":
             raise PermissionDenied("إدارة المنتجات متاحة للتاجر فقط")
         if not own_vendor:
