@@ -1,6 +1,8 @@
 import base64
 import binascii
+import hashlib
 from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db import transaction
 from rest_framework import serializers
 from .models_extended import ProductVariant
@@ -22,6 +24,34 @@ class VendorApplicationSerializer(serializers.ModelSerializer):
 class DesignThemeSerializer(serializers.ModelSerializer):
  class Meta:
   model=DesignTheme; fields=["id","name","vendor","is_global","is_active","tokens","layout","sections"]; read_only_fields=["id","vendor","is_global"]
+
+ def _persist_data_urls(self, value, theme_id):
+  if isinstance(value, list): return [self._persist_data_urls(item, theme_id) for item in value]
+  if not isinstance(value, dict): return value
+  result = dict(value)
+  request = self.context.get("request")
+  for key, item in list(result.items()):
+   if key in {"imageUrl", "image_url"} and isinstance(item, str) and item.startswith("data:image/") and ";base64," in item:
+    try:
+     header, encoded = item.split(";base64,", 1); mime = header.split("/", 1)[1].split(";", 1)[0].lower() or "jpeg"
+     extension = "jpg" if mime == "jpeg" else mime if mime in {"png", "webp", "gif"} else "jpg"
+     raw = base64.b64decode(encoded, validate=True); digest = hashlib.sha256(raw).hexdigest()[:20]
+     path = f"themes/{theme_id}/{digest}.{extension}"
+     if not default_storage.exists(path): default_storage.save(path, ContentFile(raw))
+     url = default_storage.url(path); result[key] = request.build_absolute_uri(url) if request and url.startswith("/") else url
+    except (ValueError, binascii.Error, TypeError):
+     raise serializers.ValidationError({key: "تعذر حفظ صورة الثيم المرفوعة."})
+   else: result[key] = self._persist_data_urls(item, theme_id)
+  return result
+
+ def create(self, validated_data):
+  validated_data["sections"] = self._persist_data_urls(validated_data.get("sections", []), "new")
+  return super().create(validated_data)
+
+ def update(self, instance, validated_data):
+  if "sections" in validated_data: validated_data["sections"] = self._persist_data_urls(validated_data["sections"], instance.pk)
+  return super().update(instance, validated_data)
+
 class StorefrontSectionSerializer(serializers.ModelSerializer):
  class Meta:
   model=StorefrontSection; fields=["id","title","section_type","vendor","config","sort_order","is_visible"]; read_only_fields=["id"]
