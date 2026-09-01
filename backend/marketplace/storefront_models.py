@@ -1,6 +1,6 @@
+from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import models
-from django.core.exceptions import ValidationError
 
 
 class StorefrontMedia(models.Model):
@@ -10,11 +10,12 @@ class StorefrontMedia(models.Model):
     target_url = models.CharField(max_length=500, blank=True)
     vendor = models.ForeignKey("marketplace.VendorProfile", on_delete=models.CASCADE, null=True, blank=True, related_name="storefront_media")
     is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-updated_at", "id"]
+        ordering = ["sort_order", "-updated_at", "id"]
         indexes = [models.Index(fields=["vendor", "is_active"])]
 
     def clean(self):
