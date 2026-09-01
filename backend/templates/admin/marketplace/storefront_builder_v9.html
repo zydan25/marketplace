@@ -1,0 +1,195 @@
+{% extends "admin/base_site.html" %}
+{% block title %}مصمم واجهة المتجر — Django{% endblock %}
+{% block extrastyle %}
+<style>
+:root{--bg:#f4f7fb;--panel:#fff;--ink:#0f172a;--muted:#64748b;--line:#dbe3ee;--primary:#2563eb;--primary-soft:#eff6ff;--success:#047857;--danger:#b91c1c;--warning:#b45309;--shadow:0 12px 35px rgba(15,23,42,.07);--radius:18px}
+*{box-sizing:border-box}body{background:var(--bg)}button,input,select,textarea{font:inherit}.builder{direction:rtl;max-width:1900px;margin:auto;padding:18px}.heroTop{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;background:linear-gradient(135deg,#fff,#f7fbff);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow);margin-bottom:14px}.heroTop h1{margin:0 0 6px;font-size:25px}.heroTop p{margin:0;line-height:1.85;color:var(--muted);font-size:11px;max-width:800px}.actions{display:flex;gap:7px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;padding:9px 13px;font-size:10px;font-weight:900;cursor:pointer}.btn:hover{border-color:#b8c5d6}.btn:disabled{opacity:.5;cursor:not-allowed}.primary{background:#111827;color:#fff;border-color:#111827}.blue{background:var(--primary);border-color:var(--primary);color:#fff}.green{background:#ecfdf5;border-color:#a7f3d0;color:var(--success)}.danger{color:var(--danger);background:#fff}.dark{background:#0f172a;color:#fff;border-color:#0f172a}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}.stat{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:13px;box-shadow:var(--shadow)}.stat .label{font-size:9px;color:var(--muted);font-weight:900}.stat .value{font-size:22px;font-weight:950;margin-top:5px}.stat .note{font-size:8px;color:var(--muted);margin-top:4px}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(420px,.9fr);gap:14px;align-items:start}.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}.panelHead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}.panelHead h2{margin:0;font-size:13px}.panelHead p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.6}.panelBody{padding:13px}.toolbar{display:grid;grid-template-columns:minmax(180px,1.3fr) 180px 120px auto;gap:8px}.toolbar input,.toolbar select,.field input,.field select,.field textarea,.raw textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 10px;outline:none;font-size:10px}.toolbar input:focus,.toolbar select:focus,.field input:focus,.field select:focus,.field textarea:focus,.raw textarea:focus{border-color:#93c5fd;box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+.sectionList{display:grid;gap:10px}.sectionCard{border:1px solid var(--line);border-radius:16px;background:#fbfdff;overflow:hidden}.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px;border-bottom:1px solid var(--line)}.titleWrap{display:flex;align-items:center;gap:9px;min-width:0}.drag{width:30px;height:30px;border:1px solid var(--line);border-radius:9px;display:grid;place-items:center;color:#64748b;background:#fff;font-size:15px}.sectionName{min-width:0}.sectionName b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sectionName small{display:block;color:var(--muted);font-size:8px;margin-top:3px}.state{font-size:8px;padding:5px 8px;border-radius:999px;background:#fff7ed;color:var(--warning);white-space:nowrap}.state.on{background:#ecfdf5;color:var(--success)}.body{padding:11px;display:grid;gap:10px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.field{display:grid;gap:4px}.field label{font-size:9px;font-weight:950}.field small{color:var(--muted);font-size:8px;line-height:1.5}.switch{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px;font-size:9px;font-weight:800}.switch input{width:18px;height:18px}.miniActions{display:flex;gap:7px;flex-wrap:wrap}.mini{padding:7px 9px;font-size:9px}.details{border:1px solid var(--line);border-radius:11px;background:#fff;overflow:hidden}.details summary{cursor:pointer;padding:10px;font-size:10px;font-weight:950}.detailsBody{padding:10px;border-top:1px solid var(--line);display:grid;gap:9px}.hint{padding:9px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:10px;font-size:9px;line-height:1.7}.raw textarea{min-height:280px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;font-size:9px;line-height:1.5}
+.previewWrap{position:sticky;top:12px}.devices{display:flex;justify-content:center;gap:6px;padding:11px;border-bottom:1px solid var(--line)}.devices button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 10px;font-size:9px;cursor:pointer}.devices button.active{background:#111827;color:#fff;border-color:#111827}.previewStage{padding:12px}.screen{margin:auto;background:#f7f9fc;border:8px solid #0f172a;border-radius:28px;overflow:auto;height:780px;box-shadow:0 18px 40px rgba(15,23,42,.15)}.screen.desktop{width:100%;max-width:820px}.screen.tablet{width:720px;max-width:100%}.screen.mobile{width:390px;max-width:100%}.storeHeader{padding:12px;background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:4}.storeSearch{display:flex;gap:6px;align-items:center}.storeSearch input{flex:1;border:1px solid #e5e7eb;border-radius:999px;padding:9px 12px;font-size:10px}.storeSearch button{border:0;background:#111827;color:#fff;border-radius:999px;padding:9px 12px;font-size:9px}.previewSection{margin:10px;border:1px solid #e5e7eb;background:#fff;border-radius:15px;overflow:hidden}.previewHero{height:180px;background:linear-gradient(135deg,#dbeafe,#eef2ff);display:flex;align-items:flex-end;padding:14px;position:relative;background-size:cover;background-position:center}.previewHero:after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.18)}.previewHeroContent{position:relative;z-index:2;color:#fff;max-width:80%}.previewHero h3{margin:0;font-size:18px}.previewHero p{margin:4px 0;font-size:9px}.previewHero button{border:0;background:#fff;color:#111827;border-radius:999px;padding:7px 10px;font-size:8px;font-weight:900}.previewBody{padding:10px}.previewTitle{font-size:12px;font-weight:950;margin-bottom:8px}.fakeGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}.fakeCard{border:1px solid #e5e7eb;border-radius:11px;overflow:hidden;background:#fff}.fakeCard .pic{height:95px;background:#f1f5f9}.fakeCard b{display:block;font-size:9px;padding:7px 7px 0}.fakeCard span{display:block;font-size:8px;color:#64748b;padding:3px 7px 8px}.chipRow{display:flex;gap:6px;overflow:auto}.chip{background:#f1f5f9;padding:7px 10px;border-radius:999px;font-size:8px;white-space:nowrap}.assetGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:8px}.asset{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}.asset img{display:block;width:100%;height:70px;object-fit:cover;background:#f8fafc}.asset p{margin:0;padding:6px;font-size:8px;font-weight:800}.empty{padding:22px;color:var(--muted);font-size:10px;text-align:center}.toast{position:fixed;left:16px;bottom:16px;background:#111827;color:#fff;padding:11px 13px;border-radius:11px;font-size:10px;display:none;z-index:500;box-shadow:0 12px 30px rgba(0,0,0,.18)}.toast.show{display:block}.dirty{color:var(--warning);font-weight:900}.ok{color:var(--success);font-weight:900}
+@media(max-width:1200px){.stats{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}.previewWrap{position:static}.screen{height:680px}}
+@media(max-width:760px){.builder{padding:8px}.heroTop{display:block;padding:14px}.heroTop .actions{margin-top:10px}.stats{grid-template-columns:1fr 1fr;gap:8px}.grid2,.row3,.row4,.toolbar{grid-template-columns:1fr}.row2{grid-template-columns:1fr}.panelHead{display:block}.panelHead .actions{margin-top:9px}.screen{height:600px}.assetGrid{grid-template-columns:repeat(2,1fr)}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="builder">
+  <section class="heroTop">
+    <div>
+      <div style="font-size:9px;color:var(--primary);font-weight:950;letter-spacing:.08em">DJANGO STOREFRONT STUDIO V9</div>
+      <h1>مصمم واجهة المتجر المتكامل — Django</h1>
+      <p>نسخة خادمية كاملة تعمل على نفس StorefrontSection الذي يستخدمه تطبيق العميل وواجهة الإدارة الحديثة. هذه اللوحة تضيف طبقة تحكم تفصيلية: حقول مرئية + محرر JSON كامل، مع حفظ ونشر ونسخ وحذف وإعادة ترتيب ورفع الصور، لذلك لا تفقد أي إعداد متقدم غير ظاهر في النماذج المختصرة.</p>
+    </div>
+    <div class="actions">
+      <a class="btn" href="/admin/dashboard/">مركز الإدارة</a>
+      <a class="btn" href="/admin/marketplace/storefront-editor/">المحرر السابق</a>
+      <button class="btn dark" id="refreshBtn">↻ مزامنة</button>
+      <button class="btn blue" id="saveAllBtn">حفظ الكل</button>
+      <button class="btn green" id="publishAllBtn">نشر الكل</button>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><div class="label">إجمالي الأقسام</div><div class="value" id="statSections">{{ sections|length }}</div><div class="note">من StorefrontSection</div></div>
+    <div class="stat"><div class="label">الأقسام المنشورة</div><div class="value" id="statPublished">0</div><div class="note">مرئية حاليًا</div></div>
+    <div class="stat"><div class="label">الفئات المتاحة</div><div class="value" id="statCats">0</div><div class="note">من الكتالوج الفعلي</div></div>
+    <div class="stat"><div class="label">المنتجات المتاحة</div><div class="value" id="statProducts">0</div><div class="note">حتى 500 عنصر للمحرر</div></div>
+    <div class="stat"><div class="label">حالة التحرير</div><div class="value" id="statDirty">جاهز</div><div class="note">الحفظ مباشر على Django</div></div>
+  </section>
+
+  <section class="panel" style="margin-bottom:14px">
+    <div class="panelHead"><div><h2>إضافة قسم جديد</h2><p>أنشئ القسم من الخادم ثم افتح محرره التفصيلي. يدعم نفس الأنواع المستخدمة في StorefrontRenderer.</p></div></div>
+    <div class="panelBody toolbar">
+      <input id="newTitle" placeholder="اسم القسم — مثال: عروض الصيف أو وصل حديثًا">
+      <select id="newType">{% for key,label in section_types.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+      <input id="newOrder" type="number" min="1" placeholder="الترتيب">
+      <button class="btn primary" id="addBtn">+ إنشاء القسم</button>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="panelHead">
+        <div><h2>مخطط الصفحة والأقسام</h2><p>لكل قسم حالة، ترتيب، ظهور، إعدادات أساسية، إعدادات متقدمة، وJSON خام. استخدم الأسهم لإعادة الترتيب ثم احفظ الترتيب.</p></div>
+        <div class="actions"><button class="btn mini" id="autoOrderBtn">ترقيم تلقائي</button><button class="btn mini" id="saveOrderBtn">حفظ الترتيب</button></div>
+      </div>
+      <div class="panelBody">
+        <div class="sectionList" id="sections">
+        {% for section in sections %}
+          <article class="sectionCard" data-id="{{ section.id }}" data-config="{{ section.builder_config_json|escapejs }}">
+            <div class="sectionHead">
+              <div class="titleWrap"><div class="drag">☷</div><div class="sectionName"><b class="headline">{{ section.title|default:"قسم بدون عنوان" }}</b><small>{{ section.section_type }} · رقم {{ section.sort_order }}</small></div></div>
+              <div class="actions"><input class="order" style="width:66px;border:1px solid var(--line);border-radius:9px;padding:7px;text-align:center;font-size:9px" type="number" min="1" value="{{ section.sort_order }}"><span class="state {% if section.is_visible %}on{% endif %}">{% if section.is_visible %}منشور{% else %}مسودة{% endif %}</span></div>
+            </div>
+            <div class="body">
+              <div class="row3">
+                <div class="field"><label>اسم القسم</label><input class="title" value="{{ section.title|escape }}"></div>
+                <div class="field"><label>نوع القسم</label><select class="type">{% for key,label in section_types.items %}<option value="{{ key }}" {% if key == section.section_type %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+                <label class="switch">ظاهر للعميل <input class="visible" type="checkbox" {% if section.is_visible %}checked{% endif %}></label>
+              </div>
+              <div class="editor" data-editor></div>
+              <div class="actions">
+                <button class="btn primary save">حفظ</button><button class="btn duplicate">نسخ</button><button class="btn green toggle">نشر / مسودة</button><button class="btn danger delete">حذف</button>
+              </div>
+            </div>
+          </article>
+        {% empty %}<div class="empty">لا توجد أقسام بعد. أنشئ أول قسم من الأعلى.</div>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <aside class="previewWrap">
+      <section class="panel">
+        <div class="panelHead"><div><h2>المعاينة الحية</h2><p>تقريب بصري للتركيب الناتج من نفس JSON الذي سيتم إرساله إلى StorefrontRenderer.</p></div><span id="previewState" class="ok">متزامنة</span></div>
+        <div class="devices"><button class="active" data-mode="desktop">سطح مكتب</button><button data-mode="tablet">لوحي</button><button data-mode="mobile">هاتف</button></div>
+        <div class="previewStage"><div id="screen" class="screen desktop"><div class="storeHeader"><div class="storeSearch"><input placeholder="ابحث عن منتج أو متجر"><button>بحث</button></div></div><div id="previewBody"></div></div></div>
+      </section>
+      <section class="panel" style="margin-top:14px">
+        <div class="panelHead"><div><h2>أصول الكتالوج</h2><p>صور ووسائط وفئات موجودة فعليًا ويمكن الرجوع إليها أثناء التصميم.</p></div></div>
+        <div class="panelBody" id="assets"></div>
+      </section>
+    </aside>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+{{ catalog_json|json_script:"catalog-data" }}
+<script>const C=JSON.parse(document.getElementById('catalog-data').textContent||'{}');</script>
+<script>
+(()=>{
+  const root=document;
+  const list=document.getElementById('sections');
+  const toast=document.getElementById('toast');
+  const preview=document.getElementById('previewBody');
+  const state=document.getElementById('statDirty');
+  const previewState=document.getElementById('previewState');
+  const defaults={published:false,subtitle:"",description:"",image_url:"",mobile_image_url:"",image_position:"center",image_fit:"cover",aspect_ratio:"16:7",overlay:true,overlay_opacity:30,text_position:"center",text_align:"center",button_label:"",target_type:"none",target_url:"",target_id:"",source:"latest",source_category_id:"",category:"",category_slug:"",vendor_slug:"",category_ids:[],product_ids:[],limit:8,columns_desktop:4,columns_tablet:3,columns_mobile:2,show_images:true,show_names:true,show_prices:true,show_discount:true,show_rating:false,show_arrows:true,mobile_scroll:false,card_style:"card",image_shape:"rounded",background:"#ffffff",text_color:"#111827",section_padding:"medium",full_width:true,tabs:[],slides:[],circles:[],cards:[],actions:[],promo:{enabled:false},__editor_version:9};
+  const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c]));
+  const arr=v=>Array.isArray(v)?v:[];
+  const obj=v=>(v&&typeof v==='object'&&!Array.isArray(v))?v:{};
+  const csrf=()=>((document.cookie.match(/(?:^|; )csrftoken=([^;]+)/)||[])[1]||'');
+  const notify=m=>{toast.textContent=m;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2600)};
+  const markDirty=()=>{state.textContent='غير محفوظ';state.className='value dirty';previewState.textContent='قيد التحديث';previewState.className='dirty'};
+  const markSaved=()=>{state.textContent='جاهز';state.className='value ok';previewState.textContent='متزامنة';previewState.className='ok'};
+  const cfg=card=>{try{return {...defaults,...JSON.parse(card.dataset.config||'{}')}}catch{return {...defaults}}};
+  const put=(c,k,v)=>{c[k]=v;return c};
+  const text=(c,k,d='')=>esc(c[k]??d);
+  const check=(c,k,d=false)=>!!(c[k]??d)?'checked':'';
+  function editorHTML(c){
+    const categories=arr(C.categories),products=arr(C.products);
+    return `<details open class="details"><summary>المحتوى الأساسي</summary><div class="detailsBody">
+      <div class="row2"><div class="field"><label>العنوان</label><input data-k="title" value="${text(c,'title','')}"></div><div class="field"><label>العنوان الفرعي</label><input data-k="subtitle" value="${text(c,'subtitle','')}"></div></div>
+      <div class="row2"><div class="field"><label>وصف</label><textarea rows="3" data-k="description">${text(c,'description','')}</textarea></div><div class="field"><label>نص الزر</label><input data-k="button_label" value="${text(c,'button_label','')}"></div></div>
+    </div></details>
+    <details class="details"><summary>الصور والهوية البصرية</summary><div class="detailsBody">
+      <div class="row2"><div class="field"><label>رابط صورة سطح المكتب</label><input data-k="image_url" value="${text(c,'image_url')}"><small>يمكن لاحقًا استخدام زر رفع الصورة في محرر الصور العام.</small></div><div class="field"><label>رابط صورة الهاتف</label><input data-k="mobile_image_url" value="${text(c,'mobile_image_url')}"></div></div>
+      <div class="row4"><div class="field"><label>الخلفية</label><input data-k="background" value="${text(c,'background','#ffffff')}"></div><div class="field"><label>لون النص</label><input data-k="text_color" value="${text(c,'text_color','#111827')}"></div><div class="field"><label>شكل الصورة</label><select data-k="image_shape"><option value="rounded" ${c.image_shape==='rounded'?'selected':''}>مستديرة</option><option value="square" ${c.image_shape==='square'?'selected':''}>مربعة</option><option value="circle" ${c.image_shape==='circle'?'selected':''}>دائرية</option></select></div><div class="field"><label>ملء الصورة</label><select data-k="image_fit"><option value="cover" ${c.image_fit==='cover'?'selected':''}>Cover</option><option value="contain" ${c.image_fit==='contain'?'selected':''}>Contain</option><option value="fill" ${c.image_fit==='fill'?'selected':''}>Fill</option></select></div></div>
+    </div></details>
+    <details class="details"><summary>مصدر المحتوى والكتالوج</summary><div class="detailsBody">
+      <div class="row3"><div class="field"><label>المصدر</label><select data-k="source"><option value="latest" ${c.source==='latest'?'selected':''}>الأحدث</option><option value="trending" ${c.source==='trending'?'selected':''}>الرائج</option><option value="best_selling" ${c.source==='best_selling'?'selected':''}>الأكثر مبيعًا</option><option value="discounts" ${c.source==='discounts'?'selected':''}>التخفيضات</option><option value="category" ${c.source==='category'?'selected':''}>فئة محددة</option></select></div><div class="field"><label>فئة المصدر</label><select data-k="source_category_id"><option value="">لا يوجد</option>${categories.map(x=>`<option value="${x.id}" ${String(c.source_category_id)===String(x.id)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div><div class="field"><label>الحد الأقصى للعناصر</label><input type="number" data-k="limit" value="${Number(c.limit??8)}"></div></div>
+      <div class="row3"><div class="field"><label>عدد أعمدة سطح المكتب</label><input type="number" data-k="columns_desktop" min="1" max="8" value="${Number(c.columns_desktop??4)}"></div><div class="field"><label>عدد أعمدة اللوحي</label><input type="number" data-k="columns_tablet" min="1" max="6" value="${Number(c.columns_tablet??3)}"></div><div class="field"><label>عدد أعمدة الهاتف</label><input type="number" data-k="columns_mobile" min="1" max="4" value="${Number(c.columns_mobile??2)}"></div></div>
+      <div class="row2"><div class="field"><label>معرّفات الفئات — JSON</label><textarea rows="3" data-json="category_ids">${esc(JSON.stringify(arr(c.category_ids),null,2))}</textarea></div><div class="field"><label>معرّفات المنتجات — JSON</label><textarea rows="3" data-json="product_ids">${esc(JSON.stringify(arr(c.product_ids),null,2))}</textarea></div></div>
+    </div></details>
+    <details class="details"><summary>السلوك والتوجيه والظهور</summary><div class="detailsBody">
+      <div class="row4"><label class="switch">الصور <input type="checkbox" data-bool="show_images" ${check(c,'show_images',true)}></label><label class="switch">الأسماء <input type="checkbox" data-bool="show_names" ${check(c,'show_names',true)}></label><label class="switch">الأسعار <input type="checkbox" data-bool="show_prices',true)}></label><label class="switch">التخفيض <input type="checkbox" data-bool="show_discount" ${check(c,'show_discount',true)}></label></div>
+      <div class="row4"><label class="switch">التقييم <input type="checkbox" data-bool="show_rating" ${check(c,'show_rating')}></label><label class="switch">الأسهم <input type="checkbox" data-bool="show_arrows" ${check(c,'show_arrows',true)}></label><label class="switch">تمرير الهاتف <input type="checkbox" data-bool="mobile_scroll" ${check(c,'mobile_scroll')}></label><label class="switch">عرض كامل العرض <input type="checkbox" data-bool="full_width" ${check(c,'full_width',true)}></label></div>
+      <div class="row2"><div class="field"><label>نوع التوجيه</label><select data-k="target_type"><option value="none" ${c.target_type==='none'?'selected':''}>بدون</option><option value="url" ${c.target_type==='url'?'selected':''}>رابط مباشر</option><option value="product" ${c.target_type==='product'?'selected':''}>منتج</option><option value="category" ${c.target_type==='category'?'selected':''}>فئة</option><option value="section" ${c.target_type==='section'?'selected':''}>قسم</option></select></div><div class="field"><label>الرابط أو المعرّف</label><input data-k="target_url" value="${text(c,'target_url')}"></div></div>
+    </div></details>
+    <details class="details"><summary>Hero / Banner المتقدم</summary><div class="detailsBody">
+      <div class="row4"><label class="switch">Overlay <input type="checkbox" data-bool="overlay" ${check(c,'overlay',true)}></label><div class="field"><label>شفافية Overlay</label><input type="number" data-k="overlay_opacity" min="0" max="100" value="${Number(c.overlay_opacity??30)}"></div><div class="field"><label>موضع الصورة</label><input data-k="image_position" value="${text(c,'image_position','center')}"></div><div class="field"><label>نسبة الأبعاد</label><input data-k="aspect_ratio" value="${text(c,'aspect_ratio','16:7')}"></div></div>
+      <div class="field"><label>Slides — JSON كامل</label><textarea rows="7" data-json="slides">${esc(JSON.stringify(arr(c.slides),null,2))}</textarea><small>كل عنصر يمكن أن يحتوي title/subtitle/ctaLabel/url/imageUrl/mobileImageUrl/visible/isActive/sortOrder وأي مفاتيح إضافية يحتاجها العميل.</small></div>
+    </div></details>
+    <details class="details"><summary>Tabs / دوائر / بطاقات / عروض</summary><div class="detailsBody">
+      <div class="field"><label>Tabs — JSON</label><textarea rows="5" data-json="tabs">${esc(JSON.stringify(arr(c.tabs),null,2))}</textarea></div>
+      <div class="field"><label>Circles — JSON</label><textarea rows="5" data-json="circles">${esc(JSON.stringify(arr(c.circles),null,2))}</textarea></div>
+      <div class="field"><label>Cards — JSON</label><textarea rows="5" data-json="cards">${esc(JSON.stringify(arr(c.cards),null,2))}</textarea></div>
+      <div class="field"><label>Promo — JSON</label><textarea rows="5" data-json-object="promo">${esc(JSON.stringify(obj(c.promo),null,2))}</textarea></div>
+    </div></details>
+    <details class="details"><summary>JSON الخام — الوضع المتقدم</summary><div class="detailsBody"><div class="raw"><textarea class="rawJson" spellcheck="false">${esc(JSON.stringify(c,null,2))}</textarea></div><div class="hint">هذه المنطقة هي الضمانة الأساسية لعدم فقد أي مفتاح مستقبلي. يمكنك تعديل أي خاصية يدويًا، ثم حفظها كما هي. التطبيق وDjango يعتمدان نفس العقد JSON.</div></div></details>`;
+  }
+  function hydrateCard(card){
+    const c=cfg(card); const host=card.querySelector('.editor'); host.innerHTML=editorHTML(c); bindInputs(card); renderPreview(); updateStats();
+  }
+  function readCard(card){
+    let c=cfg(card); 
+    card.querySelectorAll('[data-k]').forEach(el=>{const k=el.dataset.k; let v=el.value; if(el.type==='number')v=Number(v); c[k]=v});
+    card.querySelectorAll('[data-bool]').forEach(el=>c[el.dataset.bool]=!!el.checked);
+    card.querySelectorAll('[data-json]').forEach(el=>{try{c[el.dataset.json]=JSON.parse(el.value||'[]')}catch{throw new Error('JSON غير صالح: '+el.dataset.json)}});
+    card.querySelectorAll('[data-json-object]').forEach(el=>{try{c[el.dataset.jsonObject]=JSON.parse(el.value||'{}')}catch{throw new Error('JSON غير صالح: '+el.dataset.jsonObject)}});
+    const raw=card.querySelector('.rawJson'); if(raw){try{c=Object.assign({},c,JSON.parse(raw.value||'{}'))}catch{throw new Error('JSON الخام غير صالح')}}
+    c.__editor_version=9; return c;
+  }
+  function bindInputs(card){card.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',()=>{markDirty();renderPreview()}));}
+  async function post(url,body,files){const r=await fetch(url,{method:'POST',headers:files?{'X-CSRFToken':decodeURIComponent(csrf())}:{'Content-Type':'application/json','X-CSRFToken':decodeURIComponent(csrf())},body:files?body:JSON.stringify(body)});const data=await r.json().catch(()=>({detail:'استجابة غير مفهومة'}));if(!r.ok)throw new Error(data.detail||'فشل الطلب');return data}
+  async function saveCard(card,action='save'){
+    try{const c=readCard(card);const payload={action,title:card.querySelector('.title').value.trim()||'قسم بدون عنوان',section_type:card.querySelector('.type').value,sort_order:Number(card.querySelector('.order').value)||1,is_visible:card.querySelector('.visible').checked,config:c};
+      const data=await post(`/admin/marketplace/storefront-builder/${card.dataset.id}/save/`,payload); card.dataset.config=JSON.stringify(data.config||c);card.querySelector('.headline').textContent=payload.title;card.querySelector('.state').className='state '+(data.published?'on':'');card.querySelector('.state').textContent=data.published?'منشور':'مسودة';notify('تم الحفظ بنجاح');markSaved();renderPreview();updateStats();
+    }catch(e){notify(e.message)}
+  }
+  async function duplicateCard(card){try{const data=await post(`/admin/marketplace/storefront-builder/${card.dataset.id}/duplicate/`,{action:'duplicate'});notify('تم نسخ القسم برقم '+data.id);location.reload()}catch(e){notify(e.message)}}
+  async function toggleCard(card){try{const current=cfg(card).published;const data=await post(`/admin/marketplace/storefront-builder/${card.dataset.id}/${current?'save':'publish'}/`,{action:current?'unpublish':'publish'});card.dataset.config=JSON.stringify(data.config||cfg(card));card.querySelector('.visible').checked=!!data.published;hydrateCard(card);notify(data.published?'تم النشر':'تم تحويل القسم إلى مسودة');markSaved()}catch(e){notify(e.message)}}
+  async function deleteCard(card){if(!confirm('سيتم حذف القسم نهائيًا من قاعدة البيانات. متابعة؟'))return;try{await post(`/admin/marketplace/storefront-builder/${card.dataset.id}/delete/`,{action:'delete'});card.remove();notify('تم حذف القسم');updateStats();renderPreview()}catch(e){notify(e.message)}}
+  function bindCard(card){hydrateCard(card);card.querySelector('.save').onclick=()=>saveCard(card);card.querySelector('.duplicate').onclick=()=>duplicateCard(card);card.querySelector('.delete').onclick=()=>deleteCard(card);card.querySelector('.toggle').onclick=()=>toggleCard(card);card.querySelector('.title').addEventListener('input',()=>{card.querySelector('.headline').textContent=card.querySelector('.title').value;markDirty()});card.querySelector('.type').addEventListener('change',()=>{markDirty();renderPreview()});card.querySelector('.order').addEventListener('input',markDirty);card.querySelector('.visible').addEventListener('input',markDirty)}
+  root.querySelectorAll('.sectionCard').forEach(bindCard);
+  function cardConfigs(){return [...root.querySelectorAll('.sectionCard')].map(card=>{try{return {...readCard(card),_card:card}}catch{return {...cfg(card),_card:card}}})}
+  function renderPreview(){preview.innerHTML='';const cards=cardConfigs().filter(x=>x._card.querySelector('.visible').checked);if(!cards.length){preview.innerHTML='<div class="empty">لا توجد أقسام مرئية للمعاينة.</div>';return}cards.sort((a,b)=>Number(a._card.querySelector('.order').value)-Number(b._card.querySelector('.order').value));cards.forEach(c=>{const t=String(c._card.querySelector('.type').value).toLowerCase();const sec=document.createElement('section');sec.className='previewSection';if(['hero','banner'].includes(t)){const s=arr(c.slides)[0]||c;sec.innerHTML=`<div class="previewHero" style="background-image:url('${esc(s.imageUrl||c.image_url||'')}')"><div class="previewHeroContent"><h3>${esc(s.title||c._card.querySelector('.title').value||'عرض رئيسي')}</h3><p>${esc(s.subtitle||c.subtitle||'')}</p>${(s.ctaLabel||c.button_label)?'<button>'+esc(s.ctaLabel||c.button_label)+'</button>':''}</div></div>`}
+      else if(['category','category_grid','category_bar'].includes(t)){const names=arr(C.categories).slice(0,Math.max(1,Number(c.limit||8)));sec.innerHTML=`<div class="previewBody"><div class="previewTitle">${esc(c._card.querySelector('.title').value||'الفئات')}</div><div class="chipRow">${names.map(x=>`<span class="chip">${esc(x.name)}</span>`).join('')}</div></div>`}
+      else if(['product_grid','trend'].includes(t)){const ps=arr(C.products).slice(0,Math.min(8,Math.max(1,Number(c.limit||4))));sec.innerHTML=`<div class="previewBody"><div class="previewTitle">${esc(c._card.querySelector('.title').value||'المنتجات')}</div><div class="fakeGrid">${ps.map(x=>`<div class="fakeCard"><div class="pic"></div><b>${esc(x.name)}</b><span>${esc(x.vendor||'')}</span></div>`).join('')}</div></div>`}
+      else if(['tab','tabs'].includes(t)){const items=arr(c.tabs).length?c.tabs:arr(c.items);sec.innerHTML=`<div class="previewBody"><div class="chipRow">${items.map(x=>`<span class="chip">${esc(x.title||x.label||'تبويب')}</span>`).join('')}</div></div>`}
+      else {sec.innerHTML=`<div class="previewBody"><div class="previewTitle">${esc(c._card.querySelector('.title').value||t)}</div><div class="hint">نوع القسم: ${esc(t)}<br>يتم تحميل العرض الفعلي من StorefrontRenderer عند فتح متجر العميل.</div></div>`}
+      preview.appendChild(sec);
+    });
+  }
+  function updateStats(){const cards=[...root.querySelectorAll('.sectionCard')];document.getElementById('statSections').textContent=cards.length;document.getElementById('statPublished').textContent=cards.filter(c=>c.querySelector('.visible').checked).length;document.getElementById('statCats').textContent=arr(C.categories).length;document.getElementById('statProducts').textContent=arr(C.products).length}
+  function reorder(auto){const cards=[...root.querySelectorAll('.sectionCard')];cards.forEach((c,i)=>{c.querySelector('.order').value=i+1});if(auto){cards.forEach((c,i)=>c.querySelector('.sectionName small').textContent=`${c.querySelector('.type').value} · رقم ${i+1}`);markDirty();renderPreview()}}
+  document.getElementById('autoOrderBtn').onclick=()=>reorder(true);
+  document.getElementById('saveOrderBtn').onclick=async()=>{try{const items=[...root.querySelectorAll('.sectionCard')].map(c=>({id:Number(c.dataset.id),order:Number(c.querySelector('.order').value)||1}));await post('/admin/marketplace/storefront-builder/reorder/',{items});notify('تم حفظ ترتيب الأقسام');markSaved()}catch(e){notify(e.message)}};
+  document.getElementById('saveAllBtn').onclick=async()=>{for(const c of [...root.querySelectorAll('.sectionCard')])await saveCard(c)};
+  document.getElementById('publishAllBtn').onclick=async()=>{for(const c of [...root.querySelectorAll('.sectionCard')]){c.querySelector('.visible').checked=true;const cc=cfg(c);cc.published=true;c.dataset.config=JSON.stringify(cc);try{await post(`/admin/marketplace/storefront-builder/${c.dataset.id}/save/`,{action:'publish'})}catch(e){notify(e.message)}}location.reload()};
+  document.getElementById('refreshBtn').onclick=()=>location.reload();
+  document.getElementById('addBtn').onclick=async()=>{try{const title=document.getElementById('newTitle').value.trim();const section_type=document.getElementById('newType').value;const sort_order=Number(document.getElementById('newOrder').value)||0;const data=await post('/admin/marketplace/storefront-builder/create/',{title,section_type,sort_order});notify('تم إنشاء القسم '+data.id);location.reload()}catch(e){notify(e.message)}};
+  document.querySelectorAll('[data-mode]').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('[data-mode]').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.getElementById('screen').className='screen '+btn.dataset.mode});
+  const assets=document.getElementById('assets');const media=arr((C.global||{}).media);const cats=arr((C.global||{}).categories);assets.innerHTML=`<div class="hint">${cats.length} فئة و${media.length} وسائط عامة متاحة. هذه البيانات للمرجع ولا تغيّر محتوى المتجر حتى تحفظ قسمًا.</div><div class="assetGrid">${media.slice(0,12).map(m=>`<div class="asset">${m.image?`<img src="${esc(m.image)}" alt="">`:''}<p>${esc(m.name||m.alt_text||'وسيط')}</p></div>`).join('')}</div>`;
+  updateStats();renderPreview();markSaved();
+})();
+</script>
+{% endblock %}
