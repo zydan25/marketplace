@@ -59,6 +59,9 @@ export default function RootLayout() {
             <Stack.Screen name="admin/products" />
             <Stack.Screen name="admin/storefront" />
             <Stack.Screen name="admin/storefront-designer" />
+            <Stack.Screen name="admin/theme-builder" />
+            <Stack.Screen name="admin/theme-library" />
+            <Stack.Screen name="admin/storefront-sections" />
             <Stack.Screen name="product/[id]" />
             <Stack.Screen name="search" />
             <Stack.Screen name="checkout" options={{ presentation: "fullScreenModal" }} />
