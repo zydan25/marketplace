@@ -126,6 +126,32 @@ class SecureDesignThemeViewSet(viewsets.ModelViewSet):
             raise ValidationError("لا يوجد متجر نشط مرتبط بالحساب")
         return vendor
 
+    def _persist_theme_media(self, value, theme_id):
+        if isinstance(value, list):
+            return [self._persist_theme_media(item, theme_id) for item in value]
+        if not isinstance(value, dict):
+            return value
+        result = {}
+        request = self.request
+        for key, item in value.items():
+            if key in {"imageUrl", "image_url"} and isinstance(item, str) and item.startswith("data:image/") and ";base64," in item:
+                try:
+                    header, encoded = item.split(";base64,", 1)
+                    mime = header.split("/", 1)[1].split(";", 1)[0].lower() or "jpeg"
+                    extension = "jpg" if mime == "jpeg" else mime if mime in {"png", "webp", "gif"} else "jpg"
+                    raw = base64.b64decode(encoded, validate=True)
+                    digest = hashlib.sha256(raw).hexdigest()[:20]
+                    name = f"themes/{theme_id}/{digest}.{extension}"
+                    if not default_storage.exists(name):
+                        default_storage.save(name, ContentFile(raw))
+                    url = default_storage.url(name)
+                    result[key] = request.build_absolute_uri(url) if request and url.startswith("/") else url
+                except (ValueError, binascii.Error, TypeError):
+                    raise ValidationError({key: "تعذر حفظ صورة التصميم. تأكد من أن الملف صورة صالحة."})
+            else:
+                result[key] = self._persist_theme_media(item, theme_id)
+        return result
+
     @action(detail=False, methods=["get"])
     def presets(self, request):
         if not (request.user.is_staff or request.user.role == "admin"):
@@ -181,12 +207,6 @@ class SecureDesignThemeViewSet(viewsets.ModelViewSet):
         theme.save(update_fields=["is_active", "updated_at"])
         return Response(DesignThemeSerializer(theme).data)
 
-    def _vendor_queryset(self):
-        vendor = VendorProfile.objects.filter(owner=self.request.user, status="active").first()
-        if not vendor:
-            raise ValidationError("لا يوجد متجر نشط مرتبط بالحساب")
-        return vendor
-
     def perform_create(self, serializer):
         user = self.request.user
         if user.is_staff or user.role == "admin":
@@ -201,9 +221,13 @@ class SecureDesignThemeViewSet(viewsets.ModelViewSet):
         instance = serializer.instance
         user = self.request.user
         if user.is_staff or user.role == "admin":
+            if "sections" in serializer.validated_data:
+                serializer.validated_data["sections"] = self._persist_theme_media(serializer.validated_data["sections"], instance.pk)
             serializer.save()
             return
         if instance.vendor_id and instance.vendor.owner_id == user.id and not instance.is_global:
+            if "sections" in serializer.validated_data:
+                serializer.validated_data["sections"] = self._persist_theme_media(serializer.validated_data["sections"], instance.pk)
             serializer.save(vendor=instance.vendor, is_global=False)
             return
         raise PermissionDenied("لا يمكنك تعديل هذا التصميم")
