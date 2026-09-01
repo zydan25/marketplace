@@ -9,6 +9,7 @@ from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
 from marketplace.root_views import landing_page
 from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
+from marketplace.visual_storefront_v9 import visual_editor_v9
 
 
 def legacy_user_admin_redirect(request, rest=""):
@@ -35,11 +36,18 @@ urlpatterns = [
     path("admin/dashboard/resource/<slug:resource>/<int:pk>/delete/", resource_delete, name="admin-crud-delete"),
     path("admin/marketplace/user/", legacy_user_admin_redirect, name="legacy-marketplace-user-admin"),
     path("admin/marketplace/user/<path:rest>", legacy_user_admin_redirect, name="legacy-marketplace-user-admin-rest"),
-    path("admin/marketplace/storefront-editor/", visual_editor, name="admin-storefront-editor"),
+
+    # New comprehensive server-rendered Django editor.
+    path("admin/marketplace/storefront-editor/", visual_editor_v9, name="admin-storefront-editor"),
+    # Legacy v8 editor remains available side-by-side for fallback/rollback.
+    path("admin/marketplace/storefront-editor-legacy/", visual_editor, name="admin-storefront-editor-legacy"),
+
+    # Shared mutation endpoints: both editors write to the same StorefrontSection contract.
     path("admin/marketplace/storefront-editor/section/create/", create_section, name="admin-storefront-section-create"),
     path("admin/marketplace/storefront-editor/section/<int:pk>/", update_section, name="admin-storefront-section-update"),
     path("admin/marketplace/storefront-editor/upload-image/", upload_storefront_image, name="admin-storefront-image-upload"),
     path("admin/marketplace/storefront-editor/reorder/", reorder_sections, name="admin-storefront-section-reorder"),
+    path("admin/marketplace/storefront-builder/", visual_editor_v9, name="admin-storefront-builder"),
     path("admin/marketplace/storefront-builder/create/", create_section, name="admin-storefront-builder-create"),
     path("admin/marketplace/storefront-builder/<int:pk>/save/", update_section, name="admin-storefront-builder-save"),
     path("admin/marketplace/storefront-builder/<int:pk>/delete/", update_section, name="admin-storefront-builder-delete"),
