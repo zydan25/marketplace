@@ -3,7 +3,7 @@ import json
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import redirect, render
 
 from .models import Category, DesignTheme, Product
@@ -56,21 +56,28 @@ def _ensure_builtins():
     for preset in BUILTIN_THEMES.values():
         theme = DesignTheme.objects.filter(is_global=True, name=preset["name"]).first()
         if not theme:
-            theme = DesignTheme.objects.create(name=preset["name"], is_global=True, is_active=False, tokens=copy.deepcopy(preset["tokens"]), layout=copy.deepcopy(preset["layout"]), sections=copy.deepcopy(preset["sections"]))
-        else:
-            theme.tokens = _merge(preset["tokens"], theme.tokens)
-            theme.layout = _merge(preset["layout"], theme.layout)
-            if not isinstance(theme.sections, list) or not theme.sections:
-                theme.sections = copy.deepcopy(preset["sections"])
-            theme.save(update_fields=["tokens", "layout", "sections", "updated_at"])
-    # Backfill legacy global themes into the two canonical names when safe.
+            DesignTheme.objects.create(
+                name=preset["name"],
+                is_global=True,
+                is_active=False,
+                tokens=copy.deepcopy(preset["tokens"]),
+                layout=copy.deepcopy(preset["layout"]),
+                sections=copy.deepcopy(preset["sections"]),
+            )
+            continue
+        theme.tokens = _merge(preset["tokens"], theme.tokens)
+        theme.layout = _merge(preset["layout"], theme.layout)
+        if not isinstance(theme.sections, list) or not theme.sections:
+            theme.sections = copy.deepcopy(preset["sections"])
+        theme.save(update_fields=["tokens", "layout", "sections", "updated_at"])
+
     for theme in DesignTheme.objects.filter(is_global=True).exclude(name__in=names).order_by("id"):
         family = str((theme.layout or {}).get("family", "")).lower()
         target = "الرئيسية الأصلية 1" if family == "fashion" else "الرئيسية الأصلية 2" if family == "electronics" else None
         if target and not DesignTheme.objects.filter(is_global=True, name=target).exclude(pk=theme.pk).exists():
             theme.name = target
             theme.save(update_fields=["name", "updated_at"])
-    # Never leave the public storefront without an active global theme.
+
     if not DesignTheme.objects.filter(is_global=True, is_active=True).exists():
         fallback = DesignTheme.objects.filter(is_global=True, name="الرئيسية الأصلية 1").first() or DesignTheme.objects.filter(is_global=True).order_by("id").first()
         if fallback:
@@ -80,7 +87,10 @@ def _ensure_builtins():
 
 
 def _catalog_context():
-    return {"categories": list(Category.objects.filter(is_active=True).order_by("sort_order", "name").values("id", "name", "slug")), "products": list(Product.objects.filter(is_published=True, vendor__status="active").select_related("vendor").order_by("name")[:500].values("id", "name", "brand", "vendor__store_name"))}
+    return {
+        "categories": list(Category.objects.filter(is_active=True).order_by("sort_order", "name").values("id", "name", "slug")),
+        "products": list(Product.objects.filter(is_published=True, vendor__status="active").select_related("vendor").order_by("name")[:500].values("id", "name", "brand", "vendor__store_name")),
+    }
 
 
 def _normalise_sections(value):
@@ -102,32 +112,56 @@ def _normalise_sections(value):
     return sorted(output, key=lambda x: (x["sort_order"], x["key"]))
 
 
+def _redirect_to_studio(theme_id=None):
+    url = "/admin/dashboard/theme-studio/"
+    if theme_id:
+        url += f"?theme={theme_id}"
+    return redirect(url)
+
+
 @staff_member_required
 def theme_studio(request):
     if not _is_admin(request.user):
         messages.error(request, "لا تملك صلاحية إدارة التصميم.")
-        return redirect("admin-dashboard")
-    _ensure_builtins()
+        return redirect("/admin/dashboard/")
+
+    try:
+        _ensure_builtins()
+    except Exception as exc:
+        messages.error(request, f"تعذر تهيئة القوالب الأساسية: {exc}")
+
     themes = list(DesignTheme.objects.filter(is_global=True).order_by("-is_active", "id"))
     selected_id = request.GET.get("theme") or request.POST.get("theme_id")
     selected = next((x for x in themes if str(x.id) == str(selected_id)), None) or next((x for x in themes if x.name == "الرئيسية الأصلية 1"), themes[0] if themes else None)
+
     if request.method == "POST" and selected:
         action = request.POST.get("action", "save")
         try:
             with transaction.atomic():
                 if action == "activate":
                     DesignTheme.objects.filter(is_global=True).exclude(pk=selected.pk).update(is_active=False)
+                    selected.is_global = True
                     selected.is_active = True
-                    selected.save(update_fields=["is_active", "updated_at"])
+                    selected.save(update_fields=["is_global", "is_active", "updated_at"])
                     messages.success(request, f"تم تفعيل {selected.name} وهي الآن الواجهة الرئيسية العامة.")
-                elif action == "save":
+                    return _redirect_to_studio(selected.pk)
+
+                if action == "save":
+                    tokens = json.loads(request.POST.get("tokens_json", "{}"))
+                    layout = json.loads(request.POST.get("layout_json", "{}"))
+                    sections = json.loads(request.POST.get("sections_json", "[]"))
+                    if not isinstance(tokens, dict) or not isinstance(layout, dict) or not isinstance(sections, list):
+                        raise ValueError("بيانات التصميم يجب أن تكون JSON صحيحة من الأنواع المتوقعة.")
                     selected.name = request.POST.get("name", selected.name).strip()[:120] or selected.name
-                    selected.tokens = json.loads(request.POST.get("tokens_json", "{}"))
-                    selected.layout = json.loads(request.POST.get("layout_json", "{}"))
-                    selected.sections = _normalise_sections(json.loads(request.POST.get("sections_json", "[]")))
-                    selected.save(update_fields=["name", "tokens", "layout", "sections", "updated_at"])
+                    selected.tokens = tokens
+                    selected.layout = layout
+                    selected.sections = _normalise_sections(sections)
+                    selected.is_global = True
+                    selected.save(update_fields=["name", "tokens", "layout", "sections", "is_global", "updated_at"])
                     messages.success(request, "تم حفظ تصميم الواجهة بالكامل.")
-                elif action == "reset":
+                    return _redirect_to_studio(selected.pk)
+
+                if action == "reset":
                     preset = next((p for p in BUILTIN_THEMES.values() if p["name"] == selected.name), None)
                     if not preset:
                         raise ValueError("إعادة الأصل متاحة للقالبين الأصليين فقط.")
@@ -136,12 +170,40 @@ def theme_studio(request):
                     selected.sections = copy.deepcopy(preset["sections"])
                     selected.save(update_fields=["tokens", "layout", "sections", "updated_at"])
                     messages.success(request, "تمت إعادة القالب إلى حالته الأصلية.")
-                elif action == "clone":
-                    selected = DesignTheme.objects.create(owner=request.user, name=f"{selected.name} — نسخة", is_global=True, is_active=False, tokens=copy.deepcopy(selected.tokens or {}), layout=copy.deepcopy(selected.layout or {}), sections=copy.deepcopy(selected.sections or []))
+                    return _redirect_to_studio(selected.pk)
+
+                if action == "clone":
+                    selected = DesignTheme.objects.create(
+                        owner=request.user,
+                        vendor=None,
+                        name=f"{selected.name} — نسخة",
+                        is_global=True,
+                        is_active=False,
+                        tokens=copy.deepcopy(selected.tokens or {}),
+                        layout=copy.deepcopy(selected.layout or {}),
+                        sections=copy.deepcopy(selected.sections or []),
+                    )
                     messages.success(request, "تم إنشاء تصميم جديد مستقل.")
+                    return _redirect_to_studio(selected.pk)
+
+                raise ValueError("عملية غير معروفة.")
+        except IntegrityError as exc:
+            messages.error(request, f"تعذر حفظ التغيير بسبب تعارض في قاعدة البيانات: {exc}")
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             messages.error(request, f"تعذر حفظ التصميم: {exc}")
-        return redirect(f"admin-theme-studio?theme={selected.id}" if selected else "admin-theme-studio")
+        except Exception as exc:
+            messages.error(request, f"حدث خطأ غير متوقع أثناء العملية: {exc}")
+
+        return _redirect_to_studio(selected.pk)
 
     sections = _normalise_sections(selected.sections if selected else [])
-    return render(request, "admin/marketplace/theme_studio.html", {"themes": themes, "selected": selected, "sections_json": json.dumps(sections, ensure_ascii=False, indent=2), "tokens_json": json.dumps(selected.tokens if selected else {}, ensure_ascii=False, indent=2), "layout_json": json.dumps(selected.layout if selected else {}, ensure_ascii=False, indent=2), "catalog_json": json.dumps(_catalog_context(), ensure_ascii=False), "published_sections": sum(1 for x in sections if x.get("enabled")), "active_theme": next((x for x in themes if x.is_active), None)})
+    return render(request, "admin/marketplace/theme_studio.html", {
+        "themes": themes,
+        "selected": selected,
+        "sections_json": json.dumps(sections, ensure_ascii=False, indent=2),
+        "tokens_json": json.dumps(selected.tokens if selected else {}, ensure_ascii=False, indent=2),
+        "layout_json": json.dumps(selected.layout if selected else {}, ensure_ascii=False, indent=2),
+        "catalog_json": json.dumps(_catalog_context(), ensure_ascii=False),
+        "published_sections": sum(1 for x in sections if x.get("enabled")),
+        "active_theme": next((x for x in themes if x.is_active), None),
+    })
