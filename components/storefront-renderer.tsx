@@ -10,9 +10,9 @@ import type { StoreProduct } from "@/lib/product-api";
 import type { StorefrontTheme } from "@/lib/storefront-api";
 
 export type DynamicSection = {
-  id: string | number;
+  id?: string | number;
   key?: string;
-  type: string;
+  type?: string;
   title?: string;
   sort_order?: number;
   is_visible?: boolean;
@@ -37,7 +37,7 @@ export function StorefrontRenderer({ sections, theme, products, categories }: Re
   const sectionGap = Number(layout.section_gap ?? 10);
   const sorted = useMemo(() => [...sections].filter((section) => section.is_visible !== false).sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0)), [sections]);
 
-  return <View style={[styles.root, { backgroundColor: background }]}>{sorted.map((section) => <View key={String(section.id)} style={{ marginBottom: sectionGap }}><RenderSection section={section} theme={theme} products={products} categories={categories} primary={primary} family={family} /></View>)}</View>;
+  return <View style={[styles.root, { backgroundColor: background }]}>{sorted.map((section, index) => <View key={String(section.id ?? section.key ?? `section-${index}`)} style={{ marginBottom: sectionGap }}><RenderSection section={section} theme={theme} products={products} categories={categories} primary={primary} family={family} /></View>)}</View>;
 }
 
 type SectionRendererProps = Omit<RendererProps, "sections"> & { section: DynamicSection; primary: string; family: string };
