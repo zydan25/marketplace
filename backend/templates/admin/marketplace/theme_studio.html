@@ -1,55 +1,172 @@
 {% extends "admin/base_site.html" %}
-{% block title %}استوديو تصميم الرئيسية{% endblock %}
+{% block title %}استوديو التصميم — الرئيسية{% endblock %}
 {% block extrastyle %}
 <style>
-:root{--bg:#f3f6fa;--panel:#fff;--ink:#0f172a;--muted:#64748b;--line:#dbe3ec;--primary:#2563eb;--soft:#eff6ff;--ok:#047857;--danger:#b91c1c;--shadow:0 12px 36px rgba(15,23,42,.07);--radius:18px}
-*{box-sizing:border-box}body{background:var(--bg)}button,input,textarea{font:inherit}.studio{direction:rtl;max-width:1900px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;background:linear-gradient(135deg,#fff,#f7fbff);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow);margin-bottom:14px}.top h1{margin:0 0 5px;font-size:24px}.top p{margin:0;color:var(--muted);font-size:11px;line-height:1.8}.actions{display:flex;gap:7px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;padding:9px 12px;font-size:10px;font-weight:900;cursor:pointer}.btn.primary{background:#111827;color:#fff;border-color:#111827}.btn.blue{background:var(--primary);border-color:var(--primary);color:#fff}.btn.green{background:#ecfdf5;color:var(--ok);border-color:#a7f3d0}.btn.red{color:var(--danger)}.grid{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;align-items:start}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}.head{padding:14px 16px;border-bottom:1px solid var(--line)}.head h2{margin:0;font-size:13px}.head p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.7}.themes{padding:10px;display:grid;gap:8px}.theme{display:block;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;text-decoration:none;color:inherit}.theme.active{border:2px solid var(--primary);background:var(--soft)}.theme b{display:block;font-size:11px}.theme small{display:block;color:var(--muted);font-size:8px;margin-top:4px}.pill{display:inline-block;margin-top:7px;padding:4px 7px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:8px;font-weight:900}.pill.on{background:#ecfdf5;color:var(--ok)}.body{padding:14px}.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.tab{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;font-size:9px;font-weight:900;cursor:pointer}.tab.active{background:#111827;color:#fff}.section{border:1px solid var(--line);border-radius:14px;margin-bottom:9px;background:#fbfdff;overflow:hidden}.section summary{cursor:pointer;padding:11px;font-weight:900;font-size:10px;list-style:none}.section summary::-webkit-details-marker{display:none}.section .inside{padding:11px;border-top:1px solid var(--line);display:grid;gap:9px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.field{display:grid;gap:4px}.field label{font-size:9px;font-weight:900}.field small{font-size:8px;color:var(--muted);line-height:1.5}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px;font-size:10px}.field textarea{min-height:80px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left}.check{display:flex;align-items:center;gap:6px;border:1px solid var(--line);padding:9px;border-radius:9px;background:#fff;font-size:9px;font-weight:800}.check input{width:17px;height:17px}.preview{position:sticky;top:12px}.screen{margin:12px auto;background:#f8fafc;border:8px solid #0f172a;border-radius:28px;height:760px;overflow:auto;max-width:420px;box-shadow:0 20px 50px rgba(15,23,42,.18)}.screen.desktop{max-width:720px}.screen.tablet{max-width:620px}.previewHeader{background:#fff;padding:12px;position:sticky;top:0;z-index:3;border-bottom:1px solid #e5e7eb}.search{display:flex;gap:6px}.search input{flex:1;border:1px solid #e5e7eb;border-radius:999px;padding:8px 10px;font-size:9px}.search button{border:0;background:#111827;color:#fff;border-radius:999px;padding:8px 11px;font-size:8px}.pSection{margin:8px;border-radius:13px;overflow:hidden;background:#fff;border:1px solid #e5e7eb}.pTitle{padding:9px 10px;font-weight:900;font-size:10px}.hero{height:170px;background:linear-gradient(135deg,#dbeafe,#e0e7ff);background-size:cover;background-position:center;padding:12px;display:flex;align-items:flex-end;color:#fff}.hero b{font-size:15px}.hero span{display:block;font-size:8px;margin-top:3px}.circleGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px}.circle{display:grid;justify-items:center;gap:4px;font-size:7px;text-align:center}.circle .img{width:52px;height:52px;border-radius:50%;background:#f1f5f9}.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px}.card{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}.card .img{height:95px;background:#f1f5f9}.card b{display:block;padding:6px;font-size:8px}.card span{display:block;padding:0 6px 6px;font-size:7px;color:#64748b}.bottom{display:flex;justify-content:space-around;border-top:1px solid #e5e7eb;background:#fff;padding:10px;font-size:8px}.msg{margin-bottom:12px;padding:10px 12px;border-radius:10px;background:#ecfdf5;color:var(--ok);font-size:10px}.hint{padding:10px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:10px;font-size:9px;line-height:1.7}.dangerBox{padding:10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;font-size:9px;line-height:1.7}
-@media(max-width:1050px){.grid{grid-template-columns:1fr}.preview{position:static}.screen.desktop,.screen.tablet{max-width:100%}}
-@media(max-width:700px){.studio{padding:8px}.top{display:block;padding:14px}.top .actions{margin-top:10px}.row2,.row3,.row4{grid-template-columns:1fr}}
+:root{--bg:#f3f6fa;--panel:#fff;--ink:#0f172a;--muted:#64748b;--line:#dbe3ec;--primary:#2563eb;--soft:#eff6ff;--ok:#047857;--danger:#b91c1c;--shadow:0 12px 35px rgba(15,23,42,.07);--radius:18px}
+*{box-sizing:border-box}body{background:var(--bg)}button,input,select,textarea{font:inherit}.studio{direction:rtl;max-width:1900px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:20px;background:linear-gradient(135deg,#fff,#f7fbff);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);margin-bottom:14px}.top h1{margin:0 0 6px;font-size:25px}.top p{margin:0;max-width:980px;color:var(--muted);font-size:11px;line-height:1.9}.actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;padding:9px 13px;font-size:10px;font-weight:900;cursor:pointer;text-decoration:none}.btn.primary{background:#111827;color:#fff;border-color:#111827}.btn.blue{background:var(--primary);border-color:var(--primary);color:#fff}.btn.green{background:#ecfdf5;color:var(--ok);border-color:#a7f3d0}.btn.red{color:var(--danger)}.badge{display:inline-flex;padding:5px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:8px;font-weight:900}.badge.on{background:#ecfdf5;color:var(--ok)}
+.grid{display:grid;grid-template-columns:300px minmax(0,1fr) 420px;gap:14px;align-items:start}.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}.head{padding:14px 16px;border-bottom:1px solid var(--line)}.head h2{margin:0;font-size:13px}.head p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.7}.body{padding:14px}.themeList{padding:10px;display:grid;gap:8px}.theme{display:block;padding:13px;border:1px solid var(--line);border-radius:14px;text-decoration:none;color:inherit;background:#fff}.theme:hover{border-color:#93c5fd}.theme.active{border:2px solid var(--primary);background:var(--soft)}.theme strong{display:block;font-size:11px}.theme small{display:block;color:var(--muted);font-size:8px;margin-top:4px}.theme .state{margin-top:7px}.message{padding:11px 13px;border-radius:12px;background:#ecfdf5;color:var(--ok);font-size:10px;margin-bottom:12px}.error{background:#fef2f2;color:#991b1b}
+.field{display:grid;gap:5px}.field label{font-size:9px;font-weight:950}.field small{font-size:8px;color:var(--muted);line-height:1.55}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px 10px;font-size:10px;outline:none}.field textarea{min-height:105px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;line-height:1.5}.row2{display:grid;grid-template-columns:1fr 1fr;gap:9px}.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.row4{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.group{border:1px solid var(--line);background:#fbfdff;border-radius:14px;margin-bottom:10px;overflow:hidden}.group summary{cursor:pointer;padding:11px;font-size:10px;font-weight:950}.groupBody{padding:11px;border-top:1px solid var(--line);display:grid;gap:9px}.check{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid var(--line);background:#fff;border-radius:10px;font-size:9px;font-weight:850}.check input{width:18px;height:18px}.help{padding:10px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:10px;font-size:9px;line-height:1.8}
+.mediaGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.media{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}.media img{display:block;width:100%;height:95px;object-fit:cover;background:#f8fafc}.media .mBody{padding:8px}.media b{display:block;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.media small{display:block;color:var(--muted);font-size:8px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.upload{border:1px dashed #93c5fd;background:#f8fbff;border-radius:14px;padding:11px;display:grid;gap:8px}.upload input[type=file]{padding:8px;border:1px dashed #cbd5e1;background:#fff;border-radius:10px;font-size:9px}.uploadPreview{display:none;margin-top:3px}.uploadPreview img{width:100%;max-height:170px;object-fit:cover;border-radius:11px}
+.preview{position:sticky;top:12px}.previewScreen{margin:12px auto;background:#f8fafc;border:8px solid #0f172a;border-radius:28px;height:790px;overflow:auto;max-width:390px;box-shadow:0 20px 50px rgba(15,23,42,.18)}.previewTop{background:#fff;padding:10px;position:sticky;top:0;z-index:4;border-bottom:1px solid #e5e7eb}.previewSearch{display:flex;gap:6px}.previewSearch input{flex:1;border:1px solid #e5e7eb;border-radius:999px;padding:8px 10px;font-size:9px}.previewSearch button{border:0;background:#111827;color:#fff;border-radius:999px;padding:8px 11px;font-size:8px}.previewBlock{margin:8px;border:1px solid #e5e7eb;border-radius:13px;background:#fff;overflow:hidden}.previewHero{height:175px;background:#e5e7eb center/cover no-repeat;display:flex;align-items:flex-end;padding:13px;color:#fff;position:relative}.previewHero:after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.18)}.previewHeroContent{position:relative;z-index:1}.previewHeroContent b{display:block;font-size:15px}.previewHeroContent span{display:block;font-size:8px;margin-top:3px}.circleGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;padding:10px}.circleItem{text-align:center;font-size:7px}.circleItem .circle{margin:auto;width:50px;height:50px;border-radius:50%;background:#f1f5f9}.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px}.card{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}.card .pic{height:95px;background:#f1f5f9}.card b{display:block;font-size:8px;padding:7px 7px 0}.card span{display:block;font-size:7px;color:#64748b;padding:4px 7px 8px}.previewTabs{display:flex;gap:6px;overflow:auto;padding:9px}.previewTabs span{white-space:nowrap;background:#f1f5f9;border-radius:999px;padding:7px 10px;font-size:8px}.bottom{display:flex;justify-content:space-around;border-top:1px solid #e5e7eb;background:#fff;padding:10px;font-size:8px;position:sticky;bottom:0}
+@media(max-width:1400px){.grid{grid-template-columns:280px minmax(0,1fr)}.preview{grid-column:1/-1;position:static}.previewScreen{max-width:520px}}@media(max-width:900px){.studio{padding:8px}.top{display:block;padding:14px}.top .actions{margin-top:10px}.grid{grid-template-columns:1fr}.row2,.row3,.row4{grid-template-columns:1fr}.preview{grid-column:auto}.previewScreen{max-width:100%;height:620px}}
 </style>
 {% endblock %}
 {% block content %}
 <div class="studio">
-  {% for message in messages %}<div class="msg">{{ message }}</div>{% endfor %}
+  {% for message in messages %}<div class="message {% if message.tags == 'error' %}error{% endif %}">{{ message }}</div>{% endfor %}
   <section class="top">
-    <div><div style="font-size:9px;color:var(--primary);font-weight:950;letter-spacing:.08em">DJANGO STOREFRONT THEME STUDIO</div><h1>إدارة الرئيسية والتصاميم</h1><p>هذه هي لوحة التحكم الخادمية الكاملة للواجهات الرئيسية. اختيار القالب، التفعيل، البيانات، الأقسام، البانرات، الفئات، المنتجات، الألوان، المقاسات والترتيب محفوظة في DesignTheme الذي يقرأه API العميل مباشرة.</p></div>
-    <div class="actions"><a class="btn" href="/admin/dashboard/">مركز الإدارة</a><a class="btn" href="/admin/marketplace/storefront-editor/">محرر الأقسام السابق</a>{% if selected %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="theme_id" value="{{ selected.id }}"><button class="btn blue" name="action" value="activate">تفعيل {{ selected.name }}</button><button class="btn green" name="action" value="clone">نسخ التصميم</button>{% endif %}</form></div>
+    <div>
+      <div style="font-size:9px;color:var(--primary);font-weight:950;letter-spacing:.08em">DJANGO STOREFRONT THEME STUDIO</div>
+      <h1>استوديو تصميم الرئيسية</h1>
+      <p>إدارة كاملة للواجهة من Django فقط. اختر «الرئيسية الأصلية 1» أو «الرئيسية الأصلية 2»، ثم عدّل البنية والمقاسات والألوان والبانرات والفئات والمنتجات والتبويبات. عند التفعيل يتم تجهيز الأقسام المنشورة تلقائيًا، وملء الهيدر والتبويبات من الفئات، واستخدام البانرات الموجودة في مكتبة الوسائط.</p>
+    </div>
+    <div class="actions">
+      <a class="btn" href="/admin/dashboard/">مركز الإدارة</a>
+      <a class="btn" href="/admin/marketplace/storefront-editor-legacy/">المحرر السابق</a>
+      {% if selected %}
+      <form method="post" style="display:inline-flex;gap:7px;align-items:center"><input type="hidden" name="theme_id" value="{{ selected.id }}">{% csrf_token %}<button class="btn blue" name="action" value="activate">تفعيل التصميم</button><button class="btn green" name="action" value="clone">نسخ</button></form>
+      {% endif %}
+    </div>
   </section>
+
   <div class="grid">
     <aside class="panel">
-      <div class="head"><h2>القوالب الرئيسية</h2><p>القالب النشط الوحيد هو الذي تستخدمه الصفحة الرئيسية العامة. القالبان الأصليان لا يمكن حذفهُما.</p></div>
-      <div class="themes">
-        {% for theme in themes %}<a class="theme {% if selected and theme.id == selected.id %}active{% endif %}" href="?theme={{ theme.id }}"><b>{{ theme.name }}</b><small>{{ theme.layout.family|default:"قالب مخصص" }} · آخر تحديث {{ theme.updated_at|date:"Y-m-d H:i" }}</small><span class="pill {% if theme.is_active %}on{% endif %}">{% if theme.is_active %}مفعّل الآن{% else %}غير مفعّل{% endif %}</span></a>{% endfor %}
+      <div class="head"><h2>القوالب الرئيسية</h2><p>سيكون هناك قالب عالمي نشط واحد فقط. القالب النشط هو المصدر الرئيسي لـ /api/home/.</p></div>
+      <div class="themeList">
+        {% for theme in themes %}
+        <a class="theme {% if selected and selected.id == theme.id %}active{% endif %}" href="?theme={{ theme.id }}">
+          <strong>{{ theme.name }}</strong>
+          <small>{{ theme.layout.family|default:"قالب مخصص" }} · {{ theme.updated_at|date:"Y-m-d H:i" }}</small>
+          <span class="badge state {% if theme.is_active %}on{% endif %}">{% if theme.is_active %}مفعّل الآن{% else %}غير مفعّل{% endif %}</span>
+        </a>
+        {% empty %}<div class="help">لا توجد قوالب. سيتم إنشاء القالبين الأصليين تلقائيًا عند تحميل الصفحة.</div>{% endfor %}
       </div>
     </aside>
+
     <main>
       {% if selected %}
-      <form method="post" id="themeForm">
-        {% csrf_token %}<input type="hidden" name="theme_id" value="{{ selected.id }}"><input type="hidden" name="action" value="save">
-        <div class="panel" style="margin-bottom:12px"><div class="head"><h2>الهوية العامة</h2><p>هذه الإعدادات تدخل مباشرة في theme.tokens وtheme.layout. يمكنك تعديل كل قيمة دون تعديل APK.</p></div><div class="body">
-          <div class="row3"><div class="field"><label>اسم التصميم</label><input name="name" value="{{ selected.name }}"></div><div class="field"><label>نوع القالب</label><select id="family"><option value="fashion" {% if selected.layout.family == 'fashion' %}selected{% endif %}>الرئيسية الأصلية 1 — Fashion</option><option value="electronics" {% if selected.layout.family == 'electronics' %}selected{% endif %}>الرئيسية الأصلية 2 — Electronics</option></select></div><div class="field"><label>الحالة</label><input disabled value="{% if selected.is_active %}مفعّل{% else %}غير مفعّل{% endif %}"></div></div>
-          <div class="row4"><div class="field"><label>اللون الأساسي</label><input id="pcolor" value="{{ selected.tokens.primary|default:'#2563eb' }}"></div><div class="field"><label>لون الخلفية</label><input id="bgcolor" value="{{ selected.tokens.background|default:'#ffffff' }}"></div><div class="field"><label>لون السطح</label><input id="surface" value="{{ selected.tokens.surface|default:'#ffffff' }}"></div><div class="field"><label>لون النص</label><input id="textcolor" value="{{ selected.tokens.text|default:'#111827' }}"></div></div>
-          <div class="row4"><div class="field"><label>حواف البطاقات</label><input id="radius" type="number" value="{{ selected.tokens.radius|default:10 }}"></div><div class="field"><label>حشو الصفحة</label><input id="pagepadding" type="number" value="{{ selected.layout.page_padding|default:0 }}"></div><div class="field"><label>المسافة بين الأقسام</label><input id="sectiongap" type="number" value="{{ selected.layout.section_gap|default:8 }}"></div><div class="field"><label>ارتفاع البانر</label><input id="heroheight" type="number" value="{{ selected.layout.hero_height|default:240 }}"></div></div>
-        </div></div>
-        <div class="panel" style="margin-bottom:12px"><div class="head"><h2>تعريف الصفحة بالكامل</h2><p>النظام يحفظ JSON نفسه الذي يقرأه endpoint /api/home/. استخدم الحقول الجاهزة أو عدّل JSON المتقدم مباشرة.</p></div><div class="body">
-          <details class="section" open><summary>tokens — الألوان والهوية</summary><div class="inside"><textarea id="tokens_editor" name="tokens_json">{{ tokens_json }}</textarea></div></details>
-          <details class="section"><summary>layout — المقاسات العامة</summary><div class="inside"><textarea id="layout_editor" name="layout_json">{{ layout_json }}</textarea></div></details>
-          <details class="section" open><summary>sections — ترتيب وبنية الرئيسية</summary><div class="inside"><textarea id="sections_editor" name="sections_json">{{ sections_json }}</textarea><div class="hint">كل عنصر يدعم key/type/title/sort_order/enabled/config. أنواع مدعومة: header, hero, notice, category_grid, brand_grid, product_grid, trend, tabs, catalog_toolbar, bottom_nav. اضبط rows وcolumns وsize وgap داخل config للأقسام التي تحتاج شبكة دقيقة.</div></div></details>
-        </div></div>
-        <div class="actions" style="margin-bottom:12px"><button class="btn primary" type="submit">حفظ كل إعدادات {{ selected.name }}</button><button class="btn green" type="button" onclick="presetFromFields()">تطبيق الحقول على JSON</button></div>
+      <form method="post" id="studioForm">
+        {% csrf_token %}
+        <input type="hidden" name="theme_id" value="{{ selected.id }}">
+        <input type="hidden" name="action" value="save">
+
+        <section class="panel" style="margin-bottom:12px"><div class="head"><h2>الهوية العامة</h2><p>كل هذه الإعدادات تحفظ مباشرة داخل DesignTheme.</p></div><div class="body">
+          <div class="row3">
+            <div class="field"><label>اسم التصميم</label><input name="name" value="{{ selected.name }}"></div>
+            <div class="field"><label>نوع العرض</label><input disabled value="{% if selected.layout.family == 'electronics' %}الرئيسية الأصلية 2 — Electronics{% else %}الرئيسية الأصلية 1 — Fashion{% endif %}"></div>
+            <div class="field"><label>حالة النشر</label><input disabled value="{% if selected.is_active %}مفعّل ومستخدم في الرئيسية{% else %}مسودة{% endif %}"></div>
+          </div>
+          <div class="row4">
+            <div class="field"><label>اللون الأساسي</label><input id="primaryField" value="{{ selected.tokens.primary|default:'#2563eb' }}"></div>
+            <div class="field"><label>الخلفية</label><input id="backgroundField" value="{{ selected.tokens.background|default:'#ffffff' }}"></div>
+            <div class="field"><label>لون السطح</label><input id="surfaceField" value="{{ selected.tokens.surface|default:'#ffffff' }}"></div>
+            <div class="field"><label>لون النص</label><input id="textField" value="{{ selected.tokens.text|default:'#111827' }}"></div>
+          </div>
+          <div class="row4">
+            <div class="field"><label>استدارة البطاقات</label><input id="radiusField" type="number" value="{{ selected.tokens.radius|default:10 }}"></div>
+            <div class="field"><label>حشو الصفحة</label><input id="paddingField" type="number" value="{{ selected.layout.page_padding|default:0 }}"></div>
+            <div class="field"><label>الفاصل بين الأقسام</label><input id="gapField" type="number" value="{{ selected.layout.section_gap|default:8 }}"></div>
+            <div class="field"><label>ارتفاع الـHero</label><input id="heroField" type="number" value="{{ selected.layout.hero_height|default:240 }}"></div>
+          </div>
+        </div></section>
+
+        <section class="panel" style="margin-bottom:12px"><div class="head"><h2>بيانات الواجهة</h2><p>هذه هي الطبقة التي تتحكم بكل تفاصيل القالب دون إضافة كود إلى التطبيق. الحقول قابلة للتحرير، والـJSON يضمن عدم فقد الإعدادات المستقبلية.</p></div><div class="body">
+          <details class="group" open><summary>الألوان — tokens</summary><div class="groupBody"><textarea id="tokens_editor" name="tokens_json">{{ tokens_json }}</textarea></div></details>
+          <details class="group" open><summary>المقاسات والتخطيط — layout</summary><div class="groupBody"><textarea id="layout_editor" name="layout_json">{{ layout_json }}</textarea></div></details>
+          <details class="group" open><summary>الأقسام — sections</summary><div class="groupBody"><textarea id="sections_editor" name="sections_json">{{ sections_json }}</textarea><div class="help">الأقسام مدعومة بواسطة الـRenderer الحالي. داخل config يمكنك التحكم في rows / columns / size / gap / limit / image_height / card_style / source / category_ids / product_ids / slides / tabs وغيرها.</div></div></details>
+        </div></section>
+
+        <section class="panel" style="margin-bottom:12px"><div class="head"><h2>تعبئة تلقائية قبل الحفظ</h2><p>تقوم بإنشاء بيانات العرض من الكتالوج الحالي: الفئات للهيدر والتبويبات والدوائر، والبانرات من مكتبة الوسائط.</p></div><div class="body row3">
+          <label class="check">ملء الهيدر من الفئات <input type="checkbox" id="autoHeader" checked></label>
+          <label class="check">ملء التبويبات من الفئات <input type="checkbox" id="autoTabs" checked></label>
+          <label class="check">استخدام البانرات الموجودة <input type="checkbox" id="autoBanners" checked></label>
+        </div></section>
+
+        <div class="actions"><button class="btn primary" type="submit">حفظ إعدادات التصميم</button><button class="btn" type="button" onclick="normalizeBeforeSave()">تحديث البيانات الديناميكية ثم حفظ</button></div>
       </form>
-      <div class="panel" style="margin-bottom:12px"><div class="head"><h2>إجراءات القالب</h2><p>إعادة القالب الأصلي تعيد البنية الأساسية والألوان الافتراضية لهذا القالب. النسخ ينشئ تصميمًا مستقلاً جديدًا.</p></div><div class="body actions"><form method="post">{% csrf_token %}<input type="hidden" name="theme_id" value="{{ selected.id }}"><button class="btn" name="action" value="reset" onclick="return confirm('إعادة القالب إلى الإعداد الأصلي؟')">إعادة الأصل</button><button class="btn red" name="action" value="delete" onclick="return confirm('حذف التصميم؟')">حذف التصميم المخصص</button></form></div></div>
-      {% else %}<div class="panel"><div class="body"><div class="dangerBox">لا توجد واجهة رئيسية متاحة. افتح الصفحة مرة أخرى وسيقوم النظام بإنشاء «الرئيسية الأصلية 1» و«الرئيسية الأصلية 2» تلقائيًا.</div></div></div>{% endif %}
+
+      <section class="panel" style="margin-top:12px"><div class="head"><h2>رفع بانر جديد</h2><p>ارفع ملف الصورة من جهازك مباشرة. لا تحتاج إلى إدخال رابط صورة. سيتم حفظه في مكتبة Django ويصبح متاحًا تلقائيًا للـHero.</p></div><div class="body">
+        <form method="post" enctype="multipart/form-data" class="upload">
+          {% csrf_token %}<input type="hidden" name="theme_id" value="{{ selected.id }}"><input type="hidden" name="action" value="upload_banner">
+          <div class="row3"><div class="field"><label>اسم البانر</label><input name="banner_name" placeholder="مثال: عرض العودة للمدارس"></div><div class="field"><label>وصف الصورة</label><input name="banner_alt" placeholder="وصف مختصر للصورة"></div><div class="field"><label>الرابط عند الضغط — اختياري</label><input name="banner_url" placeholder="/collection أو /product/12"></div></div>
+          <div class="field"><label>ملف الصورة</label><input id="bannerFile" type="file" name="banner_image" accept="image/jpeg,image/png,image/webp,image/gif" required></div>
+          <div id="uploadPreview" class="uploadPreview"><img id="uploadPreviewImage" alt="معاينة"></div>
+          <div class="actions"><button class="btn blue" type="submit">رفع البانر إلى المكتبة</button></div>
+        </form>
+      </div></section>
+      {% endif %}
     </main>
+
+    <aside class="preview">
+      <section class="panel"><div class="head"><h2>معاينة</h2><p>هذه معاينة تركيبية تعتمد على بيانات القالب المحفوظة.</p></div><div class="previewScreen"><div class="previewTop"><div class="previewSearch"><input placeholder="ابحث عن منتج أو متجر"><button>بحث</button></div></div><div id="previewBody"></div><div class="bottom"><span>حسابي</span><span>المفضلة</span><span>السلة</span><span>المنتجات</span><b>الرئيسية</b></div></div></section>
+      <section class="panel" style="margin-top:12px"><div class="head"><h2>مكتبة البانرات</h2><p>كل الصور الموجودة حاليًا في StorefrontMedia العامة.</p></div><div class="body">
+        <div class="mediaGrid">
+          {% for media in global_media %}<div class="media"><img src="{{ media.image.url }}" alt="{{ media.alt_text|default:media.name }}"><div class="mBody"><b>{{ media.name }}</b><small>{{ media.target_url|default:"بدون رابط" }}</small></div></div>{% empty %}<div class="help">لا توجد بانرات عامة حتى الآن. ارفع أول صورة من النموذج أعلاه.</div>{% endfor %}
+        </div>
+      </div></section>
+    </aside>
   </div>
 </div>
+
 <script>
 (function(){
-  const family=document.getElementById('family'), te=document.getElementById('tokens_editor'), le=document.getElementById('layout_editor');
-  function parse(el){try{return JSON.parse(el.value||'{}')}catch{return {}}}
-  window.presetFromFields=function(){
-    const t=parse(te), l=parse(le); t.primary=document.getElementById('pcolor').value.trim();t.background=document.getElementById('bgcolor').value.trim();t.surface=document.getElementById('surface').value.trim();t.text=document.getElementById('textcolor').value.trim();t.radius=Number(document.getElementById('radius').value||0);l.family=family.value;l.page_padding=Number(document.getElementById('pagepadding').value||0);l.section_gap=Number(document.getElementById('sectiongap').value||0);l.hero_height=Number(document.getElementById('heroheight').value||0);te.value=JSON.stringify(t,null,2);le.value=JSON.stringify(l,null,2);window.scrollTo({top:0,behavior:'smooth'})
+  const sectionEditor=document.getElementById('sections_editor');
+  const tokensEditor=document.getElementById('tokens_editor');
+  const layoutEditor=document.getElementById('layout_editor');
+  const categories={{ catalog_json|safe }}.categories||[];
+  const media=[{% for m in global_media %}{id:{{m.id}},name:{{m.name|safe|json_script:"x"}}}{% if not forloop.last %},{% endif %}{% endfor %}];
+  function safeJson(text,fallback){try{return JSON.parse(text||'')}catch{return fallback}}
+  function dynamicize(){
+    let sections=safeJson(sectionEditor?.value,'[]');
+    if(!Array.isArray(sections))sections=[];
+    const autoHeader=document.getElementById('autoHeader')?.checked;
+    const autoTabs=document.getElementById('autoTabs')?.checked;
+    const autoBanners=document.getElementById('autoBanners')?.checked;
+    const catPayload=categories.slice(0,12).map((c,i)=>({id:c.id,name:c.name,title:c.name,targetCategory:c.slug,url:'/collection?category='+encodeURIComponent(c.slug),sortOrder:i,visible:true,isActive:true}));
+    const mediaPayload={{ global_media|length }};
+    sections=sections.map(s=>{s.config=(s&&typeof s.config==='object'&&!Array.isArray(s.config))?s.config:{};const t=String(s.type||'').toLowerCase();
+      if(t==='header'&&autoHeader){s.config.category_chips=catPayload.slice(0,Number(s.config.category_chip_limit||8));s.config.category_nav_items=s.config.category_chips;s.config.tabs=s.config.category_chips.map((c,i)=>({id:c.id,title:c.name,label:c.name,url:c.url,sortOrder:i}))}
+      if((t==='category_grid'||t==='category')&&catPayload.length&&!s.config.category_ids?.length){const rows=Number(s.config.rows||2),cols=Number(s.config.columns||5);s.config.category_ids=catPayload.slice(0,rows*cols).map(c=>c.id);s.config.circles=catPayload.slice(0,rows*cols)}
+      if((t==='tabs'||t==='tab')&&autoTabs&&!Array.isArray(s.config.tabs)?.length){s.config.tabs=catPayload.slice(0,8).map((c,i)=>({id:c.id,title:c.name,label:c.name,url:c.url,sortOrder:i}))}
+      if((t==='hero'||t==='banner')&&autoBanners&&(!Array.isArray(s.config.slides)||!s.config.slides.length)){s.config.slides=[]}
+      return s;
+    });
+    sectionEditor.value=JSON.stringify(sections,null,2);renderPreview();
+  }
+  function renderPreview(){
+    const host=document.getElementById('previewBody');if(!host)return;host.innerHTML='';
+    const sections=safeJson(sectionEditor?.value,'[]');
+    if(!Array.isArray(sections)||!sections.length){host.innerHTML='<div style="padding:25px;text-align:center;color:#64748b;font-size:10px">لا توجد أقسام للمعاينة.</div>';return}
+    sections.filter(s=>s&&s.enabled!==false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)).forEach(s=>{
+      const type=String(s.type||'').toLowerCase();const c=(s.config&&typeof s.config==='object')?s.config:{};const b=document.createElement('div');b.className='previewBlock';
+      if(type==='hero'||type==='banner'){const slide=Array.isArray(c.slides)&&c.slides[0]?c.slides[0]:null;b.innerHTML='<div class="previewHero" style="background-image:url(\''+(slide?.imageUrl||c.image_url||'')+'\')"><div class="previewHeroContent"><b>'+esc(slide?.title||s.title||'البانر الرئيسي')+'</b><span>'+esc(slide?.subtitle||c.subtitle||'')+'</span></div></div>'}
+      else if(type==='category_grid'||type==='category'){const circles=Array.isArray(c.circles)?c.circles.slice(0,Number(c.rows||2)*Number(c.columns||4)):[];b.innerHTML='<div style="padding:9px;font-weight:900;font-size:10px">'+esc(s.title||'الفئات')+'</div><div class="circleGrid">'+circles.map(x=>'<div class="circleItem"><div class="circle"></div>'+esc(x.name||x.title||'فئة')+'</div>').join('')+'</div>'}
+      else if(type==='tabs'||type==='tab'){const tabs=Array.isArray(c.tabs)?c.tabs:[];b.innerHTML='<div class="previewTabs">'+tabs.map(x=>'<span>'+esc(x.title||x.label||'تبويب')+'</span>').join('')+'</div>'}
+      else if(type==='product_grid'||type==='trend'){const n=Math.min(Number(c.limit||4),8);b.innerHTML='<div style="padding:9px;font-weight:900;font-size:10px">'+esc(s.title||'المنتجات')+'</div><div class="cards">'+Array.from({length:n},(_,i)=>'<div class="card"><div class="pic"></div><b>منتج '+(i+1)+'</b><span>بيانات المنتج</span></div>').join('')+'</div>'}
+      else{b.innerHTML='<div style="padding:15px;color:#64748b;font-size:9px">'+esc(s.title||type)+'</div>'}
+      host.appendChild(b);
+    });
+  }
+  function esc(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c]))}
+  window.normalizeBeforeSave=function(){
+    try{
+      dynamicize();
+      const t=safeJson(tokensEditor.value,{}),l=safeJson(layoutEditor.value,{});
+      t.primary=document.getElementById('primaryField')?.value||t.primary;
+      t.background=document.getElementById('backgroundField')?.value||t.background;
+      t.surface=document.getElementById('surfaceField')?.value||t.surface;
+      t.text=document.getElementById('textField')?.value||t.text;
+      t.radius=Number(document.getElementById('radiusField')?.value||t.radius||10);
+      l.page_padding=Number(document.getElementById('paddingField')?.value||l.page_padding||0);
+      l.section_gap=Number(document.getElementById('gapField')?.value||l.section_gap||8);
+      l.hero_height=Number(document.getElementById('heroField')?.value||l.hero_height||240);
+      tokensEditor.value=JSON.stringify(t,null,2);layoutEditor.value=JSON.stringify(l,null,2);
+      document.getElementById('studioForm').submit();
+    }catch(e){alert('بيانات التصميم غير صالحة: '+e.message)}
   };
+  sectionEditor?.addEventListener('input',renderPreview);tokensEditor?.addEventListener('input',renderPreview);
+  document.getElementById('bannerFile')?.addEventListener('change',function(){const p=document.getElementById('uploadPreview'),img=document.getElementById('uploadPreviewImage');if(this.files?.[0]){img.src=URL.createObjectURL(this.files[0]);p.style.display='block'}});
+  renderPreview();
 })();
 </script>
 {% endblock %}
