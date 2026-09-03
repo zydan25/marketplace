@@ -5,23 +5,28 @@ from django.urls import reverse
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from marketplace.models import User, VendorProfile
+from marketplace.models import User
+from vendors.models import VendorProfile
 
 from .models import Category, CatalogOption, PriceGroup, Product, ProductImage, ProductVariant
 
 
-class CatalogProxyTests(TestCase):
-    def test_proxies_use_existing_tables(self):
-        self.assertTrue(Category._meta.proxy)
-        self.assertTrue(Product._meta.proxy)
-        self.assertTrue(ProductImage._meta.proxy)
-        self.assertTrue(ProductVariant._meta.proxy)
-        self.assertTrue(CatalogOption._meta.proxy)
-        self.assertTrue(PriceGroup._meta.proxy)
+class CatalogOwnershipTests(TestCase):
+    def test_models_own_existing_marketplace_tables(self):
+        expected = {
+            Category: "marketplace_category",
+            Product: "marketplace_product",
+            ProductImage: "marketplace_productimage",
+            ProductVariant: "marketplace_productvariant",
+            CatalogOption: "marketplace_catalogoption",
+            PriceGroup: "marketplace_pricegroup",
+        }
+        for model, table in expected.items():
+            self.assertFalse(model._meta.proxy)
+            self.assertEqual(model._meta.db_table, table)
         from marketplace.models import Category as LegacyCategory, Product as LegacyProduct
         self.assertEqual(Category._meta.db_table, LegacyCategory._meta.db_table)
         self.assertEqual(Product._meta.db_table, LegacyProduct._meta.db_table)
-        self.assertEqual(ProductVariant._meta.db_table, ProductVariant._meta.concrete_model._meta.db_table)
 
 
 class CatalogApiTests(TestCase):

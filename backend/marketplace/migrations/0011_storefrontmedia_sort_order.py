@@ -3,6 +3,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
+        ("marketplace", "0010_storefront_media"),
         ("marketplace", "0017_seed_global_storefront_themes"),
     ]
 

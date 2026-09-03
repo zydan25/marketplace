@@ -3,20 +3,28 @@ from rest_framework import serializers, viewsets
 from rest_framework.routers import DefaultRouter
 
 from accounts.preferences_api import PreferencesView
-from .catalog_api import CurrencyRateViewSet
-from .cms_views import DynamicHomeView
-from .models import City, Coupon as CouponModel, PriceGroup
-from .secure_cart import SecureCartCalculateView
-from .secure_catalog import SecureDesignThemeViewSet, SecureStorefrontSectionViewSet
-from .secure_communication import SecureConversationViewSet, SecureNotificationViewSet
-from .launch_order_api import LaunchOrderViewSet
-from .order_chat_api import OrderChatViewSet
-from .vendor_finance_api import VendorFinanceViewSet
-from .support_api import AdminSupportCloseView, AdminSupportMessageView, AdminSupportView, SupportEmployeesView, SupportMessageView, SupportView
-from .vendor_shipping_api import VendorCityShippingViewSet
-from .serializers import CouponSerializer
-from .views import AdminDashboardView, WalletViewSet
-from .views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
+from catalog.models import City, PriceGroup
+from marketplace.catalog_api import CurrencyRateViewSet
+from marketplace.cms_views import DynamicHomeView
+from marketplace.secure_cart import SecureCartCalculateView
+from marketplace.secure_catalog import SecureDesignThemeViewSet, SecureStorefrontSectionViewSet
+from marketplace.secure_communication import SecureConversationViewSet, SecureNotificationViewSet
+from marketplace.support_api import (
+    AdminSupportCloseView,
+    AdminSupportMessageView,
+    AdminSupportView,
+    SupportEmployeesView,
+    SupportMessageView,
+    SupportView,
+)
+from marketplace.vendor_finance_api import VendorFinanceViewSet
+from marketplace.vendor_shipping_api import VendorCityShippingViewSet
+from marketplace.views import AdminDashboardView, WalletViewSet
+from marketplace.views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
+from orders.launch_order_api import LaunchOrderViewSet
+from marketplace.order_chat_api import OrderChatViewSet
+from marketplace.serializers import CouponSerializer
+from promotions.models import Coupon
 
 
 class PriceGroupSerializer(serializers.ModelSerializer):
@@ -42,7 +50,7 @@ class CouponViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CouponSerializer
 
     def get_queryset(self):
-        return CouponModel.objects.filter(is_active=True)
+        return Coupon.objects.filter(is_active=True)
 
 
 router = DefaultRouter()

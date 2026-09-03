@@ -4,11 +4,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
-from marketplace.vendor_finance_api import VendorFinanceViewSet as LegacyVendorFinanceViewSet
-from marketplace.views import WalletViewSet as LegacyWalletViewSet
-from marketplace.models import VendorProfile
+from orders.models import Payment
+from vendors.models import VendorProfile
 
-from .models import CurrencyRate, Payment, VendorCityShipping, VendorLedgerEntry, VendorPayout, Wallet, WalletTransaction
+from .models import CurrencyRate, VendorCityShipping, VendorLedgerEntry, VendorPayout, Wallet, WalletTransaction
+from .services import VendorFinanceViewSet as DomainVendorFinanceViewSet
+from .services import WalletViewSet as DomainWalletViewSet
 
 
 class FinanceWritePermission(BasePermission):
@@ -49,12 +50,14 @@ class WalletTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = WalletTransaction
         fields = "__all__"
+        read_only_fields = tuple(f.name for f in WalletTransaction._meta.fields)
 
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = "__all__"
+        read_only_fields = tuple(f.name for f in Payment._meta.fields)
 
 
 class VendorPayoutSerializer(serializers.ModelSerializer):
@@ -66,16 +69,14 @@ class VendorPayoutSerializer(serializers.ModelSerializer):
             "id", "vendor", "vendor_name", "vendor_order", "order", "amount",
             "currency", "status", "reference", "note", "created_at", "updated_at",
         )
-        read_only_fields = (
-            "id", "vendor", "vendor_name", "vendor_order", "order", "amount",
-            "currency", "status", "reference", "note", "created_at", "updated_at",
-        )
+        read_only_fields = fields
 
 
 class LedgerEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = VendorLedgerEntry
         fields = "__all__"
+        read_only_fields = tuple(f.name for f in VendorLedgerEntry._meta.fields)
 
 
 class CurrencyRateSerializer(serializers.ModelSerializer):
@@ -94,12 +95,12 @@ class VendorCityShippingSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at", "vendor")
 
 
-class WalletViewSet(LegacyWalletViewSet):
-    """Established wallet behavior exposed under the finance domain."""
+class WalletViewSet(DomainWalletViewSet):
+    """Finance-owned wallet API."""
 
 
-class VendorFinanceViewSet(LegacyVendorFinanceViewSet):
-    """Established vendor ledger and payout workflow exposed under finance."""
+class VendorFinanceViewSet(DomainVendorFinanceViewSet):
+    """Finance-owned vendor ledger/payout API."""
 
 
 class CurrencyRateViewSet(viewsets.ModelViewSet):
@@ -149,7 +150,8 @@ class VendorCityShippingViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         instance = serializer.instance
-        if getattr(self.request.user, "role", None) == "vendor" and not self.request.user.is_staff:
+        user = self.request.user
+        if getattr(user, "role", None) == "vendor" and not user.is_staff:
             serializer.save(vendor=instance.vendor)
         else:
             serializer.save()

@@ -2,9 +2,11 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
+from orders.models import Payment
+from vendors.models import VendorProfile
+
 from .forms import CurrencyRateForm, VendorCityShippingForm
-from .models import CurrencyRate, Payment, VendorCityShipping, VendorLedgerEntry, VendorPayout, Wallet
-from marketplace.models import VendorProfile
+from .models import CurrencyRate, VendorCityShipping, VendorLedgerEntry, VendorPayout, Wallet
 
 
 @login_required
