@@ -37,7 +37,7 @@ jobs:
       - name: Apply migrations
         run: python manage.py migrate --noinput
       - name: Run tests
-        run: python manage.py test marketplace accounts catalog vendors
+        run: python manage.py test marketplace accounts catalog vendors storefront orders finance communication promotions
 
   expo:
     name: Expo TypeScript and Web builds
