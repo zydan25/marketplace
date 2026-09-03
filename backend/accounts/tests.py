@@ -4,7 +4,6 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from marketplace.models import User, Wallet
-from marketplace.models_extra import UserPreference
 from .models import User as AccountsUser, UserPreference as AccountsUserPreference
 
 
@@ -12,20 +11,19 @@ class AccountsStageOneTests(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-    def test_proxy_points_to_existing_user_table(self):
+    def test_user_compatibility_proxy_points_to_existing_user_table(self):
         user = User.objects.create_user(phone="711000001", username="711000001", password="SafePass123!", role="customer")
         proxy = AccountsUser.objects.get(pk=user.pk)
         self.assertEqual(proxy.pk, user.pk)
         self.assertEqual(proxy._meta.db_table, user._meta.db_table)
         self.assertTrue(AccountsUser._meta.proxy)
 
-    def test_preference_proxy_points_to_existing_table(self):
+    def test_preference_has_concrete_accounts_ownership_and_existing_table(self):
         user = User.objects.create_user(phone="711000010", username="711000010", password="SafePass123!", role="customer")
-        preference = UserPreference.objects.create(user=user)
-        proxy = AccountsUserPreference.objects.get(pk=preference.pk)
-        self.assertEqual(proxy.pk, preference.pk)
-        self.assertEqual(proxy._meta.db_table, preference._meta.db_table)
-        self.assertTrue(AccountsUserPreference._meta.proxy)
+        preference = AccountsUserPreference.objects.create(user=user)
+        self.assertEqual(preference.pk, AccountsUserPreference.objects.get(pk=preference.pk).pk)
+        self.assertEqual(AccountsUserPreference._meta.db_table, "marketplace_userpreference")
+        self.assertFalse(AccountsUserPreference._meta.proxy)
 
     def test_registration_uses_accounts_route_and_creates_wallet(self):
         response = self.client.post("/api/auth/register/", {"phone": "711000002", "password": "SafePass456!", "first_name": "عميل"}, format="json")
@@ -49,7 +47,7 @@ class AccountsStageOneTests(TestCase):
         response = self.client.patch("/api/preferences/", {"currency": "SAR", "notifications_enabled": False}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["currency"], "SAR")
-        self.assertFalse(UserPreference.objects.get(user=user).notifications_enabled)
+        self.assertFalse(AccountsUserPreference.objects.get(user=user).notifications_enabled)
 
 
 class AccountsDashboardTests(TestCase):
@@ -89,10 +87,10 @@ class AccountsDashboardTests(TestCase):
         self.assertEqual(response.status_code, 302)
         created = User.objects.get(phone="700000003")
         self.assertTrue(created.check_password("NewSafePass123!"))
-        self.assertTrue(UserPreference.objects.filter(user=created).exists())
+        self.assertTrue(AccountsUserPreference.objects.filter(user=created).exists())
         response = self.client.post(reverse("accounts-dashboard:user-preferences-save", kwargs={"user_id": created.pk}), {"currency": "SAR", "notifications_enabled": "on"})
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(UserPreference.objects.get(user=created).currency, "SAR")
+        self.assertEqual(AccountsUserPreference.objects.get(user=created).currency, "SAR")
 
     def test_non_admin_cannot_open_accounts_dashboard(self):
         self.client.force_login(self.user)
