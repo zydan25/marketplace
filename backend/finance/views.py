@@ -1,8 +1,9 @@
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from django.views.decorators.http import require_GET
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET, require_http_methods
 
-from .models import Payment, VendorLedgerEntry, VendorPayout, Wallet
+from .forms import CurrencyRateForm, VendorCityShippingForm
+from .models import CurrencyRate, Payment, VendorCityShipping, VendorLedgerEntry, VendorPayout, Wallet
 
 
 @login_required
@@ -32,3 +33,49 @@ def dashboard(request):
         ],
         "api_prefix": "/api/v2/finance/",
     })
+
+
+def _render_form(request, form, title):
+    return render(request, "admin/domains/form.html", {"title": title, "form": form, "cancel_url": "/admin/dashboard/finance/"})
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def currency_rate_form(request, pk=None):
+    if not (request.user.is_staff or getattr(request.user, "role", None) == "admin"):
+        return render(request, "admin/domains/form.html", {"title": "سعر صرف", "error": "إدارة أسعار الصرف للإدارة فقط."}, status=403)
+    instance = get_object_or_404(CurrencyRate.objects.all(), pk=pk) if pk else CurrencyRate()
+    form = CurrencyRateForm(request.POST or None, instance=instance)
+    if request.method == "POST" and form.is_valid():
+        obj = form.save(commit=False)
+        obj.updated_by = request.user
+        obj.save()
+        return redirect("admin-dashboard-finance")
+    return _render_form(request, form, "إضافة / تعديل سعر صرف")
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def vendor_shipping_form(request, pk=None):
+    user = request.user
+    if not (user.is_staff or getattr(user, "role", None) in {"admin", "vendor"}):
+        return render(request, "admin/domains/form.html", {"title": "شحن المدن", "error": "غير مصرح."}, status=403)
+    instance = None
+    if pk:
+        qs = VendorCityShipping.objects.all()
+        if getattr(user, "role", None) == "vendor" and not user.is_staff:
+            qs = qs.filter(vendor__owner=user)
+        instance = get_object_or_404(qs, pk=pk)
+    form = VendorCityShippingForm(request.POST or None, instance=instance)
+    if request.method == "POST" and form.is_valid():
+        obj = form.save(commit=False)
+        if getattr(user, "role", None) == "vendor" and not user.is_staff:
+            vendor = getattr(user, "vendor_profile", None)
+            if vendor is None:
+                return _render_form(request, form, "إضافة رسوم شحن")
+            obj.vendor = vendor
+        elif obj.vendor_id is None:
+            return _render_form(request, form, "إضافة رسوم شحن")
+        obj.save()
+        return redirect("admin-dashboard-finance")
+    return _render_form(request, form, "إضافة / تعديل رسوم الشحن")
