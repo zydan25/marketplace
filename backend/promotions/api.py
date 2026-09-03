@@ -2,17 +2,12 @@ from decimal import Decimal
 from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from marketplace.models import User
 
 from .models import Address, Coupon, CouponRedemption, GiftTransfer, Loan, Referral
-
-
-class OwnOrAdminPermission(BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated)
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -35,12 +30,24 @@ class GiftTransferSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ("id", "created_at", "updated_at", "sender", "receiver_name_snapshot", "status")
 
+    def validate(self, attrs):
+        amount = attrs.get("amount", Decimal("0")) or Decimal("0")
+        points = attrs.get("points", 0) or 0
+        if amount < 0 or points < 0:
+            raise serializers.ValidationError({"amount": "القيم لا يمكن أن تكون سالبة."})
+        if amount == 0 and points == 0:
+            raise serializers.ValidationError({"amount": "يجب تحديد مبلغ أو نقاط للتحويل."})
+        return attrs
+
 
 class CouponSerializer(serializers.ModelSerializer):
     class Meta:
         model = Coupon
         fields = "__all__"
         read_only_fields = ("id", "created_at", "updated_at", "used_count")
+
+    def validate_code(self, value):
+        return value.strip().upper()
 
 
 class CouponRedemptionSerializer(serializers.ModelSerializer):
@@ -74,7 +81,7 @@ class AddressViewSet(viewsets.ModelViewSet):
 class LoanViewSet(viewsets.ModelViewSet):
     serializer_class = LoanSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "post", "patch", "head", "options"]
+    http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -83,7 +90,7 @@ class LoanViewSet(viewsets.ModelViewSet):
         return Loan.objects.filter(user=user).select_related("approved_by")
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save(user=self.request.user, status=Loan.Status.PENDING, approved_by=None)
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def approve(self, request, pk=None):
@@ -109,7 +116,7 @@ class LoanViewSet(viewsets.ModelViewSet):
 class GiftTransferViewSet(viewsets.ModelViewSet):
     serializer_class = GiftTransferSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "post", "patch", "head", "options"]
+    http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -124,11 +131,12 @@ class GiftTransferViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError({"receiver": "المستلم غير موجود."})
         if receiver.pk == self.request.user.pk:
             raise serializers.ValidationError({"receiver": "لا يمكن التحويل إلى الحساب نفسه."})
-        amount = Decimal(str(self.request.data.get("amount", "0") or "0"))
-        points = int(self.request.data.get("points", 0) or 0)
-        if amount < 0 or points < 0:
-            raise serializers.ValidationError({"amount": "القيمة لا يمكن أن تكون سالبة."})
-        serializer.save(sender=self.request.user, receiver=receiver, receiver_name_snapshot=receiver.get_full_name() or receiver.phone or receiver.username)
+        serializer.save(
+            sender=self.request.user,
+            receiver=receiver,
+            receiver_name_snapshot=receiver.get_full_name() or receiver.phone or receiver.username,
+            status=GiftTransfer.Status.PENDING,
+        )
 
 
 class CouponViewSet(viewsets.ModelViewSet):
@@ -141,7 +149,7 @@ class CouponViewSet(viewsets.ModelViewSet):
         qs = Coupon.objects.all().prefetch_related("assigned_to")
         if user.is_staff or getattr(user, "role", None) == "admin":
             return qs
-        return qs.filter(is_active=True).filter(assigned_to__isnull=True) | qs.filter(is_active=True, assigned_to=user)
+        return (qs.filter(is_active=True, assigned_to__isnull=True) | qs.filter(is_active=True, assigned_to=user)).distinct()
 
     def create(self, request, *args, **kwargs):
         if not (request.user.is_staff or getattr(request.user, "role", None) == "admin"):
@@ -198,4 +206,9 @@ def api_info(request):
         "domain": "promotions",
         "version": "2",
         "resources": ["coupons", "coupon-redemptions", "referrals", "addresses", "loans", "gifts"],
+        "write_rules": {
+            "loans": "create by owner; approval/rejection by admin actions",
+            "gifts": "create-only pending records; settlement workflow remains explicit",
+            "coupons": "admin-managed",
+        },
     })
