@@ -3,11 +3,11 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import include, path
-from communication.views import dashboard as communication_dashboard
-from finance.views import dashboard as finance_dashboard
-from orders.views import dashboard as orders_dashboard
-from promotions.views import dashboard as promotions_dashboard
-from storefront.views import dashboard as storefront_dashboard
+from communication.views import dashboard as communication_dashboard, notification_form
+from finance.views import currency_rate_form, dashboard as finance_dashboard, vendor_shipping_form
+from orders.views import dashboard as orders_dashboard, shipment_form
+from promotions.views import coupon_form, dashboard as promotions_dashboard, loan_review
+from storefront.views import dashboard as storefront_dashboard, media_form, section_form, theme_form
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
@@ -35,10 +35,26 @@ urlpatterns = [
     path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
     path("admin/dashboard/vendors/", include("vendors.dashboard_urls")),
     path("admin/dashboard/storefront/", storefront_dashboard, name="admin-dashboard-storefront"),
+    path("admin/dashboard/storefront/themes/new/", theme_form, name="admin-storefront-theme-new"),
+    path("admin/dashboard/storefront/themes/<int:pk>/edit/", theme_form, name="admin-storefront-theme-edit"),
+    path("admin/dashboard/storefront/sections/new/", section_form, name="admin-storefront-section-new"),
+    path("admin/dashboard/storefront/sections/<int:pk>/edit/", section_form, name="admin-storefront-section-edit"),
+    path("admin/dashboard/storefront/media/new/", media_form, name="admin-storefront-media-new"),
+    path("admin/dashboard/storefront/media/<int:pk>/edit/", media_form, name="admin-storefront-media-edit"),
     path("admin/dashboard/orders/", orders_dashboard, name="admin-dashboard-orders"),
+    path("admin/dashboard/orders/shipments/<int:pk>/edit/", shipment_form, name="admin-order-shipment-edit"),
     path("admin/dashboard/finance/", finance_dashboard, name="admin-dashboard-finance"),
+    path("admin/dashboard/finance/currency-rates/new/", currency_rate_form, name="admin-finance-currency-rate-new"),
+    path("admin/dashboard/finance/currency-rates/<int:pk>/edit/", currency_rate_form, name="admin-finance-currency-rate-edit"),
+    path("admin/dashboard/finance/shipping/new/", vendor_shipping_form, name="admin-finance-shipping-new"),
+    path("admin/dashboard/finance/shipping/<int:pk>/edit/", vendor_shipping_form, name="admin-finance-shipping-edit"),
     path("admin/dashboard/communication/", communication_dashboard, name="admin-dashboard-communication"),
+    path("admin/dashboard/communication/notifications/new/", notification_form, name="admin-communication-notification-new"),
+    path("admin/dashboard/communication/notifications/<int:pk>/edit/", notification_form, name="admin-communication-notification-edit"),
     path("admin/dashboard/promotions/", promotions_dashboard, name="admin-dashboard-promotions"),
+    path("admin/dashboard/promotions/coupons/new/", coupon_form, name="admin-promotions-coupon-new"),
+    path("admin/dashboard/promotions/coupons/<int:pk>/edit/", coupon_form, name="admin-promotions-coupon-edit"),
+    path("admin/dashboard/promotions/loans/<int:pk>/review/", loan_review, name="admin-promotions-loan-review"),
     path("admin/dashboard/manifest.json", dashboard_manifest, name="admin-dashboard-manifest"),
     path("admin/dashboard/sw.js", dashboard_worker, name="admin-dashboard-sw"),
     path("admin/dashboard/icon.svg", dashboard_icon, name="admin-dashboard-icon"),
