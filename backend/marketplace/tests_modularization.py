@@ -14,18 +14,54 @@ class DomainArchitectureTests(SimpleTestCase):
         installed = {config.label for config in apps.get_app_configs()}
         self.assertTrue(self.expected_apps.issubset(installed))
 
-    def test_domain_models_are_proxy_compatibility_models(self):
+    def test_domain_models_are_concrete_and_use_legacy_tables(self):
         expected = {
-            "storefront": ["DesignTheme", "StorefrontSection", "StorefrontMedia"],
-            "orders": ["Order", "OrderItem", "VendorOrder", "VendorOrderItem", "OrderStatusHistory", "Shipment", "InventoryReservation", "Payment"],
-            "finance": ["Wallet", "WalletTransaction", "Payment", "VendorPayout", "VendorLedgerEntry", "CurrencyRate", "VendorCityShipping"],
-            "communication": ["Notification", "Conversation", "Message"],
-            "promotions": ["Coupon", "CouponRedemption", "Referral", "Address", "Loan", "GiftTransfer"],
+            "catalog": {
+                "Category": "marketplace_category", "Product": "marketplace_product", "ProductImage": "marketplace_productimage",
+                "ProductVariant": "marketplace_productvariant", "CatalogOption": "marketplace_catalogoption", "PriceGroup": "marketplace_pricegroup",
+            },
+            "vendors": {"VendorProfile": "marketplace_vendorprofile", "VendorApplication": "marketplace_vendorapplication"},
+            "storefront": {"DesignTheme": "marketplace_designtheme", "StorefrontSection": "marketplace_storefrontsection", "StorefrontMedia": "marketplace_storefrontmedia"},
+            "orders": {
+                "Order": "marketplace_order", "OrderItem": "marketplace_orderitem", "VendorOrder": "marketplace_vendororder",
+                "VendorOrderItem": "marketplace_vendororderitem", "OrderStatusHistory": "marketplace_orderstatushistory",
+                "Shipment": "marketplace_shipment", "InventoryReservation": "marketplace_inventoryreservation", "Payment": "marketplace_payment",
+            },
+            "finance": {
+                "Wallet": "marketplace_wallet", "WalletTransaction": "marketplace_wallettransaction", "VendorPayout": "marketplace_vendorpayout",
+                "VendorLedgerEntry": "marketplace_vendorledgerentry", "CurrencyRate": "marketplace_currencyrate", "VendorCityShipping": "marketplace_vendorcityshipping",
+            },
+            "communication": {
+                "Notification": "marketplace_notification", "Conversation": "marketplace_conversation", "Message": "marketplace_message",
+                "OrderChat": "marketplace_orderchat", "OrderChatMessage": "marketplace_orderchatmessage",
+            },
+            "promotions": {
+                "Coupon": "marketplace_coupon", "CouponRedemption": "marketplace_couponredemption", "Referral": "marketplace_referral",
+                "Address": "marketplace_address", "Loan": "marketplace_loan", "GiftTransfer": "marketplace_gifttransfer",
+            },
         }
-        for app_label, model_names in expected.items():
-            for model_name in model_names:
+        for app_label, models in expected.items():
+            for model_name, table in models.items():
                 model = apps.get_model(app_label, model_name)
-                self.assertTrue(model._meta.proxy, f"{app_label}.{model_name} must remain a proxy during the safe refactor")
+                self.assertFalse(model._meta.proxy, f"{app_label}.{model_name} must be concrete")
+                self.assertEqual(model._meta.db_table, table)
+
+    def test_marketplace_retains_only_auth_and_audit_ownership(self):
+        from marketplace.models import AuditLog, User
+        self.assertFalse(User._meta.proxy)
+        self.assertEqual(User._meta.db_table, "marketplace_user")
+        self.assertEqual(AuditLog._meta.db_table, "marketplace_auditlog")
+
+    def test_legacy_model_imports_resolve_to_domain_owners(self):
+        from marketplace.models import Category as LegacyCategory, Product as LegacyProduct, VendorProfile as LegacyVendor
+        from marketplace.order_chat_models import OrderChat as LegacyOrderChat
+        from catalog.models import Category, Product
+        from communication.models import OrderChat
+        from vendors.models import VendorProfile
+        self.assertIs(LegacyCategory, Category)
+        self.assertIs(LegacyProduct, Product)
+        self.assertIs(LegacyVendor, VendorProfile)
+        self.assertIs(LegacyOrderChat, OrderChat)
 
     def test_new_admin_registrations_exist(self):
         expected = [
