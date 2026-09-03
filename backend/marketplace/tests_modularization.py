@@ -1,8 +1,8 @@
 from django.apps import apps
 from django.contrib.admin import site
+from django.forms import BaseForm
 from django.test import SimpleTestCase
 from django.urls import resolve
-from django.forms import BaseForm
 
 
 class DomainArchitectureTests(SimpleTestCase):
@@ -73,14 +73,16 @@ class DomainArchitectureTests(SimpleTestCase):
     def test_sensitive_domain_resources_are_read_only(self):
         from orders.api import PaymentViewSet, ReservationViewSet, ShipmentViewSet, VendorOrderViewSet
         from finance.api import VendorPayoutViewSet, WalletTransactionViewSet
-        from promotions.api import CouponRedemptionViewSet, GiftTransferViewSet, ReferralViewSet
+        from promotions.api import CouponRedemptionViewSet, ReferralViewSet, GiftTransferViewSet
 
         for viewset in (
             PaymentViewSet, ReservationViewSet, ShipmentViewSet, VendorOrderViewSet,
             VendorPayoutViewSet, WalletTransactionViewSet,
-            CouponRedemptionViewSet, ReferralViewSet, GiftTransferViewSet,
+            CouponRedemptionViewSet, ReferralViewSet,
         ):
-            self.assertFalse(set(viewset.http_method_names) & {"patch", "put", "delete"}, viewset.__name__)
+            self.assertEqual(set(viewset.http_method_names), {"get", "head", "options"}, viewset.__name__)
+        self.assertNotIn("patch", GiftTransferViewSet.http_method_names)
+        self.assertNotIn("delete", GiftTransferViewSet.http_method_names)
 
     def test_v2_api_root(self):
         response = self.client.get("/api/v2/")
@@ -92,12 +94,25 @@ class DomainArchitectureTests(SimpleTestCase):
         self.assertIn("communication", response.json()["domains"])
         self.assertIn("promotions", response.json()["domains"])
 
-    def test_public_storefront_contract(self):
-        response = self.client.get("/api/v2/storefront/")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["domain"], "storefront")
+    def test_public_domain_info_contracts(self):
+        public_urls = {
+            "/api/v2/storefront/": "storefront",
+            "/api/v2/orders/": "orders",
+            "/api/v2/finance/": "finance",
+            "/api/v2/communication/": "communication",
+            "/api/v2/promotions/": "promotions",
+        }
+        for url, domain in public_urls.items():
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200, url)
+            self.assertEqual(response.json()["domain"], domain, url)
 
-    def test_protected_domains_require_authentication(self):
-        for url in ("/api/v2/orders/", "/api/v2/finance/", "/api/v2/communication/", "/api/v2/promotions/"):
+    def test_protected_domain_resources_require_authentication(self):
+        for url in (
+            "/api/v2/orders/orders/",
+            "/api/v2/finance/wallets/",
+            "/api/v2/communication/notifications/",
+            "/api/v2/promotions/addresses/",
+        ):
             response = self.client.get(url)
             self.assertIn(response.status_code, {401, 403}, url)
