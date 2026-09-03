@@ -1,0 +1,31 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ domain_title|default:"إدارة النظام" }}</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;color:#172033;background:#f5f7fb}
+    *{box-sizing:border-box}body{margin:0}.wrap{max-width:1180px;margin:auto;padding:28px 18px 60px}.head{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:24px}.eyebrow{font-size:13px;color:#667085;margin-bottom:5px}.title{margin:0;font-size:28px}.muted{color:#667085}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.card{background:#fff;border:1px solid #e6eaf0;border-radius:16px;padding:18px;box-shadow:0 5px 18px rgba(16,24,40,.05)}.label{font-size:13px;color:#667085}.value{font-size:28px;font-weight:750;margin-top:7px}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{display:inline-block;text-decoration:none;padding:10px 14px;border-radius:10px;border:1px solid #d0d5dd;color:#172033;background:#fff}.btn.primary{background:#172033;color:#fff;border-color:#172033}.error{margin-top:18px;padding:14px;border-radius:12px;background:#fff1f0;color:#a61b1b;border:1px solid #ffd2cc}.api{margin-top:22px}.code{display:block;direction:ltr;text-align:left;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#101828;color:#d0d5dd;border-radius:12px;padding:14px;overflow:auto}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="head">
+      <div><div class="eyebrow">Shabik · Django Domain</div><h1 class="title">{{ domain_title|default:"لوحة الإدارة" }}</h1></div>
+      <div class="actions">
+        <a class="btn" href="/admin/">Django Admin</a>
+        <a class="btn primary" href="/api/v2/">API v2</a>
+      </div>
+    </header>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    {% if stats %}<section class="grid">{% for stat in stats %}<div class="card"><div class="label">{{ stat.label }}</div><div class="value">{{ stat.value }}</div></div>{% endfor %}</section>{% endif %}
+    <section class="card api">
+      <div class="label">واجهة النطاق</div>
+      <div class="muted" style="margin:7px 0 12px">API مستقلة لهذا التطبيق مع استمرار مسارات التوافق القديمة.</div>
+      <code class="code">{{ api_prefix|default:"/api/v2/" }}</code>
+    </section>
+  </main>
+</body>
+</html>

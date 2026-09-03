@@ -3,6 +3,11 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import include, path
+from communication.views import dashboard as communication_dashboard
+from finance.views import dashboard as finance_dashboard
+from orders.views import dashboard as orders_dashboard
+from promotions.views import dashboard as promotions_dashboard
+from storefront.views import dashboard as storefront_dashboard
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
@@ -29,6 +34,11 @@ urlpatterns = [
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
     path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
     path("admin/dashboard/vendors/", include("vendors.dashboard_urls")),
+    path("admin/dashboard/storefront/", storefront_dashboard, name="admin-dashboard-storefront"),
+    path("admin/dashboard/orders/", orders_dashboard, name="admin-dashboard-orders"),
+    path("admin/dashboard/finance/", finance_dashboard, name="admin-dashboard-finance"),
+    path("admin/dashboard/communication/", communication_dashboard, name="admin-dashboard-communication"),
+    path("admin/dashboard/promotions/", promotions_dashboard, name="admin-dashboard-promotions"),
     path("admin/dashboard/manifest.json", dashboard_manifest, name="admin-dashboard-manifest"),
     path("admin/dashboard/sw.js", dashboard_worker, name="admin-dashboard-sw"),
     path("admin/dashboard/icon.svg", dashboard_icon, name="admin-dashboard-icon"),
@@ -38,8 +48,6 @@ urlpatterns = [
     path("admin/dashboard/resource/<slug:resource>/<int:pk>/delete/", resource_delete, name="admin-crud-delete"),
     path("admin/marketplace/user/", legacy_user_admin_redirect, name="legacy-marketplace-user-admin"),
     path("admin/marketplace/user/<path:rest>", legacy_user_admin_redirect, name="legacy-marketplace-user-admin-rest"),
-
-    # Primary server-rendered storefront editor and its legacy side-by-side fallback.
     path("admin/marketplace/storefront-editor/", visual_editor_v9, name="admin-storefront-editor"),
     path("admin/marketplace/storefront-editor-legacy/", visual_editor, name="admin-storefront-editor-legacy"),
     path("admin/marketplace/storefront-editor/section/create/", create_section, name="admin-storefront-section-create"),
@@ -58,6 +66,7 @@ urlpatterns = [
     path("admin/marketplace/<slug:resource>/", legacy_resource_redirect, name="admin-legacy-resource"),
     path("admin/", admin.site.urls),
     path("api/", include("marketplace.urls")),
+    path("api/v2/", include("config.api_v2_urls")),
 ]
 
 if settings.DEBUG:
