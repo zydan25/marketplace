@@ -1,12 +1,22 @@
 from django.db.models import Q
-from rest_framework import serializers, viewsets
+from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 
-from marketplace.launch_order_api import LaunchOrderViewSet as LegacyOrderViewSet
-
-from .models import InventoryReservation, Order, OrderItem, OrderStatusHistory, Payment, Shipment, VendorOrder, VendorOrderItem
+from .launch_order_api import LaunchOrderViewSet
+from .models import InventoryReservation, OrderItem, OrderStatusHistory, Payment, Shipment, VendorOrder, VendorOrderItem
+from .secure_order_api import SecureOrderViewSet
+from .serializers import (
+    OrderItemSerializer,
+    OrderSerializer,
+    PaymentSerializer,
+    ReservationSerializer,
+    ShipmentSerializer,
+    StatusHistorySerializer,
+    VendorOrderItemSerializer,
+    VendorOrderSerializer,
+)
 
 
 class OrderAccessPermission(BasePermission):
@@ -19,14 +29,16 @@ class OrderAccessPermission(BasePermission):
         user = request.user
         if user.is_staff or getattr(user, "role", None) == "admin":
             return True
-        if hasattr(obj, "customer_id") and obj.customer_id == user.id:
+        if getattr(obj, "customer_id", None) == user.id:
             return True
         vendor = getattr(obj, "vendor", None)
         if vendor and vendor.owner_id == user.id:
             return True
-        if hasattr(obj, "order") and obj.order.customer_id == user.id:
+        order = getattr(obj, "order", None)
+        if order and order.customer_id == user.id:
             return True
-        if hasattr(obj, "vendor_order") and obj.vendor_order.vendor.owner_id == user.id:
+        vendor_order = getattr(obj, "vendor_order", None)
+        if vendor_order and vendor_order.vendor.owner_id == user.id:
             return True
         return False
 
@@ -36,57 +48,12 @@ class ReadOnlyDomainViewSet(viewsets.ReadOnlyModelViewSet):
     http_method_names = ["get", "head", "options"]
 
 
-class OrderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Order
-        fields = "__all__"
-        read_only_fields = ("id", "created_at", "updated_at", "customer", "order_number", "status", "subtotal", "shipping_fee", "discount", "total", "currency", "payment_status")
+class OrderViewSet(LaunchOrderViewSet):
+    """Canonical public order endpoint owned by the orders domain."""
 
 
-class OrderItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderItem
-        fields = "__all__"
-
-
-class VendorOrderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = VendorOrder
-        fields = "__all__"
-
-
-class VendorOrderItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = VendorOrderItem
-        fields = "__all__"
-
-
-class StatusHistorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderStatusHistory
-        fields = "__all__"
-
-
-class ShipmentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Shipment
-        fields = "__all__"
-
-
-class ReservationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = InventoryReservation
-        fields = "__all__"
-
-
-class PaymentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Payment
-        fields = "__all__"
-
-
-class OrderViewSet(LegacyOrderViewSet):
-    """Compatibility-backed order lifecycle; sensitive state changes stay in domain actions."""
+class SecureOrderDomainViewSet(SecureOrderViewSet):
+    """Explicit basic checkout endpoint for internal integrations."""
 
 
 class OrderItemViewSet(ReadOnlyDomainViewSet):
@@ -176,6 +143,9 @@ def api_info(request):
     return Response({
         "domain": "orders",
         "version": "2",
-        "resources": ["orders", "order-items", "vendor-orders", "vendor-order-items", "status-history", "shipments", "inventory-reservations", "payments"],
-        "write_rules": "تغيير حالة الطلب والشحن والمخزون يتم فقط عبر دورة الطلب الآمنة.",
+        "resources": [
+            "orders", "order-items", "vendor-orders", "vendor-order-items",
+            "status-history", "shipments", "inventory-reservations", "payments",
+        ],
+        "write_rules": "تغيير حالة الطلب والشحن والمخزون يتم فقط عبر دورة الطلب الآمنة داخل orders.",
     })
