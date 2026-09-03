@@ -1,14 +1,17 @@
 from django.conf import settings
 from django.db import models
 
+from orders.models import Order, VendorOrder
+from vendors.models import VendorProfile
+
 
 class OrderChat(models.Model):
-    """One private customer↔vendor chat for each vendor side of an order."""
+    """Compatibility model; the order-chat feature still lives in legacy API modules."""
 
-    order = models.ForeignKey("marketplace.Order", on_delete=models.CASCADE, related_name="order_chats")
-    vendor_order = models.OneToOneField("marketplace.VendorOrder", on_delete=models.CASCADE, related_name="order_chat")
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="order_chats")
+    vendor_order = models.OneToOneField(VendorOrder, on_delete=models.CASCADE, related_name="order_chat")
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="order_chats_as_customer")
-    vendor = models.ForeignKey("marketplace.VendorProfile", on_delete=models.CASCADE, related_name="order_chats")
+    vendor = models.ForeignKey(VendorProfile, on_delete=models.CASCADE, related_name="order_chats")
     subject = models.CharField(max_length=180, blank=True)
     is_closed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -16,9 +19,7 @@ class OrderChat(models.Model):
 
     class Meta:
         ordering = ["-updated_at", "-id"]
-        constraints = [
-            models.UniqueConstraint(fields=["order", "vendor"], name="uniq_order_chat_per_vendor"),
-        ]
+        constraints = [models.UniqueConstraint(fields=["order", "vendor"], name="uniq_order_chat_per_vendor")]
         indexes = [
             models.Index(fields=["customer", "updated_at"]),
             models.Index(fields=["vendor", "updated_at"]),
