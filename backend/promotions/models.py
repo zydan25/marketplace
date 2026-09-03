@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -14,9 +15,9 @@ class TimeStampedModel(models.Model):
 
 class Coupon(TimeStampedModel):
     code = models.CharField(max_length=50, unique=True)
-    discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    minimum_order = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    minimum_order = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     usage_limit = models.PositiveIntegerField(null=True, blank=True)
     used_count = models.PositiveIntegerField(default=0)
     starts_at = models.DateTimeField(null=True, blank=True)
@@ -39,7 +40,10 @@ class CouponRedemption(models.Model):
 
     class Meta:
         db_table = "marketplace_couponredemption"
-        indexes = [models.Index(fields=["coupon", "user"]), models.Index(fields=["created_at"])]
+        indexes = [
+            models.Index(fields=["coupon", "user"], name="marketplace_coupon__e4f58e_idx"),
+            models.Index(fields=["created_at"], name="marketplace_created_265ee8_idx"),
+        ]
 
 
 class Referral(TimeStampedModel):
