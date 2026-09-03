@@ -1,6 +1,8 @@
 from django.apps import apps
 from django.contrib.admin import site
 from django.test import SimpleTestCase
+from django.urls import resolve
+from django.forms import BaseForm
 
 
 class DomainArchitectureTests(SimpleTestCase):
@@ -50,7 +52,35 @@ class DomainArchitectureTests(SimpleTestCase):
             NotificationForm, MessageForm,
             CouponForm, LoanReviewForm, GiftTransferForm,
         ):
-            self.assertTrue(issubclass(form_class, __import__("django.forms", fromlist=["Form"]).BaseForm))
+            self.assertTrue(issubclass(form_class, BaseForm))
+
+    def test_domain_admin_routes_resolve(self):
+        routes = {
+            "/admin/dashboard/storefront/": "admin-dashboard-storefront",
+            "/admin/dashboard/storefront/themes/new/": "admin-storefront-theme-new",
+            "/admin/dashboard/orders/": "admin-dashboard-orders",
+            "/admin/dashboard/orders/shipments/1/edit/": "admin-order-shipment-edit",
+            "/admin/dashboard/finance/": "admin-dashboard-finance",
+            "/admin/dashboard/finance/currency-rates/new/": "admin-finance-currency-rate-new",
+            "/admin/dashboard/communication/": "admin-dashboard-communication",
+            "/admin/dashboard/communication/notifications/new/": "admin-communication-notification-new",
+            "/admin/dashboard/promotions/": "admin-dashboard-promotions",
+            "/admin/dashboard/promotions/coupons/new/": "admin-promotions-coupon-new",
+        }
+        for path, expected_name in routes.items():
+            self.assertEqual(resolve(path).url_name, expected_name)
+
+    def test_sensitive_domain_resources_are_read_only(self):
+        from orders.api import PaymentViewSet, ReservationViewSet, ShipmentViewSet, VendorOrderViewSet
+        from finance.api import VendorPayoutViewSet, WalletTransactionViewSet
+        from promotions.api import CouponRedemptionViewSet, GiftTransferViewSet, ReferralViewSet
+
+        for viewset in (
+            PaymentViewSet, ReservationViewSet, ShipmentViewSet, VendorOrderViewSet,
+            VendorPayoutViewSet, WalletTransactionViewSet,
+            CouponRedemptionViewSet, ReferralViewSet, GiftTransferViewSet,
+        ):
+            self.assertFalse(set(viewset.http_method_names) & {"patch", "put", "delete"}, viewset.__name__)
 
     def test_v2_api_root(self):
         response = self.client.get("/api/v2/")
