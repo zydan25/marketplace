@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 
 
@@ -14,7 +15,7 @@ class TimeStampedModel(models.Model):
 
 class Wallet(TimeStampedModel):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="wallet")
-    balance = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    balance = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(0)])
     currency = models.CharField(max_length=6, default="YER")
     is_locked = models.BooleanField(default=False)
 
