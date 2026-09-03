@@ -59,7 +59,7 @@ class StorefrontMedia(TimeStampedModel):
     class Meta:
         db_table = "marketplace_storefrontmedia"
         ordering = ["sort_order", "-updated_at", "id"]
-        indexes = [models.Index(fields=["vendor", "is_active"])]
+        indexes = [models.Index(fields=["vendor", "is_active"], name="marketplace_vendor__4576fa_idx")]
 
     def clean(self):
         if self.target_url.startswith("http"):
