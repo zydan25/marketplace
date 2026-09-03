@@ -15,6 +15,12 @@ class CouponForm(forms.ModelForm):
             "ends_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
         }
 
+    def clean_code(self):
+        code = (self.cleaned_data.get("code") or "").strip().upper()
+        if not code:
+            raise forms.ValidationError("كود الكوبون مطلوب.")
+        return code
+
     def clean(self):
         cleaned = super().clean()
         percent = cleaned.get("discount_percent") or 0
