@@ -6,7 +6,7 @@ class MarketplaceConfig(AppConfig):
     name = "marketplace"
 
     def ready(self):
+        # Compatibility imports retained for legacy module paths and signals.
         from . import marketplace_models  # noqa: F401
         from . import storefront_models  # noqa: F401
         from . import order_chat_models  # noqa: F401
-        from . import admin_catalog  # noqa: F401
