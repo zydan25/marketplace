@@ -1,5 +1,5 @@
-from django.contrib.admin import site
 from django.apps import apps
+from django.contrib.admin import site
 from django.test import SimpleTestCase
 
 
@@ -35,6 +35,22 @@ class DomainArchitectureTests(SimpleTestCase):
         ]
         for app_label, model_name in expected:
             self.assertIn(apps.get_model(app_label, model_name), site._registry)
+
+    def test_domain_forms_are_real_model_or_action_forms(self):
+        from communication.forms import MessageForm, NotificationForm
+        from finance.forms import CurrencyRateForm, VendorCityShippingForm, WalletTopUpForm
+        from orders.forms import OrderStatusForm, ShipmentForm
+        from promotions.forms import CouponForm, GiftTransferForm, LoanReviewForm
+        from storefront.forms import DesignThemeForm, StorefrontMediaForm, StorefrontSectionForm
+
+        for form_class in (
+            DesignThemeForm, StorefrontSectionForm, StorefrontMediaForm,
+            OrderStatusForm, ShipmentForm,
+            CurrencyRateForm, VendorCityShippingForm, WalletTopUpForm,
+            NotificationForm, MessageForm,
+            CouponForm, LoanReviewForm, GiftTransferForm,
+        ):
+            self.assertTrue(issubclass(form_class, __import__("django.forms", fromlist=["Form"]).BaseForm))
 
     def test_v2_api_root(self):
         response = self.client.get("/api/v2/")
