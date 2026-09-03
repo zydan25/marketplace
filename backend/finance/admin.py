@@ -1,6 +1,8 @@
 from django.contrib import admin
 
-from .models import CurrencyRate, Payment, VendorCityShipping, VendorLedgerEntry, VendorPayout, Wallet, WalletTransaction
+from orders.models import Payment
+
+from .models import CurrencyRate, VendorCityShipping, VendorLedgerEntry, VendorPayout, Wallet, WalletTransaction
 
 
 @admin.register(Wallet)
@@ -15,6 +17,7 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     list_display = ("wallet", "transaction_type", "amount", "balance_after", "created_at")
     list_filter = ("transaction_type",)
     search_fields = ("wallet__user__phone", "reference", "note")
+    readonly_fields = ("wallet", "transaction_type", "amount", "balance_after", "reference", "note", "metadata", "created_at", "updated_at")
 
 
 @admin.register(Payment)
@@ -22,6 +25,7 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = ("order", "provider", "method", "amount", "currency", "status", "paid_at")
     list_filter = ("status", "provider", "method", "currency")
     search_fields = ("order__order_number", "transaction_id")
+    readonly_fields = ("order", "provider", "method", "transaction_id", "amount", "refunded_amount", "currency", "status", "paid_at", "metadata", "created_at", "updated_at")
 
 
 @admin.register(VendorPayout)
@@ -36,6 +40,7 @@ class VendorLedgerEntryAdmin(admin.ModelAdmin):
     list_display = ("vendor", "entry_type", "amount", "balance_after", "currency", "reference", "created_at")
     list_filter = ("entry_type", "currency")
     search_fields = ("vendor__store_name", "reference")
+    readonly_fields = tuple(field.name for field in VendorLedgerEntry._meta.fields)
 
 
 @admin.register(CurrencyRate)
