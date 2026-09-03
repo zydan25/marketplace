@@ -46,6 +46,7 @@ MOVED_MODELS = [
 class Migration(migrations.Migration):
     dependencies = [
         ("marketplace", "0017_seed_global_storefront_themes"),
+        ("marketplace", "0013_merge_storefront_migrations"),
         ("accounts", "0002_delete_userpreference_userpreference"),
         ("catalog", "0002_delete_catalogoption_delete_category_city_and_more"),
         ("vendors", "0002_delete_vendorapplication_delete_vendorprofile_and_more"),
