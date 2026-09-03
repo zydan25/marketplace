@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from marketplace.models import VendorProfile
+from vendors.models import VendorProfile
 
 from .models import DesignTheme, StorefrontMedia, StorefrontSection
 
@@ -34,21 +34,21 @@ class ThemeSerializer(serializers.ModelSerializer):
     class Meta:
         model = DesignTheme
         fields = "__all__"
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "created_at", "updated_at", "owner", "vendor", "is_global")
 
 
 class SectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = StorefrontSection
         fields = "__all__"
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "created_at", "updated_at", "owner", "vendor")
 
 
 class MediaSerializer(serializers.ModelSerializer):
     class Meta:
         model = StorefrontMedia
         fields = "__all__"
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "created_at", "updated_at", "vendor")
 
 
 class ThemeViewSet(viewsets.ModelViewSet):
@@ -68,10 +68,18 @@ class ThemeViewSet(viewsets.ModelViewSet):
         user = self.request.user
         vendor = None
         if getattr(user, "role", None) == "vendor":
-            vendor = VendorProfile.objects.filter(owner=user).first()
+            vendor = VendorProfile.objects.filter(owner=user, status="active").first()
             if not vendor:
-                raise serializers.ValidationError({"vendor": "لا يوجد متجر مرتبط بهذا الحساب."})
-        serializer.save(owner=user, vendor=vendor)
+                raise serializers.ValidationError({"vendor": "لا يوجد متجر نشط مرتبط بهذا الحساب."})
+        serializer.save(owner=user, vendor=vendor, is_global=vendor is None)
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        user = self.request.user
+        if not (user.is_staff or getattr(user, "role", None) == "admin") and instance.vendor_id:
+            if instance.vendor.owner_id != user.id:
+                raise serializers.ValidationError({"detail": "لا يمكنك تعديل تصميم متجر آخر."})
+        serializer.save(owner=instance.owner, vendor=instance.vendor, is_global=instance.is_global)
 
     @action(detail=True, methods=["post"])
     def activate(self, request, pk=None):
@@ -100,8 +108,15 @@ class SectionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
-        vendor = VendorProfile.objects.filter(owner=user).first() if getattr(user, "role", None) == "vendor" else None
+        vendor = VendorProfile.objects.filter(owner=user, status="active").first() if getattr(user, "role", None) == "vendor" else None
         serializer.save(owner=user, vendor=vendor)
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        user = self.request.user
+        if not (user.is_staff or getattr(user, "role", None) == "admin") and instance.vendor_id != getattr(getattr(user, "vendor_profile", None), "id", None):
+            raise serializers.ValidationError({"detail": "لا يمكنك تعديل قسم متجر آخر."})
+        serializer.save(owner=instance.owner, vendor=instance.vendor)
 
     @action(detail=False, methods=["post"])
     def reorder(self, request):
@@ -129,8 +144,15 @@ class MediaViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
-        vendor = VendorProfile.objects.filter(owner=user).first() if getattr(user, "role", None) == "vendor" else None
+        vendor = VendorProfile.objects.filter(owner=user, status="active").first() if getattr(user, "role", None) == "vendor" else None
         serializer.save(vendor=vendor)
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        user = self.request.user
+        if not (user.is_staff or getattr(user, "role", None) == "admin") and instance.vendor_id != getattr(getattr(user, "vendor_profile", None), "id", None):
+            raise serializers.ValidationError({"detail": "لا يمكنك تعديل وسائط متجر آخر."})
+        serializer.save(vendor=instance.vendor)
 
 
 class PublicStorefrontView(APIView):
@@ -142,7 +164,7 @@ class PublicStorefrontView(APIView):
             vendor = VendorProfile.objects.filter(slug=vendor_slug, status="active").first()
             if not vendor:
                 return Response({"detail": "المتجر غير موجود."}, status=status.HTTP_404_NOT_FOUND)
-        theme = (DesignTheme.objects.filter(vendor=vendor, is_active=True).first() if vendor else None)
+        theme = DesignTheme.objects.filter(vendor=vendor, is_active=True).first() if vendor else None
         if not theme:
             theme = DesignTheme.objects.filter(is_global=True, is_active=True).first()
         sections = StorefrontSection.objects.filter(is_visible=True)
