@@ -64,7 +64,7 @@ def theme_form(request, pk=None):
         elif theme.owner_id is None:
             theme.owner = request.user
         theme.save()
-        return redirect("storefront-dashboard")
+        return redirect("admin-dashboard-storefront")
     return _render_form(request, form, "إضافة / تعديل ثيم الواجهة")
 
 
@@ -82,7 +82,7 @@ def section_form(request, pk=None):
         section.owner = request.user
         section.vendor = vendor
         section.save()
-        return redirect("storefront-dashboard")
+        return redirect("admin-dashboard-storefront")
     return _render_form(request, form, "إضافة / تعديل قسم واجهة")
 
 
@@ -99,5 +99,5 @@ def media_form(request, pk=None):
         media = form.save(commit=False)
         media.vendor = vendor
         media.save()
-        return redirect("storefront-dashboard")
+        return redirect("admin-dashboard-storefront")
     return _render_form(request, form, "إضافة / تعديل وسائط المتجر")
