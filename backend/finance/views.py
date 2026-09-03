@@ -4,6 +4,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from .forms import CurrencyRateForm, VendorCityShippingForm
 from .models import CurrencyRate, Payment, VendorCityShipping, VendorLedgerEntry, VendorPayout, Wallet
+from marketplace.models import VendorProfile
 
 
 @login_required
@@ -60,22 +61,29 @@ def vendor_shipping_form(request, pk=None):
     user = request.user
     if not (user.is_staff or getattr(user, "role", None) in {"admin", "vendor"}):
         return render(request, "admin/domains/form.html", {"title": "شحن المدن", "error": "غير مصرح."}, status=403)
+
+    vendor = None
+    if getattr(user, "role", None) == "vendor" and not user.is_staff:
+        vendor = get_object_or_404(VendorProfile.objects.filter(owner=user, status="active"))
     instance = None
     if pk:
         qs = VendorCityShipping.objects.all()
-        if getattr(user, "role", None) == "vendor" and not user.is_staff:
-            qs = qs.filter(vendor__owner=user)
+        if vendor:
+            qs = qs.filter(vendor=vendor)
         instance = get_object_or_404(qs, pk=pk)
-    form = VendorCityShippingForm(request.POST or None, instance=instance)
+
+    form = VendorCityShippingForm(
+        request.POST or None,
+        instance=instance,
+        vendor_required=vendor is None,
+    )
     if request.method == "POST" and form.is_valid():
         obj = form.save(commit=False)
-        if getattr(user, "role", None) == "vendor" and not user.is_staff:
-            vendor = getattr(user, "vendor_profile", None)
-            if vendor is None:
-                return _render_form(request, form, "إضافة رسوم شحن")
+        if vendor:
             obj.vendor = vendor
         elif obj.vendor_id is None:
-            return _render_form(request, form, "إضافة رسوم شحن")
+            form.add_error("vendor", "اختيار التاجر مطلوب للإدارة.")
+            return _render_form(request, form, "إضافة / تعديل رسوم الشحن")
         obj.save()
         return redirect("admin-dashboard-finance")
     return _render_form(request, form, "إضافة / تعديل رسوم الشحن")
