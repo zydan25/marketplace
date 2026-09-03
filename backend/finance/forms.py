@@ -3,6 +3,7 @@ from decimal import Decimal
 from django import forms
 
 from .models import CurrencyRate, VendorCityShipping
+from marketplace.models import VendorProfile
 
 
 class CurrencyRateForm(forms.ModelForm):
@@ -27,7 +28,14 @@ class CurrencyRateForm(forms.ModelForm):
 class VendorCityShippingForm(forms.ModelForm):
     class Meta:
         model = VendorCityShipping
-        fields = ("city", "fee", "is_active")
+        fields = ("vendor", "city", "fee", "is_active")
+
+    def __init__(self, *args, vendor_required=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["vendor"].queryset = VendorProfile.objects.filter(status="active").order_by("store_name")
+        if not vendor_required:
+            self.fields["vendor"].required = False
+            self.fields["vendor"].disabled = True
 
     def clean_fee(self):
         value = self.cleaned_data["fee"]
