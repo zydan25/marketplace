@@ -8,14 +8,17 @@ from marketplace.models import User
 from .models import VendorApplication, VendorProfile
 
 
-class VendorProxyTests(TestCase):
-    def test_proxies_use_existing_tables(self):
+class VendorOwnershipTests(TestCase):
+    def test_domain_models_own_existing_tables(self):
+        expected = {
+            VendorProfile: "marketplace_vendorprofile",
+            VendorApplication: "marketplace_vendorapplication",
+        }
+        for model, table in expected.items():
+            self.assertFalse(model._meta.proxy)
+            self.assertEqual(model._meta.db_table, table)
         from marketplace.models import VendorProfile as LegacyProfile
-        from marketplace.marketplace_models import VendorApplication as LegacyApplication
-        self.assertTrue(VendorProfile._meta.proxy)
-        self.assertTrue(VendorApplication._meta.proxy)
         self.assertEqual(VendorProfile._meta.db_table, LegacyProfile._meta.db_table)
-        self.assertEqual(VendorApplication._meta.db_table, LegacyApplication._meta.db_table)
 
 
 class VendorApiTests(TestCase):
