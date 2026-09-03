@@ -1,7 +1,7 @@
 from django.db.models import Q
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
 from marketplace.vendor_finance_api import VendorFinanceViewSet as LegacyVendorFinanceViewSet
@@ -158,6 +158,7 @@ class VendorCityShippingViewSet(viewsets.ModelViewSet):
 class WalletTransactionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = WalletTransactionSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -169,6 +170,7 @@ class WalletTransactionViewSet(viewsets.ReadOnlyModelViewSet):
 class VendorPayoutViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = VendorPayoutSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -183,6 +185,7 @@ class VendorPayoutViewSet(viewsets.ReadOnlyModelViewSet):
 class VendorLedgerEntryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = LedgerEntrySerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -195,6 +198,7 @@ class VendorLedgerEntryViewSet(viewsets.ReadOnlyModelViewSet):
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -205,7 +209,7 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def api_info(request):
     return Response({
         "domain": "finance",
