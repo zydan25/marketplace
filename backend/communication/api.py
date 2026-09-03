@@ -1,7 +1,7 @@
 from django.db.models import Q
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 
 from marketplace.order_chat_api import OrderChatViewSet as LegacyOrderChatViewSet
@@ -77,7 +77,7 @@ class OrderChatViewSet(LegacyOrderChatViewSet):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def api_info(request):
     return Response({
         "domain": "communication",
