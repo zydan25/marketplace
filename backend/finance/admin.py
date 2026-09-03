@@ -1,7 +1,5 @@
 from django.contrib import admin
 
-from orders.models import Payment
-
 from .models import CurrencyRate, VendorCityShipping, VendorLedgerEntry, VendorPayout, Wallet, WalletTransaction
 
 
@@ -18,14 +16,6 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     list_filter = ("transaction_type",)
     search_fields = ("wallet__user__phone", "reference", "note")
     readonly_fields = ("wallet", "transaction_type", "amount", "balance_after", "reference", "note", "metadata", "created_at", "updated_at")
-
-
-@admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
-    list_display = ("order", "provider", "method", "amount", "currency", "status", "paid_at")
-    list_filter = ("status", "provider", "method", "currency")
-    search_fields = ("order__order_number", "transaction_id")
-    readonly_fields = ("order", "provider", "method", "transaction_id", "amount", "refunded_amount", "currency", "status", "paid_at", "metadata", "created_at", "updated_at")
 
 
 @admin.register(VendorPayout)
