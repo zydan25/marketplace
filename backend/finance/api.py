@@ -4,7 +4,6 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
-from marketplace.catalog_api import CurrencyRateViewSet as LegacyCurrencyRateViewSet
 from marketplace.vendor_finance_api import VendorFinanceViewSet as LegacyVendorFinanceViewSet
 from marketplace.views import WalletViewSet as LegacyWalletViewSet
 from marketplace.models import VendorProfile
@@ -67,14 +66,16 @@ class VendorPayoutSerializer(serializers.ModelSerializer):
             "id", "vendor", "vendor_name", "vendor_order", "order", "amount",
             "currency", "status", "reference", "note", "created_at", "updated_at",
         )
-        read_only_fields = fields
+        read_only_fields = (
+            "id", "vendor", "vendor_name", "vendor_order", "order", "amount",
+            "currency", "status", "reference", "note", "created_at", "updated_at",
+        )
 
 
 class LedgerEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = VendorLedgerEntry
         fields = "__all__"
-        read_only_fields = "__all__"
 
 
 class CurrencyRateSerializer(serializers.ModelSerializer):
