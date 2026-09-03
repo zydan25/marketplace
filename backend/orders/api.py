@@ -33,6 +33,7 @@ class OrderAccessPermission(BasePermission):
 
 class ReadOnlyDomainViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [OrderAccessPermission]
+    http_method_names = ["get", "head", "options"]
 
 
 class OrderSerializer(serializers.ModelSerializer):
