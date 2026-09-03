@@ -1,11 +1,10 @@
 from django.db.models import Q
-from rest_framework import serializers, status, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
+from rest_framework import serializers, viewsets
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 
 from marketplace.launch_order_api import LaunchOrderViewSet as LegacyOrderViewSet
-from marketplace.models import VendorProfile
 
 from .models import InventoryReservation, Order, OrderItem, OrderStatusHistory, Payment, Shipment, VendorOrder, VendorOrderItem
 
@@ -47,49 +46,42 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = "__all__"
-        read_only_fields = "__all__"
 
 
 class VendorOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = VendorOrder
         fields = "__all__"
-        read_only_fields = "__all__"
 
 
 class VendorOrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = VendorOrderItem
         fields = "__all__"
-        read_only_fields = "__all__"
 
 
 class StatusHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderStatusHistory
         fields = "__all__"
-        read_only_fields = "__all__"
 
 
 class ShipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shipment
         fields = "__all__"
-        read_only_fields = "__all__"
 
 
 class ReservationSerializer(serializers.ModelSerializer):
     class Meta:
         model = InventoryReservation
         fields = "__all__"
-        read_only_fields = "__all__"
 
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = "__all__"
-        read_only_fields = "__all__"
 
 
 class OrderViewSet(LegacyOrderViewSet):
