@@ -1,7 +1,8 @@
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from django.views.decorators.http import require_GET
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET, require_http_methods
 
+from .forms import NotificationForm
 from .models import Conversation, Message, Notification
 
 
@@ -29,3 +30,19 @@ def dashboard(request):
         ],
         "api_prefix": "/api/v2/communication/",
     })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def notification_form(request, pk=None):
+    user = request.user
+    if not (user.is_staff or getattr(user, "role", None) == "admin"):
+        return render(request, "admin/domains/form.html", {"title": "إشعار", "error": "إرسال الإشعارات من لوحة الإدارة فقط."}, status=403)
+    instance = get_object_or_404(Notification.objects.all(), pk=pk) if pk else Notification()
+    form = NotificationForm(request.POST or None, request.FILES or None, instance=instance)
+    if request.method == "POST" and form.is_valid():
+        obj = form.save(commit=False)
+        obj.recipient = None
+        obj.save()
+        return redirect("admin-dashboard-communication")
+    return render(request, "admin/domains/form.html", {"title": "إضافة / تعديل إشعار", "form": form, "cancel_url": "/admin/dashboard/communication/"})
