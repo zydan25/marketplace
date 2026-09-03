@@ -88,7 +88,10 @@ class VendorOrder(models.Model):
         db_table = "marketplace_vendororder"
         ordering = ["-created_at"]
         constraints = [models.UniqueConstraint(fields=["order", "vendor"], name="uniq_vendor_order_per_vendor")]
-        indexes = [models.Index(fields=["vendor", "status"]), models.Index(fields=["order", "status"])]
+        indexes = [
+            models.Index(fields=["vendor", "status"], name="marketplace_vendor__ad2742_idx"),
+            models.Index(fields=["order", "status"], name="marketplace_order_i_55497d_idx"),
+        ]
 
 
 class VendorOrderItem(models.Model):
@@ -169,7 +172,10 @@ class InventoryReservation(models.Model):
 
     class Meta:
         db_table = "marketplace_inventoryreservation"
-        indexes = [models.Index(fields=["order", "status"]), models.Index(fields=["expires_at", "status"])]
+        indexes = [
+            models.Index(fields=["order", "status"], name="marketplace_order_i_511a97_idx"),
+            models.Index(fields=["expires_at", "status"], name="marketplace_expires_8e06c7_idx"),
+        ]
 
 
 class OrderStatusHistory(TimeStampedModel):
@@ -184,12 +190,5 @@ class OrderStatusHistory(TimeStampedModel):
 
 
 __all__ = [
-    "InventoryReservation",
-    "Order",
-    "OrderItem",
-    "OrderStatusHistory",
-    "Payment",
-    "Shipment",
-    "VendorOrder",
-    "VendorOrderItem",
+    "InventoryReservation", "Order", "OrderItem", "OrderStatusHistory", "Payment", "Shipment", "VendorOrder", "VendorOrderItem",
 ]
