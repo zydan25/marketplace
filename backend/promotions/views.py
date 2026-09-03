@@ -1,7 +1,8 @@
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from django.views.decorators.http import require_GET
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET, require_http_methods
 
+from .forms import CouponForm, LoanReviewForm
 from .models import Address, Coupon, GiftTransfer, Loan, Referral
 
 
@@ -35,3 +36,35 @@ def dashboard(request):
         ],
         "api_prefix": "/api/v2/promotions/",
     })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def coupon_form(request, pk=None):
+    user = request.user
+    if not (user.is_staff or getattr(user, "role", None) == "admin"):
+        return render(request, "admin/domains/form.html", {"title": "كوبون", "error": "إدارة الكوبونات للإدارة فقط."}, status=403)
+    instance = get_object_or_404(Coupon.objects.all(), pk=pk) if pk else Coupon()
+    form = CouponForm(request.POST or None, instance=instance)
+    if request.method == "POST" and form.is_valid():
+        obj = form.save()
+        obj.code = obj.code.strip().upper()
+        obj.save(update_fields=["code", "updated_at"])
+        return redirect("admin-dashboard-promotions")
+    return render(request, "admin/domains/form.html", {"title": "إضافة / تعديل كوبون", "form": form, "cancel_url": "/admin/dashboard/promotions/"})
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def loan_review(request, pk):
+    user = request.user
+    if not (user.is_staff or getattr(user, "role", None) == "admin"):
+        return render(request, "admin/domains/form.html", {"title": "مراجعة التمويل", "error": "مراجعة التمويل للإدارة فقط."}, status=403)
+    loan = get_object_or_404(Loan.objects.all(), pk=pk)
+    form = LoanReviewForm(request.POST or None, instance=loan)
+    if request.method == "POST" and form.is_valid():
+        obj = form.save(commit=False)
+        obj.approved_by = user
+        obj.save(update_fields=["status", "reason", "approved_by", "updated_at"])
+        return redirect("admin-dashboard-promotions")
+    return render(request, "admin/domains/form.html", {"title": "مراجعة طلب تمويل", "form": form, "cancel_url": "/admin/dashboard/promotions/"})
