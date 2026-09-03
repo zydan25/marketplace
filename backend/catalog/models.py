@@ -35,7 +35,7 @@ class City(TimeStampedModel):
     class Meta:
         db_table = "marketplace_city"
         ordering = ["name"]
-        indexes = [models.Index(fields=["is_active", "name"])]
+        indexes = [models.Index(fields=["is_active", "name"], name="marketplace_is_acti_b54e10_idx")]
 
 
 class Category(TimeStampedModel):
@@ -86,9 +86,9 @@ class Product(TimeStampedModel):
         db_table = "marketplace_product"
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["vendor", "is_published"]),
-            models.Index(fields=["sku"]),
-            models.Index(fields=["vendor", "stock"]),
+            models.Index(fields=["vendor", "is_published"], name="marketplace_vendor__e662c7_idx"),
+            models.Index(fields=["sku"], name="marketplace_sku_68aec4_idx"),
+            models.Index(fields=["vendor", "stock"], name="marketplace_vendor__ede704_idx"),
         ]
 
     @property
@@ -160,9 +160,9 @@ class ProductVariant(TimeStampedModel):
     class Meta:
         db_table = "marketplace_productvariant"
         indexes = [
-            models.Index(fields=["product", "stock"]),
-            models.Index(fields=["product", "color", "size"]),
-            models.Index(fields=["product", "is_active"]),
+            models.Index(fields=["product", "stock"], name="marketplace_product_59d90a_idx"),
+            models.Index(fields=["product", "color", "size"], name="marketplace_product_a4c812_idx"),
+            models.Index(fields=["product", "is_active"], name="marketplace_product_2c75f8_idx"),
         ]
 
     @property
