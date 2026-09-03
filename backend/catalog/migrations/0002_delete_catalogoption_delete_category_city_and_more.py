@@ -19,7 +19,6 @@ class Migration(migrations.Migration):
                 migrations.DeleteModel(name='CatalogOption'),
                 migrations.DeleteModel(name='Category'),
                 migrations.DeleteModel(name='PriceGroup'),
-                migrations.DeleteModel(name='City'),
                 migrations.DeleteModel(name='Product'),
                 migrations.DeleteModel(name='ProductImage'),
                 migrations.DeleteModel(name='ProductVariant'),
@@ -83,9 +82,7 @@ class Migration(migrations.Migration):
                 ], options={'db_table': 'marketplace_productvariant', 'indexes': [models.Index(fields=['product', 'stock'], name='marketplace_product_59d90a_idx'), models.Index(fields=['product', 'color', 'size'], name='marketplace_product_a4c812_idx'), models.Index(fields=['product', 'is_active'], name='marketplace_product_2c75f8_idx')]}),
                 migrations.CreateModel(name='CatalogOption', fields=[
                     ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                    ('created_at', models.DateTimeField(auto_now_add=True)), ('updated_at', models.DateTimeField(auto_now=True)),
-                    ('group', models.CharField(max_length=60)), ('name', models.CharField(max_length=160)), ('slug', models.SlugField(max_length=180)),
-                    ('sort_order', models.PositiveIntegerField(default=0)), ('is_active', models.BooleanField(default=True)),
+                    ('created_at', models.DateTimeField(auto_now_add=True)), ('updated_at', models.DateTimeField(auto_now=True)), ('group', models.CharField(max_length=60)), ('name', models.CharField(max_length=160)), ('slug', models.SlugField(max_length=180)), ('sort_order', models.PositiveIntegerField(default=0)), ('is_active', models.BooleanField(default=True)),
                     ('category', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='catalog_options', to='catalog.category')),
                 ], options={'db_table': 'marketplace_catalogoption', 'ordering': ['group', 'sort_order', 'name', 'id'], 'constraints': [models.UniqueConstraint(fields=('group', 'slug', 'category'), name='uniq_catalog_option_group_slug_category')], 'indexes': [models.Index(fields=['group', 'is_active'], name='catopt_grp_active_idx'), models.Index(fields=['category', 'group', 'is_active'], name='catopt_cat_grp_active_idx')]}),
             ],
