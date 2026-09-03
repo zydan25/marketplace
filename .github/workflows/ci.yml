@@ -53,6 +53,7 @@ jobs:
             "communication:0003_order_chats_domain"
             "promotions:0002_delete_address_delete_coupon_delete_couponredemption_and_more"
             "marketplace:0018_complete_domain_separation"
+            "marketplace:0019_align_auditlog_state"
           )
           for spec in "${migrations[@]}"; do
             app="${spec%%:*}"
