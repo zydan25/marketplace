@@ -2,7 +2,7 @@ name: Marketplace CI
 
 on:
   push:
-    branches: [main, "refactor/**"]
+    branches: [main, "refactor/**", "work/**"]
   pull_request:
     branches: [main]
 
@@ -44,16 +44,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          package-manager-cache: false
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
+        uses: actions/checkout@v4
+      - name: Verify runner Node
+        run: |
+          node --version
+          npm --version
+      - name: Install pnpm globally
+        run: npm install --global pnpm@9.12.0
+      - name: Verify pnpm
+        run: pnpm --version
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: TypeScript check

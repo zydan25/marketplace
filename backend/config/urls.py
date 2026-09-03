@@ -8,7 +8,9 @@ from marketplace.dashboard_crud import resource_create, resource_delete, resourc
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
 from marketplace.root_views import landing_page
+from marketplace.theme_studio import theme_studio
 from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
+from marketplace.visual_storefront_v9 import visual_editor_v9
 
 
 def legacy_user_admin_redirect(request, rest=""):
@@ -23,6 +25,7 @@ urlpatterns = [
     path("admin/dashboard/login/", dashboard_login, name="admin-dashboard-login"),
     path("admin/dashboard/logout/", dashboard_logout, name="admin-dashboard-logout"),
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
+    path("admin/dashboard/theme-studio/", theme_studio, name="admin-theme-studio"),
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
     path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
     path("admin/dashboard/vendors/", include("vendors.dashboard_urls")),
@@ -35,11 +38,15 @@ urlpatterns = [
     path("admin/dashboard/resource/<slug:resource>/<int:pk>/delete/", resource_delete, name="admin-crud-delete"),
     path("admin/marketplace/user/", legacy_user_admin_redirect, name="legacy-marketplace-user-admin"),
     path("admin/marketplace/user/<path:rest>", legacy_user_admin_redirect, name="legacy-marketplace-user-admin-rest"),
-    path("admin/marketplace/storefront-editor/", visual_editor, name="admin-storefront-editor"),
+
+    # Primary server-rendered storefront editor and its legacy side-by-side fallback.
+    path("admin/marketplace/storefront-editor/", visual_editor_v9, name="admin-storefront-editor"),
+    path("admin/marketplace/storefront-editor-legacy/", visual_editor, name="admin-storefront-editor-legacy"),
     path("admin/marketplace/storefront-editor/section/create/", create_section, name="admin-storefront-section-create"),
     path("admin/marketplace/storefront-editor/section/<int:pk>/", update_section, name="admin-storefront-section-update"),
     path("admin/marketplace/storefront-editor/upload-image/", upload_storefront_image, name="admin-storefront-image-upload"),
     path("admin/marketplace/storefront-editor/reorder/", reorder_sections, name="admin-storefront-section-reorder"),
+    path("admin/marketplace/storefront-builder/", visual_editor_v9, name="admin-storefront-builder"),
     path("admin/marketplace/storefront-builder/create/", create_section, name="admin-storefront-builder-create"),
     path("admin/marketplace/storefront-builder/<int:pk>/save/", update_section, name="admin-storefront-builder-save"),
     path("admin/marketplace/storefront-builder/<int:pk>/delete/", update_section, name="admin-storefront-builder-delete"),
