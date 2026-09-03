@@ -28,16 +28,22 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Python compile check
+        run: python -m compileall -q .
       - name: Django system check
         run: python manage.py check
+      - name: Django deployment check
+        run: python manage.py check --deploy --fail-level ERROR
+        env:
+          DJANGO_DEBUG: "0"
       - name: Verify migrations are committed
         run: python manage.py makemigrations --check
       - name: Show migration plan
         run: python manage.py migrate --plan
       - name: Apply migrations
         run: python manage.py migrate --noinput
-      - name: Run tests
-        run: python manage.py test marketplace accounts catalog vendors
+      - name: Run all Django tests
+        run: python manage.py test marketplace accounts catalog vendors storefront orders finance communication promotions
 
   expo:
     name: Expo TypeScript and Web builds
