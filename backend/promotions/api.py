@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from marketplace.models import User
@@ -179,6 +179,7 @@ class CouponViewSet(viewsets.ModelViewSet):
 class CouponRedemptionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CouponRedemptionSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -191,6 +192,7 @@ class CouponRedemptionViewSet(viewsets.ReadOnlyModelViewSet):
 class ReferralViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ReferralSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -200,7 +202,7 @@ class ReferralViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def api_info(request):
     return Response({
         "domain": "promotions",
