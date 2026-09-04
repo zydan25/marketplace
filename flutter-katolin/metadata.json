@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix Flutter Shopik Clone",
+  "description": "Clone and modify the existing Flutter e-commerce project from the provided GitHub repository for custom development.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
