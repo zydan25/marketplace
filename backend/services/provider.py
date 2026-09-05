@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import uuid
 from urllib.parse import urljoin
 
 import requests
@@ -64,6 +65,37 @@ class ProviderClient:
             webhook_base = os.getenv("SERVICES_WEBHOOK_BASE_URL", "https://shopik.alattab.site").rstrip("/")
             params.setdefault("backurl", webhook_base + "/api/v2/services/webhook/sanaacash/")
         return params, context
+
+    def check_balance(self):
+        """Query the provider account balance without creating a customer transaction."""
+        if self.connection.connection_type != "sanaacash":
+            return ProviderResult(code="UNSUPPORTED", description="فحص رصيد المزود غير مهيأ لهذا النوع من الربط.")
+        transid = f"BAL-{uuid.uuid4().hex[:24]}"
+        mobile = "0"
+        params = {
+            "userid": self.connection.userid,
+            "mobile": mobile,
+            "transid": transid,
+            "token": self.sanaacash_token(self.connection.get_password(), transid, self.connection.username, mobile),
+            "action": "balance",
+        }
+        headers = dict(self.connection.headers or {})
+        timeout = max(1, int(self.connection.timeout_seconds or 20))
+        try:
+            response = requests.get(self._url("info"), params=params, headers=headers, timeout=timeout)
+            raw_text = response.text[:20000]
+            try:
+                data = response.json()
+            except (ValueError, json.JSONDecodeError):
+                data = {"http_status": response.status_code, "raw": raw_text}
+            code = data.get("resultCode", response.status_code)
+            desc = data.get("resultDesc", data.get("message", ""))
+            success = str(code) == "0" and "balance" in data
+            if success:
+                desc = desc or "تم جلب رصيد المزود بنجاح."
+            return ProviderResult(code=code, description=desc, success=success, response=data, raw_text=raw_text)
+        except requests.RequestException as exc:
+            return ProviderResult(code="NETWORK", description=str(exc), success=False, pending=False, response={"error": str(exc)})
 
     def call(self, link, transaction, *, status_check=False):
         path = link.status_path_template if status_check and link.status_path_template else link.path_template
