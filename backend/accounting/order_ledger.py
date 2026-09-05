@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.db import transaction
 
-from .models import JournalEntry, JournalLine, Wallet
+from .models import JournalEntry, Wallet
 from .services_v2 import account_balance, ensure_chart, ensure_wallet, post_entry
 
 
@@ -82,6 +82,14 @@ def item_release_exists(vendor_order_id, item_id):
     ).exists()
 
 
+def vendor_order_has_release(vendor_order_id):
+    return JournalEntry.objects.filter(
+        source_type="vendor_order_release",
+        source_id=str(vendor_order_id),
+        status=JournalEntry.Status.POSTED,
+    ).exists()
+
+
 def refunded_item_net(item_id):
     entries = JournalEntry.objects.filter(source_type="order_item_refund", source_id=str(item_id), status=JournalEntry.Status.POSTED).prefetch_related("lines__account")
     total = Decimal("0.00")
@@ -117,6 +125,34 @@ def refund_order_item(order, item, *, created_by=None):
         idempotency_key=f"order:item-refund:{item.id}",
         created_by=created_by,
         metadata={"order_id": order.id, "order_item_id": item.id, "vendor_wallet_kind": vendor_kind, "refund": str(refund)},
+    )
+
+
+def refund_vendor_order(order, vendor_order, *, created_by=None):
+    key = f"vendor-order:refund:{vendor_order.id}"
+    existing = JournalEntry.objects.filter(idempotency_key=key).first()
+    if existing:
+        return existing
+    vendor_kind = Wallet.Kinds.VENDOR_AVAILABLE if vendor_order_has_release(vendor_order.id) else Wallet.Kinds.VENDOR_PENDING
+    vendor_wallet = ensure_wallet(vendor_order.vendor.owner, vendor_kind, order.currency)
+    customer = ensure_wallet(order.customer, Wallet.Kinds.CUSTOMER, order.currency)
+    vendor_net = _money(vendor_order.vendor_net)
+    commission = _money(vendor_order.commission)
+    refund = _money(vendor_order.total)
+    if vendor_net + commission != refund:
+        raise ValueError("بيانات طلب التاجر لا تتطابق محاسبيًا مع قيمة استرداده.")
+    return post_entry(
+        f"استرداد جزء التاجر من الطلب {order.order_number}",
+        [
+            {"account": vendor_wallet.account, "debit": vendor_net, "description": f"عكس مستحقات التاجر {vendor_order.id}"},
+            {"account": ensure_chart()["commission_income"], "debit": commission, "description": f"عكس عمولة التاجر {vendor_order.id}"},
+            {"account": customer.account, "credit": refund, "description": f"إعادة قيمة طلب التاجر {vendor_order.id}"},
+        ],
+        source_type="vendor_order_refund",
+        source_id=vendor_order.id,
+        idempotency_key=key,
+        created_by=created_by,
+        metadata={"order_id": order.id, "vendor_order_id": vendor_order.id, "vendor_wallet_kind": vendor_kind, "refund": str(refund)},
     )
 
 
@@ -156,8 +192,7 @@ def current_funding_journal(order):
 
 
 def reverse_current_funding(order, *, created_by=None, reason="عكس تمويل الطلب"):
-    entry = current_funding_journal(order)
-    return reverse_funding_journal(order, entry, created_by=created_by, reason=reason)
+    return reverse_funding_journal(order, current_funding_journal(order), created_by=created_by, reason=reason)
 
 
 def order_has_settlements(order):
@@ -165,8 +200,17 @@ def order_has_settlements(order):
     vendor_order_ids = [str(x) for x in order.vendor_orders.values_list("id", flat=True)]
     return JournalEntry.objects.filter(
         status=JournalEntry.Status.POSTED,
-        source_type__in=["vendor_order_release", "order_item_refund"],
+        source_type__in=["vendor_order_release", "order_item_refund", "vendor_order_refund"],
         source_id__in=vendor_order_ids + item_ids,
+    ).exists()
+
+
+def vendor_order_has_settlements(vendor_order):
+    item_ids = [str(x) for x in vendor_order.items.values_list("order_item_id", flat=True)]
+    return JournalEntry.objects.filter(
+        status=JournalEntry.Status.POSTED,
+        source_type__in=["vendor_order_release", "order_item_refund", "vendor_order_refund"],
+        source_id__in=[str(vendor_order.id)] + item_ids,
     ).exists()
 
 
