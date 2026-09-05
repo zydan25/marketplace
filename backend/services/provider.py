@@ -37,11 +37,17 @@ class ProviderClient:
 
     @staticmethod
     def new_numeric_transid(provider, *, request_kind="service", service_transaction=None):
-        """Allocate and persist a random 5-9 digit provider id, globally unique in this database."""
-        from services.models import ServiceRequestReference
+        """Allocate a random 5-9 digit provider id that has never appeared in the system."""
+        from services.models import ServiceRequestReference, ServiceTransaction
 
         for _ in range(256):
             value = secrets.randbelow(990_000_000) + 10_000
+            if ServiceRequestReference.objects.filter(transid=value).exists():
+                continue
+            if ServiceTransaction.objects.filter(provider_transid=value).exists():
+                continue
+            if ServiceTransaction.objects.filter(provider_transaction_id=str(value)).exists():
+                continue
             try:
                 with db_transaction.atomic():
                     ref = ServiceRequestReference.objects.create(
@@ -53,7 +59,7 @@ class ProviderClient:
                     return ref.transid
             except IntegrityError:
                 continue
-        raise RuntimeError("تعذر إنشاء transid رقمي فريد للمزود بعد عدة محاولات.")
+        raise RuntimeError("تعذر إنشاء transid رقمي عشوائي فريد للمزود بعد عدة محاولات.")
 
     @staticmethod
     def normalize_digits(value):
