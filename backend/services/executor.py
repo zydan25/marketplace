@@ -128,19 +128,30 @@ def process_task(task_id=None):
         return task
 
     if result.pending:
-        tx.status = ServiceTransaction.Status.PENDING_PROVIDER
-        tx.save(update_fields=["status", "provider_response", "updated_at"])
-        task.status = ServiceTask.Statuses.DONE
-        task.finished_at = timezone.now()
-        task.save(update_fields=["status", "finished_at"])
         if task.kind == ServiceTask.Kinds.SUBMIT:
             if _new_status_task(tx, link) is None:
-                task.last_error = "PENDING_WITHOUT_STATUS_ROUTE"
-                task.save(update_fields=["last_error"])
+                _complete_failure(tx, code="PENDING_NO_STATUS_ROUTE", message="المزوّد أعاد Pending ولا يوجد مسار حالة؛ تم رد الرصيد تلقائيًا للحماية المالية.")
+                task.status = ServiceTask.Statuses.FAILED
+                task.last_error = "PENDING_NO_STATUS_ROUTE"
+                task.finished_at = timezone.now()
+                task.save(update_fields=["status", "last_error", "finished_at"])
+                return task
+            tx.status = ServiceTransaction.Status.PENDING_PROVIDER
+            tx.save(update_fields=["status", "provider_response", "updated_at"])
+            task.status = ServiceTask.Statuses.DONE
+            task.finished_at = timezone.now()
         elif task.attempts < task.max_attempts:
+            tx.status = ServiceTransaction.Status.PENDING_PROVIDER
+            tx.save(update_fields=["status", "provider_response", "updated_at"])
             _new_status_task(tx, link)
+            task.status = ServiceTask.Statuses.DONE
+            task.finished_at = timezone.now()
         else:
             _complete_failure(tx, code=result.code, message=result.description)
+            task.status = ServiceTask.Statuses.FAILED
+            task.finished_at = timezone.now()
+        task.last_error = result.description
+        task.save(update_fields=["status", "finished_at", "last_error"])
         return task
 
     tx.error_code = result.code
