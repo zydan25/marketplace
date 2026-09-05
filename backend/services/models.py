@@ -49,11 +49,18 @@ class Service(models.Model):
         AMOUNT = "amount", "مبلغ يحدده العميل"
         ITEM = "item", "حسب عنصر من الجدول"
 
+    class ServiceKinds(models.TextChoices):
+        QUERY = "query", "استعلام بدون خصم"
+        CATALOG = "catalog", "كتالوج/عرض بدون خصم"
+        PURCHASE = "purchase", "عملية مدفوعة"
+
     category = models.ForeignKey(ServiceCategory, on_delete=models.PROTECT, related_name="services")
     name = models.CharField(max_length=180)
     slug = models.SlugField(max_length=180)
     code = models.CharField(max_length=80, unique=True)
     description = models.TextField(blank=True)
+    service_kind = models.CharField(max_length=12, choices=ServiceKinds.choices, default=ServiceKinds.PURCHASE)
+    requires_balance = models.BooleanField(default=True)
     pricing_mode = models.CharField(max_length=12, choices=PricingModes.choices, default=PricingModes.FIXED)
     price = models.DecimalField(max_digits=18, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     min_amount = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
@@ -150,12 +157,18 @@ class ProviderLink(models.Model):
         POST = "POST", "POST"
         PUT = "PUT", "PUT"
 
+    class RequestEncodings(models.TextChoices):
+        QUERY = "query", "Query parameters"
+        FORM = "form", "Form body"
+        JSON = "json", "JSON body"
+
     provider = models.ForeignKey(ProviderConnection, on_delete=models.PROTECT, related_name="links")
     name = models.CharField(max_length=180)
     code = models.SlugField(max_length=120, unique=True)
     operation = models.CharField(max_length=80, blank=True)
     path_template = models.CharField(max_length=500)
     http_method = models.CharField(max_length=8, choices=Methods.choices, default=Methods.GET)
+    request_encoding = models.CharField(max_length=10, choices=RequestEncodings.choices, default=RequestEncodings.QUERY)
     fixed_params = models.JSONField(default=dict, blank=True)
     field_map = models.JSONField(default=dict, blank=True)
     headers = models.JSONField(default=dict, blank=True)
@@ -189,6 +202,27 @@ class ServiceDistribution(models.Model):
         ordering = ["priority", "id"]
         constraints = [models.UniqueConstraint(fields=["service", "provider_link"], name="uniq_service_distribution_link")]
         indexes = [models.Index(fields=["service", "is_active", "priority"], name="svc_dist_service_priority_idx")]
+
+
+class ServiceOption(models.Model):
+    """Generic provider catalog row for services whose PDF table supplies arbitrary codes/numbers."""
+    service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="options")
+    name = models.CharField(max_length=180)
+    external_code = models.CharField(max_length=120, blank=True)
+    provider_num = models.CharField(max_length=120, blank=True)
+    price = models.DecimalField(max_digits=18, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    currency = models.CharField(max_length=6, default="YER")
+    metadata = models.JSONField(default=dict, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        constraints = [models.UniqueConstraint(fields=["service", "external_code", "provider_num", "name"], name="uniq_service_option_identity")]
+        indexes = [models.Index(fields=["service", "is_active"], name="svc_option_active_idx")]
+
+    def __str__(self):
+        return f"{self.service.code}:{self.name}"
 
 
 class TelecomDenomination(models.Model):
@@ -257,12 +291,26 @@ class DigitalProduct(models.Model):
         ordering = ["sort_order", "id"]
 
 
+class ServiceRequestReference(models.Model):
+    """Durable registry of every numeric provider transaction id ever allocated."""
+    transid = models.PositiveBigIntegerField(unique=True)
+    provider = models.ForeignKey("ProviderConnection", on_delete=models.PROTECT, related_name="request_references")
+    transaction = models.ForeignKey("ServiceTransaction", null=True, blank=True, on_delete=models.SET_NULL, related_name="provider_references")
+    request_kind = models.CharField(max_length=40, default="service")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["provider", "created_at"], name="svc_ref_provider_created_idx")]
+
+
 class ServiceTransaction(models.Model):
     class Status(models.TextChoices):
         ACCEPTED = "accepted", "مقبول ومُحجز"
         QUEUED = "queued", "بانتظار التنفيذ"
         PROCESSING = "processing", "قيد التنفيذ"
         PENDING_PROVIDER = "pending_provider", "قيد المعالجة لدى المزود"
+        MANUAL_REVIEW = "manual_review", "يحتاج مراجعة تشغيلية"
         SUCCESS = "success", "ناجح"
         FAILED = "failed", "فاشل"
         REFUNDED = "refunded", "مُعاد الرصيد"
@@ -277,6 +325,7 @@ class ServiceTransaction(models.Model):
     payload = models.JSONField(default=dict, blank=True)
     mobile = models.CharField(max_length=40, blank=True)
     provider_link = models.ForeignKey(ProviderLink, null=True, blank=True, on_delete=models.PROTECT, related_name="transactions")
+    provider_transid = models.PositiveBigIntegerField(null=True, blank=True, unique=True)
     provider_transaction_id = models.CharField(max_length=80, blank=True)
     provider_response = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.ACCEPTED)
