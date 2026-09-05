@@ -50,29 +50,38 @@ def distribution_matrix_view(request):
     if request.method == "POST":
         try:
             with transaction.atomic():
-                provider = get_object_or_404(ProviderConnection, pk=request.POST.get("provider"))
-                service_ids = {int(value) for value in request.POST.getlist("services") if value.isdigit()}
-                priorities = request.POST.getlist("priority")
-                links = list(provider.links.filter(is_active=True).order_by("priority", "id"))
-                if not links:
-                    raise ValueError("لا توجد مسارات فعالة لهذه الربطية.")
-                link = links[0]
-                ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
+                provider = get_object_or_404(ProviderConnection, pk=request.POST.get("provider"), is_active=True)
+                selected_services = {int(value) for value in request.POST.getlist("services") if value.isdigit()}
+                route_entries = request.POST.getlist("route")
+                priority_entries = request.POST.getlist("priority")
+                route_map = {}
+                for entry in route_entries:
+                    if ":" not in entry:
+                        continue
+                    service_id, link_id = entry.split(":", 1)
+                    if service_id.isdigit() and link_id.isdigit():
+                        route_map[int(service_id)] = int(link_id)
                 priority_map = {}
-                for entry in priorities:
-                    if ":" in entry:
-                        service_id, value = entry.split(":", 1)
-                        if service_id.isdigit() and value.isdigit():
-                            priority_map[int(service_id)] = int(value)
-                for service in Service.objects.filter(id__in=service_ids, is_active=True):
+                for entry in priority_entries:
+                    if ":" not in entry:
+                        continue
+                    service_id, value = entry.split(":", 1)
+                    if service_id.isdigit() and value.isdigit():
+                        priority_map[int(service_id)] = int(value)
+                valid_links = set(provider.links.filter(is_active=True).values_list("id", flat=True))
+                ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
+                for service in Service.objects.filter(id__in=selected_services, is_active=True):
+                    link_id = route_map.get(service.id)
+                    if link_id not in valid_links:
+                        raise ValueError(f"يجب اختيار مسار صالح للخدمة: {service.name}.")
                     ServiceDistribution.objects.update_or_create(
                         service=service,
-                        provider_link=link,
+                        provider_link_id=link_id,
                         defaults={"priority": priority_map.get(service.id, 100), "is_active": True},
                     )
-            messages.success(request, "تم تحديث توزيع الخدمات لهذه الربطية.")
+            messages.success(request, "تم تحديث توزيع الخدمات والمسارات والأولويات لهذه الربطية.")
         except Exception as exc:
             messages.error(request, f"تعذر تحديث التوزيع: {exc}")
         return redirect("admin-services-distribution")
-    services, providers, distribution, links = distribution_matrix()
-    return render(request, "services/distribution_matrix.html", {"services": services, "providers": providers, "distribution": distribution, "links": links})
+    services, providers, distribution, links_by_provider = distribution_matrix()
+    return render(request, "services/distribution_matrix.html", {"services": services, "providers": providers, "distribution": distribution, "links_by_provider": links_by_provider})
