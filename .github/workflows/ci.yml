@@ -2,7 +2,7 @@ name: Marketplace CI
 
 on:
   push:
-    branches: [main, "refactor/**", "work/**"]
+    branches: [main, "refactor/**", "work/**", "feat/**"]
   pull_request:
     branches: [main]
 
@@ -71,7 +71,7 @@ jobs:
       - name: Apply migrations
         run: python manage.py migrate --noinput
       - name: Run all Django tests
-        run: python manage.py test marketplace accounts catalog vendors storefront orders finance communication promotions accounting
+        run: python manage.py test marketplace accounts catalog vendors storefront orders finance communication promotions accounting services
 
   expo:
     name: Expo TypeScript and Web builds
