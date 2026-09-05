@@ -1,17 +1,14 @@
 from datetime import timedelta
 from decimal import Decimal
-import uuid
 
 from django.db import transaction
 from django.utils import timezone
-from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from accounting.models import Wallet as AccountingWallet
 from accounting.order_ledger import (
-    current_funding_journal,
     fund_order_revision,
     order_has_settlements,
     order_item_refunded,
@@ -24,20 +21,19 @@ from accounting.order_ledger import (
 )
 from accounting.services_v2 import (
     account_balance,
-    ensure_chart,
     ensure_legacy_customer_opening,
     ensure_legacy_vendor_available,
     ensure_wallet,
     fund_order,
     wallet_summary,
 )
-from catalog.models import City, Product, ProductVariant
+from catalog.models import Product, ProductVariant
 from communication.models import Notification
 from finance.models import Wallet as LegacyWallet, VendorPayout
 from promotions.models import Coupon
 
 from .launch_order_api import LaunchOrderViewSet
-from .models import InventoryReservation, Order, OrderItem, OrderStatusHistory, Payment, Shipment, VendorOrder
+from .models import InventoryReservation, Order, OrderStatusHistory, Payment, Shipment
 from .secure_order_api import SecureOrderViewSet
 from .serializers import OrderSerializer
 
@@ -47,7 +43,6 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
 
     @staticmethod
     def _record_sale(vendor_order):
-        """Legacy sale-ledger compatibility hook intentionally disabled for canonical v2."""
         return None
 
     @staticmethod
@@ -89,8 +84,7 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
             },
         )
 
-    @staticmethod
-    def _set_vendor_status(order, user, new_status):
+    def _set_vendor_status(self, order, user, new_status):
         if getattr(user, "role", None) != "vendor":
             raise PermissionDenied("هذه العملية للتاجر فقط")
         vendor_order = order.vendor_orders.select_for_update().filter(vendor__owner=user).first()
@@ -104,8 +98,6 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         old_status = vendor_order.status
         vendor_order.status = new_status
         vendor_order.save(update_fields=["status", "updated_at"])
-        if new_status == "delivered" and old_status != "delivered":
-            self = None
         return vendor_order, old_status
 
     @transaction.atomic
@@ -124,15 +116,12 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         order = Order.objects.select_for_update().get(pk=response.data["id"])
         self._reprice_vendor_shipping(order)
         self._refresh_vendor_finance(order)
-        authoritative_balance = account_balance(customer_wallet.account)
-        if authoritative_balance < Decimal(order.total):
-            raise ValidationError({"wallet": f"الرصيد المحاسبي غير كافٍ. المتاح {authoritative_balance} {currency}."})
-        vendor_snapshots = {}
+        if account_balance(customer_wallet.account) < Decimal(order.total):
+            raise ValidationError({"wallet": f"الرصيد المحاسبي غير كافٍ. المتاح {account_balance(customer_wallet.account)} {currency}."})
         for vendor_order in order.vendor_orders.select_related("vendor__owner").all():
             old = LegacyWallet.objects.filter(user=vendor_order.vendor.owner).first()
-            vendor_snapshots[vendor_order.vendor.owner_id] = Decimal(old.balance) if old else Decimal("0.00")
-        for vendor_order in order.vendor_orders.select_related("vendor__owner").all():
-            ensure_legacy_vendor_available(vendor_order.vendor.owner, vendor_snapshots.get(vendor_order.vendor.owner_id, Decimal("0.00")), currency)
+            old_balance = Decimal(old.balance) if old else Decimal("0.00")
+            ensure_legacy_vendor_available(vendor_order.vendor.owner, old_balance, currency)
         entry = fund_order(order, created_by=request.user)
         order.metadata = {
             **(order.metadata or {}),
@@ -160,29 +149,14 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         for vendor_order in order.vendor_orders.select_related("vendor__owner").all():
             payout, _ = VendorPayout.objects.get_or_create(
                 vendor_order=vendor_order,
-                defaults={
-                    "vendor": vendor_order.vendor,
-                    "order": order,
-                    "amount": vendor_order.vendor_net,
-                    "currency": order.currency,
-                    "status": "pending",
-                    "reference": f"PAYOUT-{vendor_order.id}",
-                },
+                defaults={"vendor": vendor_order.vendor, "order": order, "amount": vendor_order.vendor_net, "currency": order.currency, "status": "pending", "reference": f"PAYOUT-{vendor_order.id}"},
             )
             if payout.status == "pending":
                 payout.amount = vendor_order.vendor_net
                 payout.currency = order.currency
                 payout.save(update_fields=["amount", "currency", "updated_at"])
-            Notification.objects.create(
-                recipient_id=vendor_order.vendor.owner_id,
-                title="طلب جديد",
-                body=f"وصل طلب جديد {order.order_number}. مستحقاتك معلقة محاسبيًا حتى تأكيد الاستلام.",
-            )
-        Notification.objects.create(
-            recipient_id=request.user.id,
-            title="تم إنشاء طلبك",
-            body=f"تم حجز {order.total} {order.currency} بقيد محاسبي لحماية عملية الشراء.",
-        )
+            Notification.objects.create(recipient_id=vendor_order.vendor.owner_id, title="طلب جديد", body=f"وصل طلب جديد {order.order_number}. مستحقاتك معلقة محاسبيًا حتى تأكيد الاستلام.")
+        Notification.objects.create(recipient_id=request.user.id, title="تم إنشاء طلبك", body=f"تم حجز {order.total} {order.currency} بقيد محاسبي لحماية عملية الشراء.")
         payload = OrderSerializer(order, context={"request": request}).data
         payload["financial"] = {
             "journal": entry.number,
@@ -195,6 +169,7 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         }
         return Response(payload, status=response.status_code)
 
+    @action(detail=True, methods=["post"])
     @transaction.atomic
     def update_pending(self, request, pk=None):
         order = self.get_queryset().select_for_update().get(pk=pk)
@@ -216,11 +191,9 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         current_items = list(order.items.select_for_update().select_related("product", "vendor"))
         if set(quantities) != {item.id for item in current_items}:
             raise ValidationError({"items": "يمكن تعديل كميات عناصر الطلب الحالية فقط."})
-
         reverse = reverse_current_funding(order, created_by=request.user, reason="عكس قيد تعديل الطلب")
         if not reverse:
             raise ValidationError({"order": "لم يتم العثور على قيد التمويل الحالي."})
-
         active_reservations = list(order.inventory_reservations.select_for_update().filter(status=InventoryReservation.Status.ACTIVE))
         reservation_by_item = {reservation.order_item_id: reservation for reservation in active_reservations}
         for reservation in active_reservations:
@@ -234,7 +207,6 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
                 product.save(update_fields=["reserved_stock", "updated_at"])
             reservation.status = InventoryReservation.Status.RELEASED
             reservation.save(update_fields=["status", "updated_at"])
-
         subtotal = Decimal("0.00")
         for item in current_items:
             quantity = quantities[item.id]
@@ -263,7 +235,8 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         if coupon_code:
             coupon = Coupon.objects.filter(code__iexact=coupon_code, is_active=True).first()
             if coupon and coupon.minimum_order <= subtotal:
-                order.discount = min(((subtotal * coupon.discount_percent / Decimal("100")).quantize(Decimal("0.01")) if coupon.discount_percent else Decimal(coupon.discount_amount)), subtotal)
+                discount = (subtotal * coupon.discount_percent / Decimal("100")).quantize(Decimal("0.01")) if coupon.discount_percent else Decimal(coupon.discount_amount)
+                order.discount = min(discount, subtotal)
         else:
             order.discount = min(Decimal(order.discount), subtotal)
         if isinstance(request.data.get("shipping_address"), dict):
@@ -271,17 +244,12 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         order.save(update_fields=["subtotal", "discount", "shipping_address", "updated_at"])
         self._reprice_vendor_shipping(order)
         self._refresh_vendor_finance(order)
-
         customer_wallet = ensure_wallet(request.user, AccountingWallet.Kinds.CUSTOMER, order.currency)
         if account_balance(customer_wallet.account) < Decimal(order.total):
             raise ValidationError({"wallet": "الرصيد المحاسبي غير كافٍ للقيمة الجديدة؛ لم يتم تغيير العملية."})
         revision = int(((order.metadata or {}).get("accounting_funding") or {}).get("revision", 0)) + 1
         entry = fund_order_revision(order, revision, created_by=request.user)
-        order.metadata = {
-            **(order.metadata or {}),
-            "accounting_funding": {"journal": entry.number, "total": str(order.total), "currency": order.currency, "revision": revision},
-            "escrow": {**self._escrow(order), "held_amount": str(order.total)},
-        }
+        order.metadata = {**(order.metadata or {}), "accounting_funding": {"journal": entry.number, "total": str(order.total), "currency": order.currency, "revision": revision}, "escrow": {**self._escrow(order), "held_amount": str(order.total)}}
         order.payment_status = "authorized"
         order.save(update_fields=["metadata", "payment_status", "updated_at"])
         Payment.objects.filter(order=order).update(amount=order.total, updated_at=timezone.now())
@@ -292,6 +260,7 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
                 payout.save(update_fields=["amount", "updated_at"])
         return Response(OrderSerializer(order, context={"request": request}).data)
 
+    @action(detail=True, methods=["post"])
     @transaction.atomic
     def confirm_received(self, request, pk=None):
         order = self.get_queryset().select_for_update().get(pk=pk)
@@ -315,16 +284,9 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         for payout in VendorPayout.objects.select_for_update().filter(order=order, status="pending"):
             payout.status = "paid"
             payout.save(update_fields=["status", "updated_at"])
-        for vendor_order in order.vendor_orders.all():
-            Notification.objects.create(recipient_id=vendor_order.vendor.owner_id, title="تم إطلاق مستحقاتك", body=f"أكد العميل استلام الطلب {order.order_number} وأصبحت المستحقات متاحة محاسبيًا.")
-        payload = {
-            "success": True,
-            "message": "تم تأكيد الاستلام وإطلاق مستحقات التجار في القيود المحاسبية.",
-            "released_amount": str(released),
-            "balance": wallet_summary(request.user, order.currency),
-        }
-        return Response(payload)
+        return Response({"success": True, "message": "تم تأكيد الاستلام وإطلاق مستحقات التجار في القيود المحاسبية.", "released_amount": str(released), "balance": wallet_summary(request.user, order.currency)})
 
+    @action(detail=True, methods=["post"])
     @transaction.atomic
     def admin_release(self, request, pk=None):
         if not (request.user.is_staff or getattr(request.user, "role", None) == "admin"):
@@ -333,8 +295,7 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         escrow = self._escrow(order)
         if not escrow or not escrow.get("customer_confirmed"):
             raise ValidationError({"order": "يجب تأكيد الاستلام أولاً."})
-        unresolved = [value for value in (escrow.get("disputes") or {}).values() if value.get("status") == "pending"]
-        if unresolved:
+        if any(value.get("status") == "pending" for value in (escrow.get("disputes") or {}).values()):
             raise ValidationError({"order": "لا يمكن اعتماد التسوية مع اعتراضات مفتوحة."})
         released = release_order_items(order, created_by=request.user)
         escrow["released_amount"] = str(Decimal(escrow.get("released_amount", "0.00")) + released)
@@ -344,6 +305,7 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         order.save(update_fields=["metadata", "payment_status", "updated_at"])
         return Response({"success": True, "released_amount": str(released), "state": "released", "balance": wallet_summary(order.customer, order.currency)})
 
+    @action(detail=True, methods=["post"])
     @transaction.atomic
     def resolve_item_dispute(self, request, pk=None):
         if not (request.user.is_staff or getattr(request.user, "role", None) == "admin"):
@@ -363,35 +325,23 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
             raise ValidationError({"order_item_id": "لا يوجد اعتراض معلق لهذه القطعة."})
         if decision == "refund":
             entry = refund_order_item(order, item, created_by=request.user)
-            refunded = Decimal(escrow.get("refunded_amount", "0.00")) + Decimal(item.vendor_total)
-            escrow["refunded_amount"] = str(refunded)
+            escrow["refunded_amount"] = str(Decimal(escrow.get("refunded_amount", "0.00")) + Decimal(item.vendor_total))
             result = {"journal": entry.number, "refund": str(item.vendor_total)}
         else:
-            amount = Decimal(item.vendor_net)
-            entry = release_vendor_amount(
-                item.vendor.owner,
-                amount,
-                order.currency,
-                vendor_order_id=item.vendor_order_id,
-                release_key=f"item:{item.id}",
-                item_ids=[item.id],
-                created_by=request.user,
-            )
-            result = {"journal": entry.number if entry else None, "release": str(amount)}
+            entry = release_vendor_amount(item.vendor.owner, Decimal(item.vendor_net), order.currency, vendor_order_id=item.vendor_order_id, release_key=f"item:{item.id}", item_ids=[item.id], created_by=request.user)
+            result = {"journal": entry.number if entry else None, "release": str(item.vendor_net)}
         current["status"] = "resolved_refund" if decision == "refund" else "resolved_release"
         current["resolved_at"] = timezone.now().isoformat()
         current["resolved_by"] = request.user.id
         disputes[item_id] = current
         escrow["disputes"] = disputes
-        unresolved = any(value.get("status") == "pending" for value in disputes.values())
-        escrow["state"] = "partial_dispute" if unresolved else "awaiting_release"
+        escrow["state"] = "partial_dispute" if any(value.get("status") == "pending" for value in disputes.values()) else "awaiting_release"
         order.payment_status = "partially_refunded" if Decimal(escrow.get("refunded_amount", "0.00")) > 0 else "authorized"
         order.metadata = {**(order.metadata or {}), "escrow": escrow}
         order.save(update_fields=["metadata", "payment_status", "updated_at"])
-        Notification.objects.create(recipient_id=order.customer_id, title="تم حل الاعتراض", body=f"تمت معالجة اعتراضك على قطعة في الطلب {order.order_number}.")
-        Notification.objects.create(recipient_id=item.vendor.owner_id, title="تم حل الاعتراض", body=f"تمت معالجة الاعتراض على القطعة {item.name_snapshot}.")
         return Response({"success": True, "decision": decision, "status": current["status"], **result})
 
+    @action(detail=True, methods=["post"])
     @transaction.atomic
     def update_vendor_status(self, request, pk=None):
         order = self.get_object()
@@ -404,13 +354,11 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
                 shipment.delivered_at = shipment.delivered_at or timezone.now()
                 shipment.save(update_fields=["status", "delivered_at", "updated_at"])
         if vendor_order.status == "cancelled" and old_status != "cancelled":
-            for link in vendor_order.items.select_related("order_item").all():
-                if not order_item_refunded(link.order_item_id):
-                    refund_vendor_order(order, vendor_order, created_by=request.user)
-                    break
+            refund_vendor_order(order, vendor_order, created_by=request.user)
         self._sync_parent_status(order)
         return Response({"vendor_order_id": vendor_order.id, "status": vendor_order.status, "order_status": order.status})
 
+    @action(detail=True, methods=["post"])
     @transaction.atomic
     def update_status(self, request, pk=None):
         order = self.get_object()
@@ -457,13 +405,15 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
             Notification.objects.create(recipient_id=order.customer_id, title="تم إلغاء الطلب واسترداد الرصيد", body=f"تم إلغاء الطلب {order.order_number} وعكس قيده المالي.")
         return Response(OrderSerializer(order, context={"request": request}).data)
 
+    @action(detail=True, methods=["post"])
     @transaction.atomic
     def reject_item(self, request, pk=None):
         order = self.get_queryset().select_for_update().get(pk=pk)
-        if (self._escrow(order).get("customer_confirmed")):
+        if self._escrow(order).get("customer_confirmed"):
             raise ValidationError({"order": "تم تأكيد الاستلام نهائيًا."})
         return super().reject_item(request, pk=pk)
 
+    @action(detail=True, methods=["post"])
     @transaction.atomic
     def reject_order(self, request, pk=None):
         order = self.get_queryset().select_for_update().get(pk=pk)
