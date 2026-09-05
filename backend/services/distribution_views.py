@@ -39,6 +39,8 @@ def provider_setup(request):
                             provider.save(update_fields=["is_active", "updated_at"])
                             messages.warning(request, f"للربطية {provider.name} عمليات تاريخية؛ لذلك تم أرشفتها بدل حذفها.")
                         else:
+                            ServiceDistribution.objects.filter(provider_link__provider=provider).delete()
+                            ProviderLink.objects.filter(provider=provider).delete()
                             provider.delete()
                             messages.success(request, "تم حذف الربطية نهائيًا لأنها بلا عمليات تاريخية.")
             else:
