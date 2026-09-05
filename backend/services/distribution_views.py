@@ -14,23 +14,33 @@ def staff_only(user):
 @user_passes_test(staff_only, login_url="/admin/dashboard/login/")
 def provider_setup(request):
     if request.method == "POST":
+        action = request.POST.get("action", "save")
         try:
-            code = (request.POST.get("code") or "").strip()
-            name = (request.POST.get("name") or "").strip()
-            if not code or not name:
-                raise ValueError("كود واسم الربطية مطلوبان.")
-            provider = create_or_update_sanaacash_provider(
-                code=code,
-                name=name,
-                userid=(request.POST.get("userid") or "").strip(),
-                domain_name=(request.POST.get("domain_name") or "").strip(),
-                username=(request.POST.get("username") or "").strip(),
-                password=request.POST.get("password") or "",
-                base_url=(request.POST.get("base_url") or "https://sanaacash.yrbso.net/api/yr/").strip(),
-            )
-            messages.success(request, f"تم حفظ الربطية {provider.name} وتهيئة مسارات Sanaacash تلقائيًا.")
+            if action == "archive":
+                provider = get_object_or_404(ProviderConnection, pk=request.POST.get("provider"))
+                with transaction.atomic():
+                    ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
+                    provider.links.update(is_active=False)
+                    provider.is_active = False
+                    provider.save(update_fields=["is_active", "updated_at"])
+                messages.success(request, f"تم إيقاف الربطية {provider.name} بأمان؛ لم تُحذف العمليات التاريخية.")
+            else:
+                code = (request.POST.get("code") or "").strip()
+                name = (request.POST.get("name") or "").strip()
+                if not code or not name:
+                    raise ValueError("كود واسم الربطية مطلوبان.")
+                provider = create_or_update_sanaacash_provider(
+                    code=code,
+                    name=name,
+                    userid=(request.POST.get("userid") or "").strip(),
+                    domain_name=(request.POST.get("domain_name") or "").strip(),
+                    username=(request.POST.get("username") or "").strip(),
+                    password=request.POST.get("password") or "",
+                    base_url=(request.POST.get("base_url") or "https://sanaacash.yrbso.net/api/yr/").strip(),
+                )
+                messages.success(request, f"تم حفظ الربطية {provider.name} وتهيئة مسارات Sanaacash تلقائيًا.")
         except Exception as exc:
-            messages.error(request, f"تعذر حفظ الربطية: {exc}")
+            messages.error(request, f"تعذر تنفيذ العملية: {exc}")
         return redirect("admin-services-provider-setup")
     return render(request, "services/provider_setup.html", {"providers": ProviderConnection.objects.all(), "links": ProviderLink.objects.select_related("provider").all()})
 
