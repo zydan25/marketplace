@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 # Services production webhook base: https://shopik.alattab.site
+# Full services-platform verification is intentionally run on feature branches before merge.
 jobs:
   django:
     name: Django checks and tests
