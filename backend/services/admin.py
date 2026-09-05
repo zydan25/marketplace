@@ -40,7 +40,8 @@ class ProviderConnectionAdmin(admin.ModelAdmin):
     list_display = ("name", "code", "connection_type", "base_url", "is_active")
     list_filter = ("connection_type", "is_active")
     search_fields = ("name", "code", "base_url", "userid")
-    fields = ("name", "code", "connection_type", "base_url", "userid", "domain_name", "username", "password_encrypted", "headers", "timeout_seconds", "max_retries", "metadata", "is_active")
+    exclude = ("password_encrypted",)
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(ProviderLink)
