@@ -143,9 +143,14 @@ class VoucherViewSet(viewsets.ReadOnlyModelViewSet):
         party = Account.objects.filter(pk=request.data.get("party_account"), is_group=False, is_active=True).first()
         if not cash or not party:
             raise ValidationError("يجب اختيار حسابين فرعيين فعالين.")
+        if not cash.code.startswith("1000"):
+            raise ValidationError({"cash_account": "يجب اختيار حساب صندوق/نقد تحت مجموعة الصناديق."})
+        if party.code.startswith("1000"):
+            raise ValidationError({"party_account": "حساب الطرف لا يمكن أن يكون حساب صندوق."})
         description = str(request.data.get("description", "")).strip()
+        source_id = str(uuid.uuid4())
         lines = ([{"account": cash, "debit": amount}, {"account": party, "credit": amount}] if voucher_type == Voucher.Types.RECEIPT else [{"account": party, "debit": amount}, {"account": cash, "credit": amount}])
-        entry = post_entry(description or ("سند قبض" if voucher_type == Voucher.Types.RECEIPT else "سند صرف"), lines, source_type="voucher", source_id=str(uuid.uuid4()), created_by=request.user)
+        entry = post_entry(description or ("سند قبض" if voucher_type == Voucher.Types.RECEIPT else "سند صرف"), lines, source_type="voucher", source_id=source_id, created_by=request.user)
         voucher = Voucher.objects.create(number=f"{'RV' if voucher_type == Voucher.Types.RECEIPT else 'PV'}-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}", voucher_type=voucher_type, voucher_date=date.today(), amount=amount, currency=str(request.data.get("currency", "YER")).upper(), cash_account=cash, party_account=party, journal_entry=entry, description=description, source_type=str(request.data.get("source_type", "manual")), source_id=str(request.data.get("source_id", "")), created_by=request.user)
         return Response(VoucherSerializer(voucher).data, status=status.HTTP_201_CREATED)
 
@@ -167,14 +172,17 @@ class WithdrawalViewSet(viewsets.ModelViewSet):
         qs = WithdrawalRequest.objects.select_related("requester", "hold_journal", "settlement_journal")
         return qs if is_admin(self.request.user) else qs.filter(requester=self.request.user)
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         if getattr(request.user, "role", None) != "vendor":
             raise PermissionDenied("طلبات السحب مخصصة للتاجر.")
         amount = money(request.data.get("amount"))
         currency = str(request.data.get("currency", "YER")).upper()
         sync_vendor_pending(request.user, currency)
-        available = account_balance(ensure_wallet(request.user, Wallet.Kinds.VENDOR_AVAILABLE, currency).account)
-        held = WithdrawalRequest.objects.filter(requester=request.user, currency=currency, status__in=[WithdrawalRequest.Status.PENDING, WithdrawalRequest.Status.APPROVED]).aggregate(v=Sum("amount"))["v"] or Decimal("0.00")
+        available_wallet = ensure_wallet(request.user, Wallet.Kinds.VENDOR_AVAILABLE, currency)
+        available_account = Account.objects.select_for_update().get(pk=available_wallet.account_id)
+        available = account_balance(available_account)
+        held = WithdrawalRequest.objects.select_for_update().filter(requester=request.user, currency=currency, status__in=[WithdrawalRequest.Status.PENDING, WithdrawalRequest.Status.APPROVED]).aggregate(v=Sum("amount"))["v"] or Decimal("0.00")
         withdrawable = available - held
         if amount <= 0 or amount > withdrawable:
             raise ValidationError({"amount": f"المتاح للسحب {withdrawable} {currency}."})
