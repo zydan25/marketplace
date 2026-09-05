@@ -179,9 +179,13 @@ def ensure_legacy_vendor_available(user, balance, currency):
 def fund_order(order, *, created_by=None):
     from orders.models import VendorOrder
     customer = ensure_wallet(order.customer, Wallet.Kinds.CUSTOMER, order.currency)
-    vendor_orders = list(VendorOrder.objects.select_related("vendor__owner").filter(order=order).order_by("id"))
     order_total = Decimal(order.total).quantize(Decimal("0.01"))
-    lines = [{"account": customer.account, "debit": order_total, "description": f"خصم/حجز طلب {order.order_number}"}]
+    locked_customer = Account.objects.select_for_update().get(pk=customer.account_id)
+    available = account_balance(locked_customer)
+    if available < order_total:
+        raise ValueError(f"الرصيد المحاسبي غير كافٍ لتمويل الطلب: المتاح {available} {order.currency} والمطلوب {order_total}.")
+    vendor_orders = list(VendorOrder.objects.select_related("vendor__owner").filter(order=order).order_by("id"))
+    lines = [{"account": locked_customer, "debit": order_total, "description": f"خصم/حجز طلب {order.order_number}"}]
     allocated = Decimal("0.00")
     commission = Decimal("0.00")
     for vendor_order in vendor_orders:
@@ -219,10 +223,13 @@ def release_vendor_pending(vendor_user, amount, currency, *, vendor_order_id, cr
 def hold_withdrawal(user, amount, currency, *, withdrawal_id, created_by=None):
     amount = Decimal(amount).quantize(Decimal("0.01"))
     available = ensure_wallet(user, Wallet.Kinds.VENDOR_AVAILABLE, currency)
+    locked_available = Account.objects.select_for_update().get(pk=available.account_id)
+    if account_balance(locked_available) < amount:
+        raise ValueError(f"الرصيد المتاح للتاجر غير كافٍ: المتاح {account_balance(locked_available)} {currency} والمطلوب {amount}.")
     hold = ensure_wallet(user, Wallet.Kinds.WITHDRAWAL_HOLD, currency)
     return post_entry(
         f"حجز طلب السحب {withdrawal_id}",
-        [{"account": available.account, "debit": amount}, {"account": hold.account, "credit": amount}],
+        [{"account": locked_available, "debit": amount}, {"account": hold.account, "credit": amount}],
         source_type="withdrawal_hold", source_id=withdrawal_id, idempotency_key=f"withdrawal:hold:{withdrawal_id}", created_by=created_by,
     )
 
