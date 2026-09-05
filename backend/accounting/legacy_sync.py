@@ -10,12 +10,13 @@ from .services_v2 import ensure_chart, ensure_wallet, post_entry
 
 @transaction.atomic
 def sync_vendor_pending(user, currency="YER"):
-    """Mirror pre-accounting pending payouts into the accounting pending wallet once."""
+    """Mirror only pre-accounting pending payouts into the accounting pending wallet."""
     wallet = ensure_wallet(user, Wallet.Kinds.VENDOR_PENDING, currency)
-    payouts = VendorPayout.objects.select_related("vendor", "vendor__owner").filter(
-        vendor__owner=user, currency=currency, status="pending"
-    )
+    payouts = VendorPayout.objects.select_related("vendor", "vendor__owner", "order").filter(vendor__owner=user, currency=currency, status="pending")
     for payout in payouts:
+        # New accounting-backed orders already have a real pending journal; never mirror them as opening balances.
+        if payout.order_id and (payout.order.metadata or {}).get("accounting_funding"):
+            continue
         key = f"legacy:vendor-pending:{payout.id}"
         amount = Decimal(payout.amount).quantize(Decimal("0.01"))
         if amount <= 0 or JournalEntry.objects.filter(idempotency_key=key).exists():
