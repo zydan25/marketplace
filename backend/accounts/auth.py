@@ -10,6 +10,8 @@ from rest_framework.views import APIView
 
 from marketplace.models import User, Wallet
 from marketplace.serializers import UserSerializer
+from accounting.models import Wallet as AccountingWallet
+from accounting.services import ensure_wallet
 
 
 class AuthBurstThrottle(AnonRateThrottle):
@@ -21,32 +23,30 @@ class SecureLoginView(APIView):
     throttle_classes = [AuthBurstThrottle]
 
     def post(self, request):
-        identifier = str(
-            request.data.get(
-                "identifier",
-                request.data.get("username", request.data.get("phone", "")),
-            )
-        ).strip()
+        identifier = str(request.data.get("identifier", request.data.get("username", request.data.get("phone", "")))).strip()
         password = str(request.data.get("password", ""))
         if not identifier or not password:
-            return Response(
-                {"detail": "اسم المستخدم أو رقم الهاتف وكلمة المرور مطلوبان"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        user = User.objects.filter(
-            Q(username__iexact=identifier) | Q(phone=identifier)
-        ).first()
+            return Response({"detail": "اسم المستخدم أو رقم الهاتف وكلمة المرور مطلوبان"}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(Q(username__iexact=identifier) | Q(phone=identifier)).first()
         if not user or not user.check_password(password) or not user.is_active:
-            return Response(
-                {"detail": "اسم المستخدم/رقم الهاتف أو كلمة المرور غير صحيحة"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+            return Response({"detail": "اسم المستخدم/رقم الهاتف أو كلمة المرور غير صحيحة"}, status=status.HTTP_400_BAD_REQUEST)
         token, _ = Token.objects.get_or_create(user=user)
-        return Response(
-            {"token": token.key, "user": UserSerializer(user).data}
-        )
+        try:
+            ensure_wallet(user, AccountingWallet.Kinds.CUSTOMER, "YER")
+            if getattr(user, "role", None) == "vendor":
+                ensure_wallet(user, AccountingWallet.Kinds.VENDOR_PENDING, "YER")
+                ensure_wallet(user, AccountingWallet.Kinds.VENDOR_AVAILABLE, "YER")
+                ensure_wallet(user, AccountingWallet.Kinds.WITHDRAWAL_HOLD, "YER")
+        except Exception:
+            # Authentication must remain available even if an accounting migration is pending;
+            # the first financial operation will retry wallet initialization atomically.
+            pass
+        display_name = user.get_full_name() or user.phone or user.username or "العميل"
+        return Response({
+            "token": token.key,
+            "user": UserSerializer(user).data,
+            "message": f"مرحبًا {display_name}، تم تسجيل الدخول بنجاح.",
+        })
 
 
 class SecureRegisterView(APIView):
@@ -58,26 +58,13 @@ class SecureRegisterView(APIView):
         username = str(request.data.get("username", "")).strip()
         password = str(request.data.get("password", ""))
         if not phone or not password:
-            return Response(
-                {"detail": "رقم الهاتف وكلمة المرور مطلوبان"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"detail": "رقم الهاتف وكلمة المرور مطلوبان"}, status=status.HTTP_400_BAD_REQUEST)
         if len(password) < 8:
-            return Response(
-                {"detail": "كلمة المرور يجب أن تحتوي على 8 أحرف على الأقل"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"detail": "كلمة المرور يجب أن تحتوي على 8 أحرف على الأقل"}, status=status.HTTP_400_BAD_REQUEST)
         if User.objects.filter(phone=phone).exists():
-            return Response(
-                {"detail": "رقم الهاتف مسجل مسبقًا"},
-                status=status.HTTP_409_CONFLICT,
-            )
+            return Response({"detail": "رقم الهاتف مسجل مسبقًا"}, status=status.HTTP_409_CONFLICT)
         if username and User.objects.filter(username__iexact=username).exists():
-            return Response(
-                {"detail": "اسم المستخدم مستخدم مسبقًا"},
-                status=status.HTTP_409_CONFLICT,
-            )
-
+            return Response({"detail": "اسم المستخدم مستخدم مسبقًا"}, status=status.HTTP_409_CONFLICT)
         user = User(
             phone=phone,
             username=username or phone,
@@ -91,18 +78,18 @@ class SecureRegisterView(APIView):
         try:
             password_validation.validate_password(password, user=user)
         except Exception as exc:
-            return Response(
-                {"detail": getattr(exc, "messages", [str(exc)])},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"detail": getattr(exc, "messages", [str(exc)])}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(password)
         user.save()
         Wallet.objects.get_or_create(user=user)
+        ensure_wallet(user, AccountingWallet.Kinds.CUSTOMER, "YER")
         token = Token.objects.create(user=user)
-        return Response(
-            {"token": token.key, "user": UserSerializer(user).data},
-            status=status.HTTP_201_CREATED,
-        )
+        display_name = user.get_full_name() or user.phone or user.username or "العميل"
+        return Response({
+            "token": token.key,
+            "user": UserSerializer(user).data,
+            "message": f"مرحبًا {display_name}، تم إنشاء حسابك وتفعيل محفظتك.",
+        }, status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET"])
