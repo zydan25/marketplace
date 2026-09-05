@@ -8,8 +8,8 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounting.services_v2 import ensure_wallet
-from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceTask, ServiceTransaction
-from .provider import ProviderClient, ProviderResult
+from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceTask, ServiceTransaction, TelecomDenomination
+from .provider import ProviderClient
 from .provider_setup import create_or_update_sanaacash_provider
 from .security import decrypt_secret
 
@@ -64,8 +64,22 @@ class ServicePlatformTests(TestCase):
         self.assertEqual(provider.metadata.get("note"), "مزود احتياطي للإنتاج")
         self.assertEqual(provider.get_password(), "secret2")
         self.assertTrue(provider.links.filter(is_active=True).exists())
-        self.assertTrue(ServiceTransaction.objects.none().exists())
-        self.assertTrue(provider.links.get(operation="games_cards").provider_id == provider.id)
+        self.assertEqual(provider.links.get(operation="games_cards").provider_id, provider.id)
+        self.assertTrue(provider.links.get(operation="games_cards").distributions.filter(is_active=True).exists())
+
+    def test_item_catalog_data_is_hydrated_server_side(self):
+        service = Service.objects.create(category=self.service.category, name="فئات يمن موبايل", slug="yem-denomination-test", code="YEM_DENOM_TEST", pricing_mode="item")
+        service.fields.create(key="mobile", label="رقم الهاتف", required=True, validation={"min_length": 9, "max_length": 9})
+        service.fields.create(key="external_code", label="كود المنتج", required=False)
+        service.fields.create(key="amount", label="قيمة الفئة", field_type="decimal", required=False)
+        item = TelecomDenomination.objects.create(service=service, name="100 ريال", external_code="100", face_value=Decimal("100"), sale_price=Decimal("105"))
+        with patch("services.api.reserve_service_funds") as reserve:
+            reserve.return_value = type("JournalStub", (), {"pk": 7})()
+            response = self.client.post("/api/v2/services/requests/", {"service_id": service.pk, "item_id": item.pk, "item_type": "telecom_denominations", "payload": {"mobile": "777777777"}}, format="json")
+        self.assertEqual(response.status_code, 202)
+        tx = ServiceTransaction.objects.get(pk=response.data["id"])
+        self.assertEqual(tx.payload["external_code"], "100")
+        self.assertEqual(tx.payload["amount"], "100")
 
     def test_provider_params_include_backpass_and_backurl(self):
         tx = ServiceTransaction.objects.create(customer=self.customer, service=self.service, customer_amount=Decimal("100"), mobile="777777777", provider_transaction_id="TX-1", webhook_secret_encrypted=__import__("services.security", fromlist=["encrypt_secret"]).encrypt_secret("secret-backpass"))
@@ -76,11 +90,7 @@ class ServicePlatformTests(TestCase):
 
     @patch("services.provider.requests.get")
     def test_provider_balance_matches_contract(self, get):
-        response = type("ResponseStub", (), {
-            "status_code": 200,
-            "text": '{"resultCode":"0","balance":"12345.50"}',
-            "json": lambda self: {"resultCode": "0", "balance": "12345.50"},
-        })()
+        response = type("ResponseStub", (), {"status_code": 200, "text": '{"resultCode":"0","balance":"12345.50"}', "json": lambda self: {"resultCode": "0", "balance": "12345.50"}})()
         get.return_value = response
         result = ProviderClient(self.provider).check_balance()
         self.assertTrue(result.success)
