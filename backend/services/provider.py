@@ -1,7 +1,7 @@
 import hashlib
 import json
 import os
-import uuid
+import time
 from urllib.parse import urljoin
 
 import requests
@@ -67,10 +67,13 @@ class ProviderClient:
         return params, context
 
     def check_balance(self):
-        """Query the provider account balance without creating a customer transaction."""
+        """Query the Sanaacash provider account balance without creating a customer transaction."""
         if self.connection.connection_type != "sanaacash":
             return ProviderResult(code="UNSUPPORTED", description="فحص رصيد المزود غير مهيأ لهذا النوع من الربط.")
-        transid = f"BAL-{uuid.uuid4().hex[:24]}"
+
+        # Sanaacash requires `transid` to be an integer. Keep it numeric and unique
+        # enough for repeated balance checks while remaining compatible with the API.
+        transid = str(time.time_ns() // 1_000_000)
         mobile = "0"
         params = {
             "userid": self.connection.userid,
