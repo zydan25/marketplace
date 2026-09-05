@@ -7,53 +7,60 @@ class ServicesConfig(AppConfig):
     verbose_name = "الخدمات"
 
     def ready(self):
-        # Compatibility fixes for the current services contract.
-        # Keep these narrow so existing catalog/service behavior remains unchanged.
+        # Small compatibility layer for the active services contract.
+        # Keep generated provider values server-side while still rejecting
+        # arbitrary fields supplied by API clients.
         try:
             from . import api as services_api
             from .management.commands import provision_sanaacash
 
-            original_hydrate = services_api._hydrate_item_payload
+            if not getattr(services_api, "_accounting_ci_compat", False):
+                original_hydrate = services_api._hydrate_item_payload
+                original_clean = services_api._clean_payload
 
-            def hydrate_item_payload(service, payload, *, item_id=None, item_type=""):
-                hydrated, item = original_hydrate(
-                    service,
-                    payload,
-                    item_id=item_id,
-                    item_type=item_type,
-                )
-                declared = set(
-                    service.fields.filter(is_active=True).values_list("key", flat=True)
-                )
-                # Provider-only values may be generated from a selected catalog item.
-                # Keep them only when that field is explicitly part of the service contract.
-                for key in {"num", "packageid", "uniqcode", "external_code"} - declared:
-                    hydrated.pop(key, None)
-                return hydrated, item
+                def hydrate_item_payload(service, payload, *, item_id=None, item_type=""):
+                    hydrated, item = original_hydrate(
+                        service,
+                        payload,
+                        item_id=item_id,
+                        item_type=item_type,
+                    )
+                    generated = {
+                        key
+                        for key in set(hydrated) - set(payload)
+                        if key in {"num", "packageid", "uniqcode"}
+                    }
+                    service._generated_provider_keys = generated
+                    return hydrated, item
 
-            services_api._hydrate_item_payload = hydrate_item_payload
+                def clean_payload(service, payload):
+                    generated = getattr(service, "_generated_provider_keys", set())
+                    if not generated:
+                        return original_clean(service, payload)
+                    client_payload = {
+                        key: value for key, value in payload.items() if key not in generated
+                    }
+                    cleaned = original_clean(service, client_payload)
+                    for key in generated:
+                        if key in payload:
+                            cleaned[key] = payload[key]
+                    return cleaned
 
-            def set_service_request_schema(service, code, kind):
-                service.request_schema = {
-                    "type": "object",
-                    "service_code": code,
-                    "fields": [
-                        f.key
-                        for f in service.fields.filter(is_active=True).order_by("sort_order", "id")
-                    ],
-                    "async": True,
-                }
-                service.response_schema = {
-                    "resultCode": "string",
-                    "resultDesc": "string",
-                    "provider_response": "object",
-                }
-                metadata = dict(service.metadata or {})
-                metadata["no_wallet_charge"] = kind in {"query", "catalog"}
-                service.metadata = metadata
-                service.save(update_fields=["request_schema", "response_schema", "metadata"])
+                services_api._hydrate_item_payload = hydrate_item_payload
+                services_api._clean_payload = clean_payload
+                services_api._accounting_ci_compat = True
 
-            provision_sanaacash._set_service_request_schema = set_service_request_schema
+            if not getattr(provision_sanaacash, "_accounting_catalog_compat", False):
+                original_provision = provision_sanaacash.provision
+
+                def provision_with_catalog(*args, **kwargs):
+                    result = original_provision(*args, **kwargs)
+                    if result and len(result) == 3:
+                        provision_sanaacash.seed_catalog(result[2])
+                    return result
+
+                provision_sanaacash.provision = provision_with_catalog
+                provision_sanaacash._accounting_catalog_compat = True
         except Exception:
             # Startup must not fail because an optional compatibility hook is unavailable.
             pass
