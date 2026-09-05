@@ -12,6 +12,7 @@ from .models import MainServiceCategory, ProviderConnection, ProviderLink, Servi
 from .provider import ProviderClient
 from .provider_setup import create_or_update_sanaacash_provider
 from .security import decrypt_secret
+from .management.commands.provision_sanaacash import provision
 
 
 @override_settings(SERVICES_CREDENTIALS_KEY=Fernet.generate_key().decode(), SERVICES_WEBHOOK_BASE_URL="https://shopik.alattab.site")
@@ -66,6 +67,18 @@ class ServicePlatformTests(TestCase):
         self.assertTrue(provider.links.filter(is_active=True).exists())
         self.assertEqual(provider.links.get(operation="games_cards").provider_id, provider.id)
         self.assertTrue(provider.links.get(operation="games_cards").distributions.filter(is_active=True).exists())
+        provider_again = create_or_update_sanaacash_provider(code="backup-provider", name="مزود احتياطي", userid="u2", domain_name="api2.example", username="login2", password="secret2", note="مزود احتياطي للإنتاج", base_url="https://api2.example/api/yr/")
+        self.assertEqual(provider_again.pk, provider.pk)
+        self.assertEqual(MainServiceCategory.objects.count(), 4)
+
+    def test_provision_is_compatible_with_migration_seed(self):
+        provision()
+        provision()
+        self.assertEqual(MainServiceCategory.objects.get(slug="payments").name, "التسديدات")
+        self.assertEqual(MainServiceCategory.objects.get(slug="games").name, "الألعاب")
+        self.assertEqual(MainServiceCategory.objects.get(slug="software").name, "البرامج والبطاقات")
+        self.assertEqual(Service.objects.count(), 58)
+        self.assertEqual(ServiceCategory.objects.count(), 13)
 
     def test_item_catalog_data_is_hydrated_server_side(self):
         service = Service.objects.create(category=self.service.category, name="فئات يمن موبايل", slug="yem-denomination-test", code="YEM_DENOM_TEST", pricing_mode="item")
