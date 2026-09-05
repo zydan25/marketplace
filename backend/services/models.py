@@ -286,6 +286,8 @@ class ServiceTransaction(models.Model):
     reserved_journal_id = models.BigIntegerField(null=True, blank=True)
     settled_journal_id = models.BigIntegerField(null=True, blank=True)
     refund_journal_id = models.BigIntegerField(null=True, blank=True)
+    webhook_secret_encrypted = models.TextField(blank=True)
+    webhook_received_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True, blank=True)
