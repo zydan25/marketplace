@@ -3,7 +3,6 @@ from decimal import Decimal, InvalidOperation
 import uuid
 
 from django.db import transaction
-from django.db.models import Sum
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -181,9 +180,10 @@ class WithdrawalViewSet(viewsets.ModelViewSet):
         sync_vendor_pending(request.user, currency)
         available_wallet = ensure_wallet(request.user, Wallet.Kinds.VENDOR_AVAILABLE, currency)
         available_account = Account.objects.select_for_update().get(pk=available_wallet.account_id)
-        available = account_balance(available_account)
-        held = WithdrawalRequest.objects.select_for_update().filter(requester=request.user, currency=currency, status__in=[WithdrawalRequest.Status.PENDING, WithdrawalRequest.Status.APPROVED]).aggregate(v=Sum("amount"))["v"] or Decimal("0.00")
-        withdrawable = available - held
+        # hold_withdrawal immediately posts an accounting debit against the available wallet.
+        # Therefore `account_balance()` already excludes all existing pending/approved holds;
+        # subtracting the WithdrawalRequest rows again would double-reserve the same money.
+        withdrawable = account_balance(available_account)
         if amount <= 0 or amount > withdrawable:
             raise ValidationError({"amount": f"المتاح للسحب {withdrawable} {currency}."})
         item = WithdrawalRequest.objects.create(number=f"WD-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}", requester=request.user, amount=amount, currency=currency, note=str(request.data.get("note", "")).strip())
