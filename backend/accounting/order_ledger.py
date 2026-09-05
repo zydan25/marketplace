@@ -1,9 +1,8 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
 
-from .models import Account, JournalEntry, JournalLine, Wallet
+from .models import JournalEntry, JournalLine, Wallet
 from .services_v2 import account_balance, ensure_chart, ensure_wallet, post_entry
 
 
@@ -13,6 +12,45 @@ def _money(value):
 
 def _release_key(vendor_order_id, suffix):
     return f"vendor-order:release:{vendor_order_id}:{suffix}"
+
+
+def _fund_order_lines(order):
+    from orders.models import VendorOrder
+
+    customer = ensure_wallet(order.customer, Wallet.Kinds.CUSTOMER, order.currency)
+    vendor_orders = list(VendorOrder.objects.select_related("vendor__owner").filter(order=order).order_by("id"))
+    order_total = _money(order.total)
+    lines = [{"account": customer.account, "debit": order_total, "description": f"خصم/حجز طلب {order.order_number}"}]
+    allocated = Decimal("0.00")
+    commission = Decimal("0.00")
+    for vendor_order in vendor_orders:
+        net = _money(vendor_order.vendor_net)
+        commission += _money(vendor_order.commission)
+        allocated += net
+        if net > 0:
+            pending = ensure_wallet(vendor_order.vendor.owner, Wallet.Kinds.VENDOR_PENDING, order.currency)
+            lines.append({"account": pending.account, "credit": net, "description": f"مستحق معلق للطلب {vendor_order.order_number}"})
+    if commission > 0:
+        lines.append({"account": ensure_chart()["commission_income"], "credit": commission, "description": f"عمولة طلب {order.order_number}"})
+    if allocated + commission != order_total:
+        raise ValueError(f"لا يمكن ترحيل الطلب محاسبيًا: صافي التاجر {allocated} + العمولة {commission} != إجمالي الطلب {order_total}.")
+    return lines
+
+
+def fund_order_revision(order, revision, *, created_by=None):
+    key = f"order:fund:{order.pk}:revision:{int(revision)}"
+    existing = JournalEntry.objects.filter(idempotency_key=key).first()
+    if existing:
+        return existing
+    return post_entry(
+        f"إعادة تمويل الطلب {order.order_number} - تعديل {revision}",
+        _fund_order_lines(order),
+        source_type="order",
+        source_id=order.pk,
+        idempotency_key=key,
+        created_by=created_by,
+        metadata={"order_total": str(_money(order.total)), "currency": order.currency, "revision": int(revision)},
+    )
 
 
 def release_vendor_amount(vendor_user, amount, currency, *, vendor_order_id, release_key, item_ids=None, created_by=None):
@@ -37,15 +75,6 @@ def release_vendor_amount(vendor_user, amount, currency, *, vendor_order_id, rel
     )
 
 
-def released_vendor_amount(vendor_order_id):
-    wallet_kinds = Wallet.Kinds.VENDOR_AVAILABLE
-    entries = JournalEntry.objects.filter(source_type="vendor_order_release", source_id=str(vendor_order_id), status=JournalEntry.Status.POSTED)
-    account_ids = list(Wallet.objects.filter(kind=wallet_kinds, account__journal_lines__entry__in=entries).values_list("account_id", flat=True).distinct())
-    if not account_ids:
-        return Decimal("0.00")
-    return _money(JournalLine.objects.filter(entry__in=entries, account_id__in=account_ids).aggregate(total=Sum("credit"))["total"])
-
-
 def item_release_exists(vendor_order_id, item_id):
     return JournalEntry.objects.filter(
         idempotency_key=_release_key(vendor_order_id, f"item:{item_id}"),
@@ -54,24 +83,23 @@ def item_release_exists(vendor_order_id, item_id):
 
 
 def refunded_item_net(item_id):
-    entries = JournalEntry.objects.filter(source_type="order_item_refund", source_id=str(item_id), status=JournalEntry.Status.POSTED)
-    if not entries.exists():
-        return Decimal("0.00")
-    amount = JournalLine.objects.filter(entry__in=entries, account__party_type__startswith="wallet:vendor_available").aggregate(total=Sum("debit"))["total"]
-    pending_amount = JournalLine.objects.filter(entry__in=entries, account__party_type__startswith="wallet:vendor_pending").aggregate(total=Sum("debit"))["total"]
-    return _money((amount or 0) + (pending_amount or 0))
+    entries = JournalEntry.objects.filter(source_type="order_item_refund", source_id=str(item_id), status=JournalEntry.Status.POSTED).prefetch_related("lines__account")
+    total = Decimal("0.00")
+    for entry in entries:
+        for line in entry.lines.all():
+            if line.account.party_type in {"wallet:vendor_available", "wallet:vendor_pending"}:
+                total += _money(line.debit)
+    return _money(total)
 
 
 def order_item_refunded(item_id):
     return JournalEntry.objects.filter(source_type="order_item_refund", source_id=str(item_id), status=JournalEntry.Status.POSTED).exists()
 
 
-def _item_refund_entry(order, item, *, created_by=None):
+def refund_order_item(order, item, *, created_by=None):
     customer = ensure_wallet(order.customer, Wallet.Kinds.CUSTOMER, order.currency)
-    vendor_user = item.vendor.owner
-    released = item_release_exists(item.vendor_order_id, item.id)
-    vendor_kind = Wallet.Kinds.VENDOR_AVAILABLE if released else Wallet.Kinds.VENDOR_PENDING
-    vendor_wallet = ensure_wallet(vendor_user, vendor_kind, order.currency)
+    vendor_kind = Wallet.Kinds.VENDOR_AVAILABLE if item_release_exists(item.vendor_order_id, item.id) else Wallet.Kinds.VENDOR_PENDING
+    vendor_wallet = ensure_wallet(item.vendor.owner, vendor_kind, order.currency)
     vendor_net = _money(item.vendor_net)
     commission = _money(item.commission)
     refund = _money(item.vendor_total)
@@ -93,24 +121,19 @@ def _item_refund_entry(order, item, *, created_by=None):
 
 
 @transaction.atomic
-def refund_order_item(order, item, *, created_by=None):
-    return _item_refund_entry(order, item, created_by=created_by)
-
-
-@transaction.atomic
-def reverse_order_funding(order, *, created_by=None, reason="عكس تمويل الطلب"):
-    original = JournalEntry.objects.filter(idempotency_key=f"order:fund:{order.pk}", status=JournalEntry.Status.POSTED).prefetch_related("lines__account").first()
-    if not original:
+def reverse_funding_journal(order, entry, *, created_by=None, reason="عكس تمويل الطلب"):
+    if not entry:
         return None
-    key = f"order:fund-reversal:{order.pk}"
-    if JournalEntry.objects.filter(idempotency_key=key).exists():
-        return JournalEntry.objects.get(idempotency_key=key)
+    key = f"order:fund-reversal:{order.pk}:{entry.id}"
+    existing = JournalEntry.objects.filter(idempotency_key=key).first()
+    if existing:
+        return existing
     lines = []
-    for line in original.lines.all():
+    for line in entry.lines.select_related("account").all():
         if line.debit > 0:
-            lines.append({"account": line.account, "credit": line.debit, "description": f"عكس القيد {original.number}"})
+            lines.append({"account": line.account, "credit": line.debit, "description": f"عكس القيد {entry.number}"})
         elif line.credit > 0:
-            lines.append({"account": line.account, "debit": line.credit, "description": f"عكس القيد {original.number}"})
+            lines.append({"account": line.account, "debit": line.credit, "description": f"عكس القيد {entry.number}"})
     return post_entry(
         f"{reason} {order.order_number}",
         lines,
@@ -118,43 +141,33 @@ def reverse_order_funding(order, *, created_by=None, reason="عكس تمويل �
         source_id=order.pk,
         idempotency_key=key,
         created_by=created_by,
-        metadata={"reversal_of": original.number, "order_id": order.pk, "currency": order.currency},
+        metadata={"reversal_of": entry.number, "order_id": order.pk, "currency": order.currency},
     )
 
 
-def order_downstream_journals_exist(order):
+def current_funding_journal(order):
+    metadata = order.metadata or {}
+    number = ((metadata.get("accounting_funding") or {}).get("journal"))
+    if number:
+        entry = JournalEntry.objects.filter(number=number, status=JournalEntry.Status.POSTED).first()
+        if entry:
+            return entry
+    return JournalEntry.objects.filter(source_type="order", source_id=str(order.pk), status=JournalEntry.Status.POSTED).order_by("-id").first()
+
+
+def reverse_current_funding(order, *, created_by=None, reason="عكس تمويل الطلب"):
+    entry = current_funding_journal(order)
+    return reverse_funding_journal(order, entry, created_by=created_by, reason=reason)
+
+
+def order_has_settlements(order):
+    item_ids = [str(x) for x in order.items.values_list("id", flat=True)]
+    vendor_order_ids = [str(x) for x in order.vendor_orders.values_list("id", flat=True)]
     return JournalEntry.objects.filter(
         status=JournalEntry.Status.POSTED,
-    ).filter(
         source_type__in=["vendor_order_release", "order_item_refund"],
-        source_id__in=[str(order.id)] + [str(v.id) for v in order.vendor_orders.all()],
-    ).exists() or JournalEntry.objects.filter(source_type="order_item_refund", source_id__in=[str(i.id) for i in order.items.all()]).exists()
-
-
-def release_order_remaining(order, *, created_by=None):
-    released_entries = 0
-    for vendor_order in order.vendor_orders.select_related("vendor__owner").all():
-        item_ids = list(vendor_order.items.values_list("order_item_id", flat=True))
-        target = _money(vendor_order.vendor_net)
-        refunded_net = sum((refunded_item_net(item_id) for item_id in item_ids), Decimal("0.00"))
-        already_released = Decimal("0.00")
-        for item_id in item_ids:
-            if item_release_exists(vendor_order.id, item_id):
-                item = vendor_order.items.select_related("order_item").get(order_item_id=item_id).order_item
-                already_released += _money(item.vendor_net)
-        residual = max(Decimal("0.00"), target - already_released - refunded_net)
-        if residual > 0:
-            entry = release_vendor_amount(
-                vendor_order.vendor.owner,
-                residual,
-                vendor_order.currency,
-                vendor_order_id=vendor_order.id,
-                release_key="residual",
-                item_ids=[],
-                created_by=created_by,
-            )
-            released_entries += 1 if entry else 0
-    return released_entries
+        source_id__in=vendor_order_ids + item_ids,
+    ).exists()
 
 
 def release_order_items(order, *, created_by=None):
@@ -178,5 +191,23 @@ def release_order_items(order, *, created_by=None):
             )
             if entry:
                 released += amount
-    release_order_remaining(order, created_by=created_by)
+        target = _money(vendor_order.vendor_net)
+        released_by_items = sum(
+            (_money(link.order_item.vendor_net) for link in vendor_order.items.select_related("order_item").all() if item_release_exists(vendor_order.id, link.order_item.id)),
+            Decimal("0.00"),
+        )
+        refunded_net = sum((refunded_item_net(link.order_item.id) for link in vendor_order.items.select_related("order_item").all()), Decimal("0.00"))
+        residual = max(Decimal("0.00"), target - released_by_items - refunded_net)
+        if residual > 0:
+            entry = release_vendor_amount(
+                vendor_order.vendor.owner,
+                residual,
+                vendor_order.currency,
+                vendor_order_id=vendor_order.id,
+                release_key="residual",
+                item_ids=[],
+                created_by=created_by,
+            )
+            if entry:
+                released += residual
     return released
