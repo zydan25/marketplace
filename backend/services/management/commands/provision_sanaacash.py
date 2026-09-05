@@ -20,7 +20,7 @@ from services.provider import DEFAULT_WEBHOOK_PATH
 from services.catalog_data import CATEGORIES, LINKS, MAIN, SABA_DENOMINATIONS, SABA_OFFERS, SBAY_TABLE, SERVICES, ADENET_TABLE, WHY_TABLE, YOU_DENOMINATIONS, YOU_OFFERS, YEMEN_MOBILE_OFFERS
 
 
-MOBILE_9 = {"yem-balance", "yem-denomination", "yem-offer", "yem-bill-offer", "yem-offer-bill", "yem-query-balance", "yem-query-offers", "saba-denomination", "saba-offer", "sbay-offer", "sbay-denomination", "saba-units", "you-balance", "you-denomination", "you-offer", "yem4g-package", "yem4g-balance", "yem4g-change", "games_cards"}
+MOBILE_9 = {"yem-balance", "yem-denomination", "yem-offer", "yem-bill-offer", "yem-offer-bill", "yem-query-balance", "yem-query-offers", "saba-denomination", "saba-offer", "sbay-offer", "sbay-denomination", "saba-units", "you-balance", "you-denomination", "you-offer", "yem4g-package", "yem4g-balance", "yem4g-change"}
 MOBILE_8 = {"why-bill", "why-balance", "why-package", "post-adsl", "post-line", "post-query"}
 
 
@@ -58,7 +58,7 @@ def ensure_field(service, key, label, field_type="text", required=True, *, choic
 
 
 def _service_fields(service, code, link_key):
-    if code in MOBILE_9:
+    if code in MOBILE_9 or link_key == "games_cards":
         ensure_field(service, "mobile", "رقم الهاتف/المستفيد", validation={"min_length": 9, "max_length": 9})
     elif code in MOBILE_8:
         ensure_field(service, "mobile", "رقم الهاتف/الاشتراك", validation={"min_length": 8, "max_length": 8})
@@ -113,8 +113,9 @@ def _set_service_request_schema(service, code, kind):
         "resultDesc": "string",
         "provider_response": "object",
     }
-    if kind in {"query", "catalog"}:
-        service.metadata = {**service.metadata, "no_wallet_charge": True}
+    metadata = dict(service.metadata or {})
+    metadata["no_wallet_charge"] = kind in {"query", "catalog"}
+    service.metadata = metadata
     service.save(update_fields=["request_schema", "response_schema", "metadata", "updated_at"])
 
 
@@ -123,9 +124,7 @@ def provision():
     categories = {}
     for main_key, name, slug in CATEGORIES:
         category, _ = ServiceCategory.objects.update_or_create(
-            main_category=mains[main_key],
-            parent=None,
-            slug=slug,
+            main_category=mains[main_key], parent=None, slug=slug,
             defaults={"name": name, "is_active": True},
         )
         categories[slug] = category
@@ -142,7 +141,7 @@ def provision():
                 "service_kind": kind,
                 "requires_balance": requires_balance,
                 "pricing_mode": pricing,
-                "price": Decimal("0.00"),
+                "price": Decimal("0.00") if not requires_balance else Decimal("0.00"),
                 "min_amount": Decimal("200") if code == "you-balance" else None,
                 "max_amount": Decimal("100000") if code == "you-balance" else None,
                 "currency": "YER",
@@ -182,8 +181,7 @@ def provision_links(connection, services):
         links[code] = link
     for code, _, _, _, _, link_key, _ in SERVICES:
         ServiceDistribution.objects.update_or_create(
-            service=services[code],
-            provider_link=links[link_key],
+            service=services[code], provider_link=links[link_key],
             defaults={"priority": 100, "is_active": True, "conditions": {}},
         )
     return links
@@ -191,8 +189,7 @@ def provision_links(connection, services):
 
 def _upsert_plan(service, *, external_code, name, price, provider_num="", payment_type="", line_type="", metadata=None):
     TelecomPlan.objects.update_or_create(
-        service=service,
-        external_code=external_code,
+        service=service, external_code=external_code,
         defaults={
             "name": name,
             "price": Decimal(str(price)),
@@ -206,8 +203,7 @@ def _upsert_plan(service, *, external_code, name, price, provider_num="", paymen
 
 def _upsert_denom(service, *, external_code, name, face_value, sale_price, metadata=None):
     TelecomDenomination.objects.update_or_create(
-        service=service,
-        external_code=str(external_code),
+        service=service, external_code=str(external_code),
         defaults={
             "name": name,
             "face_value": Decimal(str(face_value)),
@@ -220,16 +216,8 @@ def _upsert_denom(service, *, external_code, name, face_value, sale_price, metad
 
 def _upsert_option(service, *, name, external_code="", provider_num="", price=0, metadata=None):
     ServiceOption.objects.update_or_create(
-        service=service,
-        external_code=str(external_code),
-        provider_num=str(provider_num),
-        name=name,
-        defaults={
-            "price": Decimal(str(price)),
-            "currency": "YER",
-            "metadata": metadata or {},
-            "is_active": True,
-        },
+        service=service, external_code=str(external_code), provider_num=str(provider_num), name=name,
+        defaults={"price": Decimal(str(price)), "currency": "YER", "metadata": metadata or {}, "is_active": True},
     )
 
 
@@ -253,7 +241,6 @@ def seed_catalog(services):
     for num, name, price, code in SABA_OFFERS:
         _upsert_plan(services["saba-offer"], external_code=code, name=name, price=price, provider_num=num)
 
-    # The PDF explicitly says these numbering tables are provided separately.
     for row in SBAY_TABLE:
         _upsert_option(services["sbay-offer"], name=str(row[1] if len(row) > 1 else row[0]), provider_num=str(row[0]))
     for row in ADENET_TABLE:
@@ -265,15 +252,7 @@ def seed_catalog(services):
 def create_or_update_sanaacash_provider(*, code, name, userid="", domain_name="", username="", password="", note="", base_url="https://sanaacash.yrbso.net/api/yr/"):
     provider, _ = ProviderConnection.objects.update_or_create(
         code=code,
-        defaults={
-            "name": name,
-            "connection_type": ProviderConnection.Types.SANAACASH,
-            "base_url": base_url,
-            "userid": userid,
-            "domain_name": domain_name,
-            "username": username,
-            "is_active": True,
-        },
+        defaults={"name": name, "connection_type": ProviderConnection.Types.SANAACASH, "base_url": base_url, "userid": userid, "domain_name": domain_name, "username": username, "is_active": True},
     )
     metadata = dict(provider.metadata or {})
     metadata.update({"note": note.strip(), "contract_source": "api 1 (59).pdf"})
@@ -309,12 +288,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"Dry run: {len(MAIN)} فئات رئيسية، {len(CATEGORIES)} فئات، {len(SERVICES)} خدمة، {len(LINKS)} مسار API."))
             return
         provider = create_or_update_sanaacash_provider(
-            code=options["provider_code"],
-            name=options["provider_name"],
-            userid=options["userid"],
-            domain_name=options["domain_name"],
-            username=options["username"],
-            password=options["password"],
+            code=options["provider_code"], name=options["provider_name"], userid=options["userid"],
+            domain_name=options["domain_name"], username=options["username"], password=options["password"],
             base_url=options["base_url"],
         )
         count_plans = TelecomPlan.objects.count()
