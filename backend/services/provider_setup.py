@@ -14,7 +14,6 @@ def _ensure_missing_query_services():
         ("Yemen Mobile - استعلام الباقات", "yem-query-offers", "yem-query-offers", "yem_offer_query"),
     ]
     services = {}
-    links = {link.operation: link for link in ProviderLink.objects.none()}
     for name, code, slug, _ in definitions:
         service, _ = Service.objects.update_or_create(code=code, defaults={"category": category, "name": name, "slug": slugify(slug, allow_unicode=True), "pricing_mode": Service.PricingModes.FIXED, "price": 0, "currency": "YER", "is_active": True})
         ServiceField.objects.update_or_create(service=service, key="mobile", defaults={"label": "رقم يمن موبايل", "field_type": "text", "required": True, "sort_order": 10, "validation": {"min_length": 9, "max_length": 9}})
@@ -23,7 +22,7 @@ def _ensure_missing_query_services():
 
 
 @transaction.atomic
-def create_or_update_sanaacash_provider(*, code, name, userid="", domain_name="", username="", password="", base_url="https://sanaacash.yrbso.net/api/yr/"):
+def create_or_update_sanaacash_provider(*, code, name, userid="", domain_name="", username="", password="", note="", base_url="https://sanaacash.yrbso.net/api/yr/"):
     provider, _ = ProviderConnection.objects.update_or_create(
         code=code,
         defaults={
@@ -34,6 +33,7 @@ def create_or_update_sanaacash_provider(*, code, name, userid="", domain_name=""
             "domain_name": domain_name,
             "username": username,
             "is_active": True,
+            "metadata": {"note": note.strip()} if note.strip() else {},
         },
     )
     if password:
