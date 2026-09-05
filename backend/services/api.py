@@ -40,6 +40,45 @@ def _clean_payload(service, payload):
     return cleaned
 
 
+def _resolve_item(service, item_id, item_type):
+    if not item_id or not item_type:
+        raise ValueError("يجب تحديد المنتج/الباقة للخدمة.")
+    model_map = {
+        "telecom_denominations": "telecom_denominations",
+        "telecom_plans": "telecom_plans",
+        "game_products": "game_products",
+        "digital_products": "digital_products",
+    }
+    rel = model_map.get(item_type)
+    if not rel:
+        raise ValueError("نوع المنتج غير صالح.")
+    item = getattr(service, rel).filter(pk=item_id, is_active=True).first()
+    if not item:
+        raise ValueError("العنصر المطلوب غير موجود أو متوقف.")
+    return item
+
+
+def _hydrate_item_payload(service, payload, *, item_id=None, item_type=""):
+    """Copy trusted server-side values from a selected catalog item into provider payload."""
+    if not item_id or not item_type:
+        return payload, None
+    item = _resolve_item(service, item_id, item_type)
+    hydrated = dict(payload)
+    external_code = getattr(item, "external_code", "")
+    if external_code:
+        hydrated.setdefault("external_code", external_code)
+    if item_type == "telecom_denominations":
+        hydrated.setdefault("amount", str(item.face_value))
+    if item_type == "telecom_plans":
+        hydrated.setdefault("amount", str(getattr(item, "price", 0)))
+    if item_type == "game_products":
+        metadata = item.metadata or {}
+        uniqcode = metadata.get("uniqcode") or metadata.get("uniq_code")
+        if uniqcode:
+            hydrated.setdefault("uniqcode", uniqcode)
+    return hydrated, item
+
+
 def _resolve_price(service, payload, *, item_id=None, item_type=""):
     from decimal import Decimal
     if service.pricing_mode == Service.PricingModes.FIXED:
@@ -54,15 +93,7 @@ def _resolve_price(service, payload, *, item_id=None, item_type=""):
         if service.max_amount is not None and amount > service.max_amount:
             raise ValueError("المبلغ أكبر من الحد الأعلى.")
     else:
-        if not item_id or not item_type:
-            raise ValueError("يجب تحديد المنتج/الباقة للخدمة.")
-        model_map = {"telecom_denominations": "telecom_denominations", "telecom_plans": "telecom_plans", "game_products": "game_products", "digital_products": "digital_products"}
-        rel = model_map.get(item_type)
-        if not rel:
-            raise ValueError("نوع المنتج غير صالح.")
-        item = getattr(service, rel).filter(pk=item_id, is_active=True).first()
-        if not item:
-            raise ValueError("العنصر المطلوب غير موجود أو متوقف.")
+        item = _resolve_item(service, item_id, item_type)
         amount = Decimal(getattr(item, "sale_price", getattr(item, "price", 0)))
     if amount <= 0:
         raise ValueError("قيمة الخدمة يجب أن تكون أكبر من صفر.")
@@ -133,6 +164,7 @@ class ServiceRequestAPIView(APIView):
             if existing:
                 return Response(_transaction_data(existing), status=200)
         try:
+            payload, _ = _hydrate_item_payload(service, payload, item_id=item_id, item_type=item_type)
             payload = _clean_payload(service, payload)
             amount = _resolve_price(service, payload, item_id=item_id, item_type=item_type)
             mobile = str(payload.get("mobile", "")).strip()
