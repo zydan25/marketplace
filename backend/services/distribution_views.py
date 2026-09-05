@@ -4,6 +4,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .models import ProviderConnection, ProviderLink, Service, ServiceDistribution
+from .provider import ProviderClient
 from .provider_setup import create_or_update_sanaacash_provider, distribution_matrix
 
 
@@ -16,33 +17,44 @@ def provider_setup(request):
     if request.method == "POST":
         action = request.POST.get("action", "save")
         try:
-            if action in {"archive", "activate", "delete"}:
+            if action in {"archive", "activate", "delete", "balance"}:
                 provider = get_object_or_404(ProviderConnection, pk=request.POST.get("provider"))
-                with transaction.atomic():
-                    if action == "archive":
-                        ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
-                        provider.links.update(is_active=False)
-                        provider.is_active = False
-                        provider.save(update_fields=["is_active", "updated_at"])
-                        messages.success(request, f"تم إيقاف الربطية {provider.name} بأمان؛ لم تُحذف العمليات التاريخية.")
-                    elif action == "activate":
-                        provider.is_active = True
-                        provider.links.update(is_active=True)
-                        provider.save(update_fields=["is_active", "updated_at"])
-                        messages.success(request, f"تم تفعيل الربطية {provider.name}. تم فتح مساراتها ويمكنك إعادة تخصيص التوزيع.")
+                if action == "balance":
+                    if not provider.is_active:
+                        raise ValueError("لا يمكن فحص رصيد ربطية متوقفة. قم بتفعيلها أولًا.")
+                    result = ProviderClient(provider).check_balance()
+                    if result.success:
+                        balance = result.response.get("balance")
+                        messages.success(request, f"رصيد المزود {provider.name}: {balance}")
                     else:
-                        has_transactions = provider.links.filter(transactions__isnull=False).exists()
-                        if has_transactions:
+                        detail = result.description or "فشل الاتصال بالمزود."
+                        messages.error(request, f"تعذر فحص رصيد {provider.name}: {detail}")
+                else:
+                    with transaction.atomic():
+                        if action == "archive":
                             ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
                             provider.links.update(is_active=False)
                             provider.is_active = False
                             provider.save(update_fields=["is_active", "updated_at"])
-                            messages.warning(request, f"للربطية {provider.name} عمليات تاريخية؛ لذلك تم أرشفتها بدل حذفها.")
+                            messages.success(request, f"تم إيقاف الربطية {provider.name} بأمان؛ لم تُحذف العمليات التاريخية.")
+                        elif action == "activate":
+                            provider.is_active = True
+                            provider.links.update(is_active=True)
+                            provider.save(update_fields=["is_active", "updated_at"])
+                            messages.success(request, f"تم تفعيل الربطية {provider.name}. تم فتح مساراتها ويمكنك إعادة تخصيص التوزيع.")
                         else:
-                            ServiceDistribution.objects.filter(provider_link__provider=provider).delete()
-                            ProviderLink.objects.filter(provider=provider).delete()
-                            provider.delete()
-                            messages.success(request, "تم حذف الربطية نهائيًا لأنها بلا عمليات تاريخية.")
+                            has_transactions = provider.links.filter(transactions__isnull=False).exists()
+                            if has_transactions:
+                                ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
+                                provider.links.update(is_active=False)
+                                provider.is_active = False
+                                provider.save(update_fields=["is_active", "updated_at"])
+                                messages.warning(request, f"للربطية {provider.name} عمليات تاريخية؛ لذلك تم أرشفتها بدل حذفها.")
+                            else:
+                                ServiceDistribution.objects.filter(provider_link__provider=provider).delete()
+                                ProviderLink.objects.filter(provider=provider).delete()
+                                provider.delete()
+                                messages.success(request, "تم حذف الربطية نهائيًا لأنها بلا عمليات تاريخية.")
             else:
                 code = (request.POST.get("code") or "").strip()
                 name = (request.POST.get("name") or "").strip()
