@@ -34,6 +34,7 @@ class ServicePlatformTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["categories"])
         with patch("services.api.reserve_service_funds") as reserve:
+            reserve.return_value = type("JournalStub", (), {"pk": 1})()
             response = self.client.post("/api/v2/services/requests/", {"service_id": self.service.pk, "payload": {"mobile": "777777777"}}, format="json")
         self.assertEqual(response.status_code, 202)
         self.assertTrue(reserve.called)
