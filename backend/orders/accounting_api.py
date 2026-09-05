@@ -1,12 +1,12 @@
 from decimal import Decimal
 
 from django.db import transaction
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from finance.models import Wallet as LegacyWallet
 from .launch_order_api import LaunchOrderViewSet
-from .models import Order, VendorOrder
+from .models import Order
 from .serializers import OrderSerializer
 from accounting.models import Wallet as AccountingWallet
 from accounting.services import account_balance, ensure_legacy_customer_opening, ensure_legacy_vendor_available, ensure_wallet, fund_order, release_vendor_pending, wallet_summary
@@ -25,8 +25,9 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         legacy_customer_balance = Decimal(legacy_customer_wallet.balance) if legacy_customer_wallet else Decimal("0.00")
         ensure_legacy_customer_opening(request.user, legacy_customer_balance, currency)
         customer_wallet = ensure_wallet(request.user, AccountingWallet.Kinds.CUSTOMER, currency)
+        if account_balance(customer_wallet.account) < 0:
+            raise ValidationError({"wallet": "تعذر قراءة رصيد المحفظة المحاسبية."})
 
-        accounting_balance = account_balance(customer_wallet.account)
         requested_rows = request.data.get("items") or []
         legacy_vendor_snapshots = {}
         from catalog.models import Product
@@ -42,31 +43,31 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
                     old = LegacyWallet.objects.filter(user_id=owner_id).first()
                     legacy_vendor_snapshots[owner_id] = Decimal(old.balance) if old else Decimal("0.00")
 
-        # The exact total is calculated by the trusted server-side checkout below.
-        # A pre-check against the existing accounting balance prevents accepting a request
-        # that can never be funded; the definitive amount check happens again after pricing.
-        if accounting_balance < 0:
-            raise ValidationError({"wallet": "تعذر قراءة رصيد المحفظة المحاسبية."})
-
         response = super().create(request, *args, **kwargs)
         order = Order.objects.select_for_update().get(pk=response.data["id"])
         self._reprice_vendor_shipping(order)
         self._refresh_vendor_finance(order)
-
-        # The amount may change after shipping repricing, so perform the authoritative check now.
-        if account_balance(customer_wallet.account) < Decimal(order.total):
-            raise ValidationError({"wallet": f"الرصيد المحاسبي غير كافٍ. المتاح {account_balance(customer_wallet.account)} {currency}."})
+        authoritative_balance = account_balance(customer_wallet.account)
+        if authoritative_balance < Decimal(order.total):
+            raise ValidationError({"wallet": f"الرصيد المحاسبي غير كافٍ. المتاح {authoritative_balance} {currency}."})
 
         for vendor_order in order.vendor_orders.select_related("vendor__owner").all():
             snapshot = legacy_vendor_snapshots.get(vendor_order.vendor.owner_id)
             ensure_legacy_vendor_available(vendor_order.vendor.owner, snapshot or Decimal("0.00"), currency)
 
-        fund_order(order, created_by=request.user)
+        entry = fund_order(order, created_by=request.user)
+        order.metadata = {
+            **(order.metadata or {}),
+            "accounting_funding": {"journal": entry.number, "total": str(order.total), "currency": order.currency},
+        }
+        order.save(update_fields=["metadata", "updated_at"])
         payload = OrderSerializer(order, context={"request": request}).data
         payload["financial"] = {
+            "journal": entry.number,
             "customer_debited": str(order.total),
             "currency": order.currency,
             "vendor_status": "pending",
+            "customer_wallet": str(account_balance(customer_wallet.account) - Decimal(order.total)),
             "message": f"مرحبًا {request.user.get_full_name() or request.user.phone or request.user.username}، تم قبول الطلب وحجز قيمته من رصيدك. مستحقات التاجر معلقة حتى تأكيد الاستلام.",
         }
         return Response(payload, status=response.status_code)
@@ -92,12 +93,21 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
 
     @transaction.atomic
     def update_pending(self, request, pk=None):
-        response = super().update_pending(request, pk=pk)
-        order = Order.objects.select_for_update().get(pk=pk)
-        # Rebuild the accounting order funding entry after a checkout edit. The edit method
-        # changed the legacy escrow hold; in the accounting layer the safest invariant is to
-        # reject a changed total rather than silently mutate a posted journal.
-        existing = order.metadata.get("accounting_funding") if order.metadata else None
-        if existing and existing.get("total") != str(order.total):
-            raise ValidationError({"order": "تم تعديل قيمة طلب ممول محاسبيًا؛ يجب إلغاء التمويل القديم وإعادة إنشاء الطلب قبل تغيير القيمة."})
-        return response
+        order = self.get_queryset().select_for_update().get(pk=pk)
+        if (order.metadata or {}).get("accounting_funding"):
+            raise ValidationError({"order": "تم تمويل الطلب محاسبيًا ولا يمكن تغيير عناصره بعد إنشاء القيد المالي."})
+        return super().update_pending(request, pk=pk)
+
+    @transaction.atomic
+    def reject_item(self, request, pk=None):
+        order = self.get_queryset().select_for_update().get(pk=pk)
+        if (order.metadata or {}).get("escrow", {}).get("customer_confirmed"):
+            raise ValidationError({"order": "تم تأكيد الاستلام نهائيًا ولا يمكن فتح اعتراض جديد."})
+        return super().reject_item(request, pk=pk)
+
+    @transaction.atomic
+    def reject_order(self, request, pk=None):
+        order = self.get_queryset().select_for_update().get(pk=pk)
+        if (order.metadata or {}).get("escrow", {}).get("customer_confirmed"):
+            raise ValidationError({"order": "تم تأكيد الاستلام نهائيًا ولا يمكن فتح اعتراض جديد."})
+        return super().reject_order(request, pk=pk)
