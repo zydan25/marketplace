@@ -16,14 +16,30 @@ def provider_setup(request):
     if request.method == "POST":
         action = request.POST.get("action", "save")
         try:
-            if action == "archive":
+            if action in {"archive", "activate", "delete"}:
                 provider = get_object_or_404(ProviderConnection, pk=request.POST.get("provider"))
                 with transaction.atomic():
-                    ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
-                    provider.links.update(is_active=False)
-                    provider.is_active = False
-                    provider.save(update_fields=["is_active", "updated_at"])
-                messages.success(request, f"تم إيقاف الربطية {provider.name} بأمان؛ لم تُحذف العمليات التاريخية.")
+                    if action == "archive":
+                        ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
+                        provider.links.update(is_active=False)
+                        provider.is_active = False
+                        provider.save(update_fields=["is_active", "updated_at"])
+                        messages.success(request, f"تم إيقاف الربطية {provider.name} بأمان؛ لم تُحذف العمليات التاريخية.")
+                    elif action == "activate":
+                        provider.is_active = True
+                        provider.save(update_fields=["is_active", "updated_at"])
+                        messages.success(request, f"تم تفعيل الربطية {provider.name}. راجع توزيع الخدمات قبل استخدامها.")
+                    else:
+                        has_transactions = provider.links.filter(transactions__isnull=False).exists()
+                        if has_transactions:
+                            ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
+                            provider.links.update(is_active=False)
+                            provider.is_active = False
+                            provider.save(update_fields=["is_active", "updated_at"])
+                            messages.warning(request, f"للربطية {provider.name} عمليات تاريخية؛ لذلك تم أرشفتها بدل حذفها.")
+                        else:
+                            provider.delete()
+                            messages.success(request, "تم حذف الربطية نهائيًا لأنها بلا عمليات تاريخية.")
             else:
                 code = (request.POST.get("code") or "").strip()
                 name = (request.POST.get("name") or "").strip()
@@ -36,9 +52,10 @@ def provider_setup(request):
                     domain_name=(request.POST.get("domain_name") or "").strip(),
                     username=(request.POST.get("username") or "").strip(),
                     password=request.POST.get("password") or "",
+                    note=(request.POST.get("note") or "").strip(),
                     base_url=(request.POST.get("base_url") or "https://sanaacash.yrbso.net/api/yr/").strip(),
                 )
-                messages.success(request, f"تم حفظ الربطية {provider.name} وتهيئة مسارات Sanaacash تلقائيًا.")
+                messages.success(request, f"تم حفظ الربطية {provider.name} وتهيئة مسارات API القياسية تلقائيًا.")
         except Exception as exc:
             messages.error(request, f"تعذر تنفيذ العملية: {exc}")
         return redirect("admin-services-provider-setup")
@@ -74,11 +91,7 @@ def distribution_matrix_view(request):
                     link_id = route_map.get(service.id)
                     if link_id not in valid_links:
                         raise ValueError(f"يجب اختيار مسار صالح للخدمة: {service.name}.")
-                    ServiceDistribution.objects.update_or_create(
-                        service=service,
-                        provider_link_id=link_id,
-                        defaults={"priority": priority_map.get(service.id, 100), "is_active": True},
-                    )
+                    ServiceDistribution.objects.update_or_create(service=service, provider_link_id=link_id, defaults={"priority": priority_map.get(service.id, 100), "is_active": True})
             messages.success(request, "تم تحديث توزيع الخدمات والمسارات والأولويات لهذه الربطية.")
         except Exception as exc:
             messages.error(request, f"تعذر تحديث التوزيع: {exc}")
