@@ -120,9 +120,7 @@ LINKS = {
     "water_bill": ("Water - Bill", "electwater", {"action": "bill", "act": "water"}, {"mobile": "mobile", "customer_id": "customer_id", "placeid": "placeid", "amount": "amount"}),
 }
 
-BASE_FIELDS = [
-    ("mobile", "رقم المستفيد/الاشتراك", "text", True),
-]
+BASE_FIELDS = [("mobile", "رقم المستفيد/الاشتراك", "text", True)]
 
 
 def ensure_field(service, key, label, field_type="text", required=True):
@@ -138,12 +136,13 @@ def provision():
     for main_key, name, slug in CATEGORIES:
         categories[slug], _ = ServiceCategory.objects.update_or_create(main_category=mains[main_key], slug=slug, parent=None, defaults={"name": name, "is_active": True})
     services = {}
+    amount_services = {"you-balance", "why-balance", "yem4g-balance", "yem-balance", "why-bill", "saba-units", "saba-gomla", "mtn-gomla", "mobile-gomla", "post-adsl", "post-line"}
     for category_slug, name, code, pricing, link_key in SERVICES:
         category = categories[category_slug]
         services[code], _ = Service.objects.update_or_create(code=code, defaults={"category": category, "name": name, "slug": slugify(code, allow_unicode=True), "pricing_mode": pricing, "currency": "YER", "is_active": True})
         ensure_field(services[code], "mobile", "رقم المستفيد/الاشتراك")
-        if code in {"you-balance", "why-balance", "yem4g-balance", "yem-balance", "why-bill", "saba-units", "saba-gomla", "mtn-gomla", "mobile-gomla", "post-adsl", "post-line"}:
-            ensure_field(services[code], "amount", "المبلغ", "decimal", False)
+        if code in amount_services:
+            ensure_field(services[code], "amount", "المبلغ", "decimal", True)
         if code in {"you-balance", "yem4g-balance"}:
             ensure_field(services[code], "type", "نوع الخط/الباقة")
         if code == "why-balance":
@@ -186,10 +185,7 @@ class Command(BaseCommand):
             self.stdout.write(f"سيتم إنشاء {len(CATEGORIES)} فئات و{len(SERVICES)} خدمة و{len(LINKS)} مسار API.")
             return
         with transaction.atomic():
-            connection, _ = ProviderConnection.objects.update_or_create(
-                code=options["provider_code"],
-                defaults={"name": options["provider_name"], "connection_type": ProviderConnection.Types.SANAACASH, "base_url": options["base_url"], "is_active": True},
-            )
+            connection, _ = ProviderConnection.objects.update_or_create(code=options["provider_code"], defaults={"name": options["provider_name"], "connection_type": ProviderConnection.Types.SANAACASH, "base_url": options["base_url"], "is_active": True})
             _, _, services = provision()
             links = provision_links(connection, services)
         self.stdout.write(self.style.SUCCESS(f"تمت تهيئة Sanaacash: {len(services)} خدمة و{len(links)} مسار وربطها بالتوزيع."))
