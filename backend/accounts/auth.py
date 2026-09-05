@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from marketplace.models import User, Wallet
 from marketplace.serializers import UserSerializer
 from accounting.models import Wallet as AccountingWallet
-from accounting.services import ensure_wallet
+from accounting.services_v2 import ensure_wallet
 
 
 class AuthBurstThrottle(AnonRateThrottle):
@@ -38,8 +38,6 @@ class SecureLoginView(APIView):
                 ensure_wallet(user, AccountingWallet.Kinds.VENDOR_AVAILABLE, "YER")
                 ensure_wallet(user, AccountingWallet.Kinds.WITHDRAWAL_HOLD, "YER")
         except Exception:
-            # Authentication must remain available even if an accounting migration is pending;
-            # the first financial operation will retry wallet initialization atomically.
             pass
         display_name = user.get_full_name() or user.phone or user.username or "العميل"
         return Response({
