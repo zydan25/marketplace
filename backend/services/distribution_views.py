@@ -27,8 +27,9 @@ def provider_setup(request):
                         messages.success(request, f"تم إيقاف الربطية {provider.name} بأمان؛ لم تُحذف العمليات التاريخية.")
                     elif action == "activate":
                         provider.is_active = True
+                        provider.links.update(is_active=True)
                         provider.save(update_fields=["is_active", "updated_at"])
-                        messages.success(request, f"تم تفعيل الربطية {provider.name}. راجع توزيع الخدمات قبل استخدامها.")
+                        messages.success(request, f"تم تفعيل الربطية {provider.name}. تم فتح مساراتها ويمكنك إعادة تخصيص التوزيع.")
                     else:
                         has_transactions = provider.links.filter(transactions__isnull=False).exists()
                         if has_transactions:
