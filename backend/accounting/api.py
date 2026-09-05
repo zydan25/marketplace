@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal, InvalidOperation
 import uuid
 
@@ -41,24 +42,25 @@ class AccountViewSet(viewsets.ModelViewSet):
         if not parent_id:
             raise ValidationError({"parent": "الحسابات الجديدة يجب أن تكون تحت حساب رئيسي."})
         parent = Account.objects.filter(pk=parent_id, is_active=True).first()
-        if not parent:
-            raise ValidationError({"parent": "الحساب الرئيسي غير موجود."})
-        if not parent.is_group:
-            raise ValidationError({"parent": "لا يمكن إنشاء حساب تحت حساب فرعي."})
+        if not parent or not parent.is_group:
+            raise ValidationError({"parent": "يجب اختيار حساب رئيسي فعال."})
+        name = str(request.data.get("name", "")).strip()
+        if not name:
+            raise ValidationError({"name": "اسم الحساب مطلوب."})
         account_type = request.data.get("account_type") or Account.Types.ASSET
         normal_side = request.data.get("normal_side") or (
             Account.NormalSides.CREDIT if account_type in {Account.Types.LIABILITY, Account.Types.EQUITY, Account.Types.INCOME} else Account.NormalSides.DEBIT
         )
         from .services import _leaf_account
-        account = _leaf_account(parent, str(request.data.get("name", "")).strip(), account_type, normal_side)
+        account = _leaf_account(parent, name, account_type, normal_side)
         return Response(self._serialize(account), status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
         if not is_admin(request.user):
             raise PermissionDenied("حذف الحسابات للإدارة فقط.")
         account = self.get_object()
-        if account.children.exists() or account.journal_lines.exists() or account.wallets.exists() if hasattr(account, "wallets") else account.children.exists() or account.journal_lines.exists():
-            raise ValidationError({"account": "لا يمكن حذف حساب مرتبط بحسابات فرعية أو قيود. قم بإيقافه بدلًا من حذفه."})
+        if account.children.exists() or account.journal_lines.exists() or Wallet.objects.filter(account=account).exists():
+            raise ValidationError({"account": "لا يمكن حذف حساب مرتبط. قم بإيقافه بدلًا من حذفه."})
         account.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -84,10 +86,7 @@ class AccountViewSet(viewsets.ModelViewSet):
         if not is_admin(request.user):
             raise PermissionDenied("شجرة الحسابات للإدارة فقط.")
         ensure_chart()
-        rows = []
-        for account in Account.objects.select_related("parent").order_by("code"):
-            rows.append(self._serialize(account))
-        return Response(rows)
+        return Response([self._serialize(account) for account in Account.objects.select_related("parent").order_by("code")])
 
 
 class WalletViewSet(viewsets.ReadOnlyModelViewSet):
@@ -102,10 +101,10 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     def list(self, request, *args, **kwargs):
         currency = str(request.query_params.get("currency", "YER")).upper()
         summary = wallet_summary(request.user, currency)
-        wallets = []
-        for wallet in Wallet.objects.filter(owner=request.user, currency=currency).select_related("account"):
-            wallets.append({"id": wallet.id, "kind": wallet.kind, "kind_label": wallet.get_kind_display(), "currency": currency, "balance": str(account_balance(wallet.account)), "account_id": wallet.account_id, "account_code": wallet.account.code})
-        summary["wallets"] = wallets
+        summary["wallets"] = [
+            {"id": wallet.id, "kind": wallet.kind, "kind_label": wallet.get_kind_display(), "currency": currency, "balance": str(account_balance(wallet.account)), "account_id": wallet.account_id, "account_code": wallet.account.code}
+            for wallet in self.get_queryset().filter(currency=currency)
+        ]
         return Response(summary)
 
     @action(detail=False, methods=["get"], url_path="me/balance")
@@ -131,22 +130,15 @@ class JournalEntryViewSet(viewsets.ReadOnlyModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         entry = self.get_object()
-        if not is_admin(request.user):
-            allowed = Wallet.objects.filter(owner=request.user, account__journal_lines__entry=entry).exists()
-            if not allowed:
-                raise PermissionDenied("لا تملك هذا القيد.")
         return Response({
             "id": entry.id,
             "number": entry.number,
-            "date": entry.entry_date,
+            "date": entry.entry_date.isoformat(),
             "description": entry.description,
             "source_type": entry.source_type,
             "source_id": entry.source_id,
             "status": entry.status,
-            "lines": [
-                {"account_id": line.account_id, "code": line.account.code, "name": line.account.name, "debit": str(line.debit), "credit": str(line.credit), "description": line.description}
-                for line in entry.lines.all()
-            ],
+            "lines": [{"account_id": line.account_id, "code": line.account.code, "name": line.account.name, "debit": str(line.debit), "credit": str(line.credit), "description": line.description} for line in entry.lines.all()],
         })
 
 
@@ -155,9 +147,7 @@ class VoucherViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        if is_admin(self.request.user):
-            return self.queryset
-        return Voucher.objects.filter(created_by=self.request.user).select_related("cash_account", "party_account", "journal_entry")
+        return self.queryset if is_admin(self.request.user) else self.queryset.filter(created_by=self.request.user)
 
     def _create_voucher(self, request, voucher_type):
         if not is_admin(request.user):
@@ -194,7 +184,7 @@ class VoucherViewSet(viewsets.ReadOnlyModelViewSet):
             source_id=str(request.data.get("source_id", "")),
             created_by=request.user,
         )
-        return Response({"id": voucher.id, "number": voucher.number, "type": voucher.voucher_type, "amount": str(amount), "journal": entry.number}, status=status.HTTP_201_CREATED)
+        return Response({"id": voucher.id, "number": voucher.number, "type": voucher.voucher_type, "amount": str(amount), "currency": currency, "journal": entry.number}, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"])
     def receipt(self, request):
@@ -214,10 +204,7 @@ class WithdrawalViewSet(viewsets.ModelViewSet):
         return qs if is_admin(self.request.user) else qs.filter(requester=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        rows = []
-        for item in self.get_queryset():
-            rows.append({"id": item.id, "number": item.number, "amount": str(item.amount), "currency": item.currency, "status": item.status, "note": item.note, "created_at": item.created_at.isoformat()})
-        return Response(rows)
+        return Response([{"id": item.id, "number": item.number, "amount": str(item.amount), "currency": item.currency, "status": item.status, "note": item.note, "created_at": item.created_at.isoformat()} for item in self.get_queryset()])
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -230,13 +217,7 @@ class WithdrawalViewSet(viewsets.ModelViewSet):
         withdrawable = available - already_held
         if amount <= 0 or amount > withdrawable:
             raise ValidationError({"amount": f"المتاح للسحب {withdrawable} {currency}."})
-        item = WithdrawalRequest.objects.create(
-            number=f"WD-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}",
-            requester=request.user,
-            amount=amount,
-            currency=currency,
-            note=str(request.data.get("note", "")).strip(),
-        )
+        item = WithdrawalRequest.objects.create(number=f"WD-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}", requester=request.user, amount=amount, currency=currency, note=str(request.data.get("note", "")).strip())
         item.hold_journal = hold_withdrawal(request.user, amount, currency, withdrawal_id=item.number, created_by=request.user)
         item.save(update_fields=["hold_journal", "updated_at"])
         return Response({"id": item.id, "number": item.number, "status": item.status, "amount": str(amount), "currency": currency, "message": "تم حجز المبلغ وإنشاء طلب السحب للمراجعة."}, status=status.HTTP_201_CREATED)
@@ -280,8 +261,3 @@ class WithdrawalViewSet(viewsets.ModelViewSet):
         item.note = str(request.data.get("note") or "تم رفض الطلب").strip()
         item.save(update_fields=["status", "note", "updated_at"])
         return Response({"number": item.number, "status": item.status})
-
-
-@action(detail=False, methods=["get"])
-def noop():
-    pass
