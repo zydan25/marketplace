@@ -9,71 +9,30 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import slugify
 
 from .accounting_bridge import ensure_service_accounts
-from .models import DigitalProduct, GameProduct, MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceDistribution, ServiceField, ServiceTask, ServiceTransaction, TelecomDenomination, TelecomPlan
-
-
-MOBILE_SHELL = '''
-<style id="services-mobile-shell">
-.services-drawer-overlay{display:none}
-.services-mobile-bar{display:none}
-@media (max-width:820px){
-html,body{max-width:100%;overflow-x:hidden}
-.layout{display:block !important;min-height:100dvh !important;width:100% !important;max-width:100% !important}
-.sidebar{position:fixed !important;top:0 !important;right:0 !important;left:auto !important;width:min(86vw,320px) !important;height:100dvh !important;max-height:100dvh !important;overflow-y:auto !important;overflow-x:hidden !important;z-index:220 !important;transform:translateX(110%) !important;transition:transform .24s ease !important;box-shadow:-18px 0 50px rgba(15,39,64,.20) !important;background:#fff !important}
-.sidebar.open{transform:translateX(0) !important}
-.services-drawer-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(2px);z-index:210}
-.services-drawer-overlay.open{display:block}
-.services-mobile-bar{display:flex;position:fixed;top:0;right:0;left:0;height:58px;z-index:200;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid #e2e8f0;align-items:center;justify-content:space-between;padding:8px 12px;gap:10px}
-.services-mobile-title{font-size:13px;font-weight:950;color:#102a43;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.services-mobile-btn{width:42px;height:42px;border:1px solid #d6dee7;border-radius:12px;background:#fff;color:#102a43;font-size:20px;display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
-.content{width:100% !important;max-width:100% !important;min-width:0 !important;padding:74px 12px 18px !important;overflow-x:hidden !important}
-.top{width:100% !important;max-width:100% !important}.panel{width:100%;max-width:100%;overflow:hidden}
-.table-wrap{width:100%;max-width:100%;overflow-x:auto !important;-webkit-overflow-scrolling:touch}.table{min-width:760px}
-}
-@media (min-width:821px){.services-drawer-overlay,.services-mobile-bar{display:none !important}}
-</style>
-'''
-
-MOBILE_BAR = '''
-<div class="services-mobile-bar" id="servicesMobileBar">
-<button class="services-mobile-btn" id="servicesMenuBtn" type="button" aria-label="فتح القائمة">☰</button>
-<div class="services-mobile-title">شبيك · إدارة الخدمات</div>
-<button class="services-mobile-btn" id="servicesCloseBtn" type="button" aria-label="إغلاق القائمة" style="visibility:hidden">×</button>
-</div>
-<div class="services-drawer-overlay" id="servicesDrawerOverlay"></div>
-'''
-
-MOBILE_SCRIPT = '''
-<script id="services-mobile-script">
-(function(){
-const sidebar=document.querySelector('.sidebar');
-const overlay=document.getElementById('servicesDrawerOverlay');
-const menu=document.getElementById('servicesMenuBtn');
-const close=document.getElementById('servicesCloseBtn');
-if(!sidebar||!overlay||!menu)return;
-function openDrawer(){sidebar.classList.add('open');overlay.classList.add('open');document.body.style.overflow='hidden';if(close)close.style.visibility='visible';}
-function closeDrawer(){sidebar.classList.remove('open');overlay.classList.remove('open');document.body.style.overflow='';if(close)close.style.visibility='hidden';}
-menu.addEventListener('click',openDrawer);
-if(close)close.addEventListener('click',closeDrawer);
-overlay.addEventListener('click',closeDrawer);
-sidebar.querySelectorAll('a').forEach(a=>a.addEventListener('click',function(){if(window.matchMedia('(max-width:820px)').matches)closeDrawer();}));
-document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
-})();
-</script>
-'''
+from .models import (
+    DigitalProduct,
+    GameProduct,
+    MainServiceCategory,
+    ProviderConnection,
+    ProviderLink,
+    Service,
+    ServiceCategory,
+    ServiceDistribution,
+    ServiceField,
+    ServiceTask,
+    ServiceTransaction,
+    TelecomDenomination,
+    TelecomPlan,
+)
 
 
 def _render_services_page(request, ctx):
-    response = render(request, "services/dashboard.html", ctx)
-    html = response.content.decode("utf-8")
-    if 'id="services-mobile-shell"' not in html:
-        html = html.replace("</head>", MOBILE_SHELL + "</head>", 1)
-    if 'id="servicesMobileBar"' not in html:
-        html = html.replace("<div class=\"layout\">", MOBILE_BAR + "<div class=\"layout\">", 1)
-    if 'id="services-mobile-script"' not in html:
-        html = html.replace("</body>", MOBILE_SCRIPT + "</body>", 1)
-    response.content = html.encode("utf-8")
-    return response
+    """Render the single responsive services dashboard shell.
+
+    The template owns the mobile drawer/bar. Keeping rendering pure prevents a
+    second shell from being injected into already-rendered HTML on mobile.
+    """
+    return render(request, "services/dashboard.html", ctx)
 
 
 def staff_only(user):
@@ -126,17 +85,53 @@ def _post_action(request):
     action = request.POST.get("action")
     with transaction.atomic():
         if action == "main":
-            MainServiceCategory.objects.update_or_create(slug=_required(request.POST, "slug", "المعرف"), defaults={"name": _required(request.POST, "name", "الاسم"), "icon": request.POST.get("icon", ""), "sort_order": int(request.POST.get("sort_order", 0) or 0), "description": request.POST.get("description", "")})
+            MainServiceCategory.objects.update_or_create(
+                slug=_required(request.POST, "slug", "المعرف"),
+                defaults={"name": _required(request.POST, "name", "الاسم"), "icon": request.POST.get("icon", ""), "sort_order": int(request.POST.get("sort_order", 0) or 0), "description": request.POST.get("description", "")},
+            )
         elif action == "category":
             main = get_object_or_404(MainServiceCategory, pk=request.POST.get("main_category"))
             parent = ServiceCategory.objects.filter(pk=request.POST.get("parent") or None).first()
-            ServiceCategory.objects.update_or_create(main_category=main, parent=parent, slug=_required(request.POST, "slug", "المعرف"), defaults={"name": _required(request.POST, "name", "الاسم"), "icon": request.POST.get("icon", ""), "sort_order": int(request.POST.get("sort_order", 0) or 0), "description": request.POST.get("description", "")})
+            ServiceCategory.objects.update_or_create(
+                main_category=main,
+                parent=parent,
+                slug=_required(request.POST, "slug", "المعرف"),
+                defaults={"name": _required(request.POST, "name", "الاسم"), "icon": request.POST.get("icon", ""), "sort_order": int(request.POST.get("sort_order", 0) or 0), "description": request.POST.get("description", "")},
+            )
         elif action == "service":
             category = get_object_or_404(ServiceCategory, pk=request.POST.get("category"))
-            Service.objects.update_or_create(code=_required(request.POST, "code", "الكود"), defaults={"category": category, "name": _required(request.POST, "name", "الاسم"), "slug": request.POST.get("slug") or slugify(request.POST["name"], allow_unicode=True), "description": request.POST.get("description", ""), "pricing_mode": request.POST.get("pricing_mode", "fixed"), "price": Decimal(request.POST.get("price", "0") or "0"), "min_amount": Decimal(request.POST["min_amount"]) if request.POST.get("min_amount") else None, "max_amount": Decimal(request.POST["max_amount"]) if request.POST.get("max_amount") else None, "currency": request.POST.get("currency", "YER"), "icon": request.POST.get("icon", ""), "sort_order": int(request.POST.get("sort_order", 0) or 0)})
+            Service.objects.update_or_create(
+                code=_required(request.POST, "code", "الكود"),
+                defaults={
+                    "category": category,
+                    "name": _required(request.POST, "name", "الاسم"),
+                    "slug": request.POST.get("slug") or slugify(request.POST["name"], allow_unicode=True),
+                    "description": request.POST.get("description", ""),
+                    "pricing_mode": request.POST.get("pricing_mode", "fixed"),
+                    "price": Decimal(request.POST.get("price", "0") or "0"),
+                    "min_amount": Decimal(request.POST["min_amount"]) if request.POST.get("min_amount") else None,
+                    "max_amount": Decimal(request.POST["max_amount"]) if request.POST.get("max_amount") else None,
+                    "currency": request.POST.get("currency", "YER"),
+                    "icon": request.POST.get("icon", ""),
+                    "sort_order": int(request.POST.get("sort_order", 0) or 0),
+                },
+            )
         elif action == "field":
             service = get_object_or_404(Service, pk=request.POST.get("service"))
-            ServiceField.objects.update_or_create(service=service, key=_required(request.POST, "key", "المفتاح"), defaults={"label": _required(request.POST, "label", "العنوان"), "field_type": request.POST.get("field_type", "text"), "required": request.POST.get("required") == "1", "secret": request.POST.get("secret") == "1", "default_value": _json(request.POST.get("default_value"), None), "choices": _json(request.POST.get("choices"), []), "validation": _json(request.POST.get("validation"), {}), "sort_order": int(request.POST.get("sort_order", 0) or 0)})
+            ServiceField.objects.update_or_create(
+                service=service,
+                key=_required(request.POST, "key", "المفتاح"),
+                defaults={
+                    "label": _required(request.POST, "label", "العنوان"),
+                    "field_type": request.POST.get("field_type", "text"),
+                    "required": request.POST.get("required") == "1",
+                    "secret": request.POST.get("secret") == "1",
+                    "default_value": _json(request.POST.get("default_value"), None),
+                    "choices": _json(request.POST.get("choices"), []),
+                    "validation": _json(request.POST.get("validation"), {}),
+                    "sort_order": int(request.POST.get("sort_order", 0) or 0),
+                },
+            )
         elif action == "provider":
             connection = ProviderConnection.objects.filter(code=request.POST.get("code")).first()
             if connection:
@@ -152,28 +147,76 @@ def _post_action(request):
                 connection.timeout_seconds = int(request.POST.get("timeout_seconds", 20) or 20)
                 connection.save()
             else:
-                connection = ProviderConnection(name=_required(request.POST, "name", "الاسم"), code=_required(request.POST, "code", "الكود"), connection_type=request.POST.get("connection_type", "sanaacash"), base_url=request.POST.get("base_url", ""), userid=request.POST.get("userid", ""), domain_name=request.POST.get("domain_name", ""), username=request.POST.get("username", ""), headers=_json(request.POST.get("headers"), {}), timeout_seconds=int(request.POST.get("timeout_seconds", 20) or 20))
+                connection = ProviderConnection(
+                    name=_required(request.POST, "name", "الاسم"),
+                    code=_required(request.POST, "code", "الكود"),
+                    connection_type=request.POST.get("connection_type", "sanaacash"),
+                    base_url=request.POST.get("base_url", ""),
+                    userid=request.POST.get("userid", ""),
+                    domain_name=request.POST.get("domain_name", ""),
+                    username=request.POST.get("username", ""),
+                    headers=_json(request.POST.get("headers"), {}),
+                    timeout_seconds=int(request.POST.get("timeout_seconds", 20) or 20),
+                )
                 connection.set_password(request.POST.get("password", ""))
                 connection.save()
         elif action == "link":
             provider = get_object_or_404(ProviderConnection, pk=request.POST.get("provider"))
-            ProviderLink.objects.update_or_create(code=_required(request.POST, "code", "الكود"), defaults={"provider": provider, "name": _required(request.POST, "name", "الاسم"), "operation": request.POST.get("operation", ""), "path_template": _required(request.POST, "path_template", "المسار"), "http_method": request.POST.get("http_method", "GET"), "fixed_params": _json(request.POST.get("fixed_params"), {}), "field_map": _json(request.POST.get("field_map"), {}), "headers": _json(request.POST.get("headers"), {}), "success_codes": _json(request.POST.get("success_codes"), ["0"]), "pending_codes": _json(request.POST.get("pending_codes"), ["-2"]), "status_path_template": request.POST.get("status_path_template", ""), "status_params": _json(request.POST.get("status_params"), {}), "priority": int(request.POST.get("priority", 100) or 100)})
+            ProviderLink.objects.update_or_create(
+                code=_required(request.POST, "code", "الكود"),
+                defaults={
+                    "provider": provider,
+                    "name": _required(request.POST, "name", "الاسم"),
+                    "operation": request.POST.get("operation", ""),
+                    "path_template": _required(request.POST, "path_template", "المسار"),
+                    "http_method": request.POST.get("http_method", "GET"),
+                    "request_encoding": request.POST.get("request_encoding", "query"),
+                    "fixed_params": _json(request.POST.get("fixed_params"), {}),
+                    "field_map": _json(request.POST.get("field_map"), {}),
+                    "headers": _json(request.POST.get("headers"), {}),
+                    "success_codes": _json(request.POST.get("success_codes"), ["0"]),
+                    "pending_codes": _json(request.POST.get("pending_codes"), ["-2"]),
+                    "status_path_template": request.POST.get("status_path_template", ""),
+                    "status_params": _json(request.POST.get("status_params"), {}),
+                    "priority": int(request.POST.get("priority", 100) or 100),
+                },
+            )
         elif action == "distribution":
             service = get_object_or_404(Service, pk=request.POST.get("service"))
             provider_link = get_object_or_404(ProviderLink, pk=request.POST.get("provider_link"))
-            ServiceDistribution.objects.update_or_create(service=service, provider_link=provider_link, defaults={"priority": int(request.POST.get("priority", 100) or 100), "conditions": _json(request.POST.get("conditions"), {})})
+            ServiceDistribution.objects.update_or_create(
+                service=service,
+                provider_link=provider_link,
+                defaults={"priority": int(request.POST.get("priority", 100) or 100), "conditions": _json(request.POST.get("conditions"), {})},
+            )
         elif action == "telecom_denom":
             service = get_object_or_404(Service, pk=request.POST.get("service"))
-            TelecomDenomination.objects.update_or_create(service=service, external_code=_required(request.POST, "external_code", "رقم/كود الربط لدى المزود"), defaults={"name": _required(request.POST, "name", "الاسم"), "face_value": Decimal(request.POST["face_value"]), "sale_price": Decimal(request.POST["sale_price"]), "payment_type": request.POST.get("payment_type", ""), "line_type": request.POST.get("line_type", ""), "metadata": _json(request.POST.get("metadata"), {})})
+            TelecomDenomination.objects.update_or_create(
+                service=service,
+                external_code=_required(request.POST, "external_code", "رقم/كود الربط لدى المزود"),
+                defaults={"name": _required(request.POST, "name", "الاسم"), "face_value": Decimal(request.POST["face_value"]), "sale_price": Decimal(request.POST["sale_price"]), "payment_type": request.POST.get("payment_type", ""), "line_type": request.POST.get("line_type", ""), "metadata": _json(request.POST.get("metadata"), {})},
+            )
         elif action == "telecom_plan":
             service = get_object_or_404(Service, pk=request.POST.get("service"))
-            TelecomPlan.objects.update_or_create(service=service, external_code=_required(request.POST, "external_code", "رقم/كود الربط لدى المزود"), defaults={"name": _required(request.POST, "name", "الاسم"), "price": Decimal(request.POST["price"]), "quota": Decimal(request.POST["quota"]) if request.POST.get("quota") else None, "quota_unit": request.POST.get("quota_unit", ""), "validity_days": int(request.POST["validity_days"]) if request.POST.get("validity_days") else None, "payment_type": request.POST.get("payment_type", ""), "line_type": request.POST.get("line_type", ""), "metadata": _json(request.POST.get("metadata"), {})})
+            TelecomPlan.objects.update_or_create(
+                service=service,
+                external_code=_required(request.POST, "external_code", "رقم/كود الربط لدى المزود"),
+                defaults={"name": _required(request.POST, "name", "الاسم"), "price": Decimal(request.POST["price"]), "quota": Decimal(request.POST["quota"]) if request.POST.get("quota") else None, "quota_unit": request.POST.get("quota_unit", ""), "validity_days": int(request.POST["validity_days"]) if request.POST.get("validity_days") else None, "payment_type": request.POST.get("payment_type", ""), "line_type": request.POST.get("line_type", ""), "metadata": _json(request.POST.get("metadata"), {})},
+            )
         elif action == "game":
             service = get_object_or_404(Service, pk=request.POST.get("service"))
-            GameProduct.objects.update_or_create(service=service, external_code=_required(request.POST, "external_code", "رقم/كود الربط لدى المزود"), defaults={"name": _required(request.POST, "name", "الاسم"), "price": Decimal(request.POST["price"]), "currency": request.POST.get("currency", "YER"), "metadata": _json(request.POST.get("metadata"), {})})
+            GameProduct.objects.update_or_create(
+                service=service,
+                external_code=_required(request.POST, "external_code", "رقم/كود الربط لدى المزود"),
+                defaults={"name": _required(request.POST, "name", "الاسم"), "price": Decimal(request.POST["price"]), "currency": request.POST.get("currency", "YER"), "metadata": _json(request.POST.get("metadata"), {})},
+            )
         elif action == "digital":
             service = get_object_or_404(Service, pk=request.POST.get("service"))
-            DigitalProduct.objects.update_or_create(service=service, external_code=request.POST.get("external_code", ""), defaults={"name": _required(request.POST, "name", "الاسم"), "price": Decimal(request.POST["price"]), "currency": request.POST.get("currency", "YER"), "validity_days": int(request.POST["validity_days"]) if request.POST.get("validity_days") else None, "metadata": _json(request.POST.get("metadata"), {})})
+            DigitalProduct.objects.update_or_create(
+                service=service,
+                external_code=request.POST.get("external_code", ""),
+                defaults={"name": _required(request.POST, "name", "الاسم"), "price": Decimal(request.POST["price"]), "currency": request.POST.get("currency", "YER"), "validity_days": int(request.POST["validity_days"]) if request.POST.get("validity_days") else None, "metadata": _json(request.POST.get("metadata"), {})},
+            )
         elif action == "toggle":
             model_map = {"main": MainServiceCategory, "category": ServiceCategory, "service": Service, "provider": ProviderConnection, "link": ProviderLink, "distribution": ServiceDistribution, "field": ServiceField}
             obj = get_object_or_404(model_map[request.POST.get("model")], pk=request.POST.get("pk"))
