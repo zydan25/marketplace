@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172033;background:#f5f7fb}
+    *{box-sizing:border-box}body{margin:0}a{text-decoration:none;color:inherit}.wrap{max-width:1400px;margin:auto;padding:28px}
+    .hero{background:linear-gradient(135deg,#16213e,#274690);color:#fff;border-radius:24px;padding:28px;display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:24px;box-shadow:0 18px 40px rgba(39,70,144,.18)}
+    .hero h1{margin:0 0 8px;font-size:30px}.hero p{margin:0;opacity:.82}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}.card{background:#fff;border:1px solid #e8ebf2;border-radius:18px;padding:20px;box-shadow:0 8px 24px rgba(20,30,50,.05)}.metric .label{font-size:13px;color:#697386}.metric .value{font-size:25px;font-weight:800;margin-top:8px}.layout{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.section-title h2{font-size:20px;margin:0}.tree-row{border:1px solid #edf0f5;border-radius:14px;padding:13px 15px;margin:8px 0;display:flex;justify-content:space-between;gap:12px;align-items:center}.root{background:#f8faff;font-weight:700}.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#4b5d7a}.muted{color:#7b8496;font-size:13px}.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:11px 8px;border-bottom:1px solid #eef1f5;text-align:right;white-space:nowrap}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;background:#eef4ff;color:#3155a5}.danger{background:#fff0f0;color:#b42318}.money{font-weight:700}.actions{display:flex;gap:10px}.button{padding:10px 14px;border-radius:12px;background:#fff;color:#172033;font-weight:700}.empty{padding:30px;text-align:center;color:#7b8496}.children{margin-right:24px}
+    @media(max-width:1000px){.grid{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column}}
+    @media(max-width:600px){.wrap{padding:16px}.grid{grid-template-columns:1fr}.hero h1{font-size:24px}.card{padding:16px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div><h1>المحاسبة والعمليات المالية</h1><p>دفتر قيد مزدوج، محافظ متعددة، مستحقات معلقة وسحوبات آمنة.</p></div>
+    <div class="actions"><a class="button" href="/admin/">لوحة Django</a><a class="button" href="/admin/dashboard/">لوحة النظام</a></div>
+  </div>
+
+  <div class="grid">
+    <div class="card metric"><div class="label">طلبات السحب المعلقة</div><div class="value">{{ pending_withdrawals.count }}</div></div>
+    <div class="card metric"><div class="label">إجمالي طلبات السحب</div><div class="value">{{ pending_withdrawals_total|floatformat:2 }} ر.ي</div></div>
+    <div class="card metric"><div class="label">عدد القيود المرحّلة</div><div class="value">{{ recent_entries|length }}</div></div>
+    <div class="card metric"><div class="label">عدد الحسابات الرئيسية</div><div class="value">{{ roots|length }}</div></div>
+  </div>
+
+  <div class="layout">
+    <section class="card">
+      <div class="section-title"><h2>شجرة الحسابات والأرصدة</h2><span class="muted">الحسابات الرئيسية للعرض فقط</span></div>
+      {% for row in roots %}
+        <div class="tree-row root"><span><span class="code">{{ row.account.code }}</span> · {{ row.account.name }}</span><span class="money">{{ row.balance|floatformat:2 }}</span></div>
+        <div class="children">
+          {% for child in row.children %}
+            <div class="tree-row"><span><span class="code">{{ child.code }}</span> · {{ child.name }}</span><span class="muted">حساب فرعي</span></div>
+          {% empty %}<div class="empty">لا توجد حسابات فرعية.</div>{% endfor %}
+        </div>
+      {% endfor %}
+    </section>
+
+    <section class="card">
+      <div class="section-title"><h2>السحوبات المعلقة</h2><span class="badge">تتطلب مراجعة</span></div>
+      <div class="table-wrap">
+        <table class="table"><thead><tr><th>الرقم</th><th>التاجر</th><th>المبلغ</th><th>الحالة</th></tr></thead><tbody>
+          {% for item in pending_withdrawals %}<tr><td class="code">{{ item.number }}</td><td>{{ item.requester.get_full_name|default:item.requester.phone }}</td><td class="money">{{ item.amount }} {{ item.currency }}</td><td><span class="badge">{{ item.get_status_display }}</span></td></tr>
+          {% empty %}<tr><td colspan="4" class="empty">لا توجد طلبات معلقة.</td></tr>{% endfor %}
+        </tbody></table>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:18px">
+    <div class="section-title"><h2>آخر القيود</h2><span class="muted">القيود المرحّلة غير قابلة للحذف أو التعديل</span></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>القيد</th><th>التاريخ</th><th>البيان</th><th>المصدر</th><th>الحالة</th></tr></thead><tbody>
+      {% for entry in recent_entries %}<tr><td class="code">{{ entry.number }}</td><td>{{ entry.entry_date }}</td><td>{{ entry.description }}</td><td>{{ entry.source_type }}{% if entry.source_id %} #{{ entry.source_id }}{% endif %}</td><td><span class="badge">{{ entry.get_status_display }}</span></td></tr>
+      {% empty %}<tr><td colspan="5" class="empty">لا توجد قيود بعد.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+</div>
+</body>
+</html>
