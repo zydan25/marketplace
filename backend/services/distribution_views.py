@@ -15,17 +15,19 @@ def staff_only(user):
 def provider_setup(request):
     if request.method == "POST":
         try:
+            code = (request.POST.get("code") or "").strip()
+            name = (request.POST.get("name") or "").strip()
+            if not code or not name:
+                raise ValueError("كود واسم الربطية مطلوبان.")
             provider = create_or_update_sanaacash_provider(
-                code=(request.POST.get("code") or "").strip(),
-                name=(request.POST.get("name") or "").strip(),
+                code=code,
+                name=name,
                 userid=(request.POST.get("userid") or "").strip(),
                 domain_name=(request.POST.get("domain_name") or "").strip(),
                 username=(request.POST.get("username") or "").strip(),
                 password=request.POST.get("password") or "",
                 base_url=(request.POST.get("base_url") or "https://sanaacash.yrbso.net/api/yr/").strip(),
             )
-            if not provider.code or not provider.name:
-                raise ValueError("كود واسم الربطية مطلوبان.")
             messages.success(request, f"تم حفظ الربطية {provider.name} وتهيئة مسارات Sanaacash تلقائيًا.")
         except Exception as exc:
             messages.error(request, f"تعذر حفظ الربطية: {exc}")
@@ -41,11 +43,10 @@ def distribution_matrix_view(request):
                 provider = get_object_or_404(ProviderConnection, pk=request.POST.get("provider"))
                 service_ids = {int(value) for value in request.POST.getlist("services") if value.isdigit()}
                 priorities = request.POST.getlist("priority")
-                # For a selected provider, synchronize its service routing from the matrix.
                 links = list(provider.links.filter(is_active=True).order_by("priority", "id"))
-                link = links[0] if links else None
-                if link is None:
+                if not links:
                     raise ValueError("لا توجد مسارات فعالة لهذه الربطية.")
+                link = links[0]
                 ServiceDistribution.objects.filter(provider_link__provider=provider).update(is_active=False)
                 priority_map = {}
                 for entry in priorities:
