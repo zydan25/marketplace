@@ -12,7 +12,7 @@ INSTALLED_APPS = [
     "marketplace.apps.MarketplaceConfig",
     "accounts.apps.AccountsConfig", "catalog.apps.CatalogConfig", "vendors.apps.VendorsConfig",
     "storefront.apps.StorefrontConfig", "orders.apps.OrdersConfig", "finance.apps.FinanceConfig",
-    "communication.apps.CommunicationConfig", "promotions.apps.PromotionsConfig",
+    "accounting.apps.AccountingConfig", "communication.apps.CommunicationConfig", "promotions.apps.PromotionsConfig",
 ]
 MIDDLEWARE = ["corsheaders.middleware.CorsMiddleware", "django.middleware.security.SecurityMiddleware", "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware", "config.middleware.ApiCsrfExemptMiddleware", "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware", "django.contrib.messages.middleware.MessageMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware"]
 ROOT_URLCONF = "config.urls"
