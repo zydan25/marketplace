@@ -1,68 +1,72 @@
-from decimal import Decimal, InvalidOperation
+from uuid import UUID
+import secrets
 
-from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .accounting_bridge import reserve_service_funds
-from .models import MainServiceCategory, Service, ServiceTransaction
+from .models import MainServiceCategory, Service, ServiceTask, ServiceTransaction
+from .security import encrypt_secret
 
 
 def _clean_payload(service, payload):
-    payload = payload if isinstance(payload, dict) else {}
-    clean = dict(payload)
-    for field in service.fields.filter(is_active=True).order_by("sort_order", "id"):
-        value = clean.get(field.key, field.default_value)
-        if field.required and (value is None or value == ""):
+    if not isinstance(payload, dict):
+        raise ValueError("بيانات الخدمة يجب أن تكون بصيغة JSON object.")
+    allowed = {f.key: f for f in service.fields.filter(is_active=True)}
+    cleaned = {}
+    for key, field in allowed.items():
+        value = payload.get(key, field.default_value)
+        if field.required and (value is None or str(value).strip() == ""):
             raise ValueError(f"الحقل {field.label} مطلوب.")
-        if value is not None and field.field_type in {field.FieldTypes.NUMBER, field.FieldTypes.DECIMAL}:
-            try:
-                value = Decimal(str(value)) if field.field_type == field.FieldTypes.DECIMAL else int(value)
-            except (InvalidOperation, ValueError, TypeError) as exc:
-                raise ValueError(f"قيمة {field.label} غير صالحة.") from exc
-        if isinstance(field.validation, dict) and value is not None:
-            min_len = field.validation.get("min_length")
-            max_len = field.validation.get("max_length")
-            if min_len and len(str(value)) < int(min_len):
-                raise ValueError(f"الحقل {field.label} أقصر من الحد المسموح.")
-            if max_len and len(str(value)) > int(max_len):
-                raise ValueError(f"الحقل {field.label} أطول من الحد المسموح.")
-        clean[field.key] = value
-    return clean
+        if value is not None:
+            cleaned[key] = value
+    unknown = set(payload) - set(allowed)
+    if unknown:
+        raise ValueError(f"حقول غير مسموحة: {', '.join(sorted(unknown))}")
+    for key, field in allowed.items():
+        if key not in cleaned:
+            continue
+        rule = field.validation or {}
+        value = str(cleaned[key])
+        if rule.get("min_length") is not None and len(value) < int(rule["min_length"]):
+            raise ValueError(f"قيمة {field.label} أقصر من الحد المسموح.")
+        if rule.get("max_length") is not None and len(value) > int(rule["max_length"]):
+            raise ValueError(f"قيمة {field.label} أطول من الحد المسموح.")
+        if field.choices and cleaned[key] not in field.choices:
+            raise ValueError(f"قيمة {field.label} غير صالحة.")
+    return cleaned
 
 
-def _resolve_price(service, payload, item_id=None, item_type=""):
+def _resolve_price(service, payload, *, item_id=None, item_type=""):
+    from decimal import Decimal
     if service.pricing_mode == Service.PricingModes.FIXED:
-        return Decimal(service.price)
-    if service.pricing_mode == Service.PricingModes.AMOUNT:
+        amount = Decimal(service.price)
+    elif service.pricing_mode == Service.PricingModes.AMOUNT:
         try:
-            amount = Decimal(str(payload.get("amount", "0")))
-        except InvalidOperation as exc:
+            amount = Decimal(str(payload.get("amount")))
+        except Exception as exc:
             raise ValueError("المبلغ غير صالح.") from exc
-        if amount <= 0:
-            raise ValueError("المبلغ يجب أن يكون أكبر من صفر.")
         if service.min_amount is not None and amount < service.min_amount:
-            raise ValueError("المبلغ أقل من الحد الأدنى المسموح.")
+            raise ValueError("المبلغ أقل من الحد الأدنى.")
         if service.max_amount is not None and amount > service.max_amount:
-            raise ValueError("المبلغ أكبر من الحد الأعلى المسموح.")
-        return amount
-    if item_id is None or not item_type:
-        raise ValueError("يجب اختيار عنصر من جدول الخدمة وتحديد نوعه.")
-    models_by_type = {
-        "telecom_denomination": service.telecom_denominations.model,
-        "telecom_plan": service.telecom_plans.model,
-        "game_product": service.game_products.model,
-        "digital_product": service.digital_products.model,
-    }
-    model = models_by_type.get(item_type)
-    if model is None:
-        raise ValueError("نوع عنصر الخدمة غير مدعوم.")
-    item = model.objects.filter(pk=item_id, service=service, is_active=True).first()
-    if not item:
-        raise ValueError("عنصر الخدمة غير موجود أو غير فعال.")
-    return Decimal(item.sale_price if hasattr(item, "sale_price") else item.price)
+            raise ValueError("المبلغ أكبر من الحد الأعلى.")
+    else:
+        if not item_id or not item_type:
+            raise ValueError("يجب تحديد المنتج/الباقة للخدمة.")
+        model_map = {"telecom_denominations": "telecom_denominations", "telecom_plans": "telecom_plans", "game_products": "game_products", "digital_products": "digital_products"}
+        rel = model_map.get(item_type)
+        if not rel:
+            raise ValueError("نوع المنتج غير صالح.")
+        item = getattr(service, rel).filter(pk=item_id, is_active=True).first()
+        if not item:
+            raise ValueError("العنصر المطلوب غير موجود أو متوقف.")
+        amount = Decimal(getattr(item, "sale_price", getattr(item, "price", 0)))
+    if amount <= 0:
+        raise ValueError("قيمة الخدمة يجب أن تكون أكبر من صفر.")
+    return amount.quantize(Decimal("0.01"))
 
 
 class ServiceCatalogAPIView(APIView):
@@ -70,7 +74,7 @@ class ServiceCatalogAPIView(APIView):
 
     def get(self, request):
         roots = []
-        for main in MainServiceCategory.objects.filter(is_active=True).prefetch_related("categories__services", "categories__children").order_by("sort_order", "id"):
+        for main in MainServiceCategory.objects.filter(is_active=True).order_by("sort_order", "id"):
             categories = []
             for category in main.categories.filter(is_active=True).prefetch_related("services").order_by("sort_order", "id"):
                 categories.append({
@@ -117,12 +121,11 @@ class ServiceRequestAPIView(APIView):
             payload = _clean_payload(service, payload)
             amount = _resolve_price(service, payload, item_id=item_id, item_type=item_type)
             mobile = str(payload.get("mobile", "")).strip()
-            tx = ServiceTransaction.objects.create(customer=request.user, service=service, item_type=item_type, item_id=int(item_id) if item_id else None, currency=service.currency, customer_amount=amount, payload=payload, mobile=mobile, status=ServiceTransaction.Status.ACCEPTED, idempotency_key=idempotency_key)
+            tx = ServiceTransaction.objects.create(customer=request.user, service=service, item_type=item_type, item_id=int(item_id) if item_id else None, currency=service.currency, customer_amount=amount, payload=payload, mobile=mobile, status=ServiceTransaction.Status.ACCEPTED, idempotency_key=idempotency_key, webhook_secret_encrypted=encrypt_secret(secrets.token_urlsafe(24)))
             journal = reserve_service_funds(tx)
             tx.reserved_journal_id = journal.pk
             tx.status = ServiceTransaction.Status.QUEUED
             tx.save(update_fields=["reserved_journal_id", "status", "updated_at"])
-            from .models import ServiceTask
             ServiceTask.objects.create(transaction=tx, kind=ServiceTask.Kinds.SUBMIT)
         except ValueError as exc:
             transaction.set_rollback(True)
