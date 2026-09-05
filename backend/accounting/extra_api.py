@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Account, JournalEntry, Wallet
-from .services import account_balance, post_entry, statement_for_user, wallet_summary
+from .services_v2 import account_balance, post_entry, statement_for_user, wallet_summary
 
 
 def is_admin(user):
@@ -17,9 +17,11 @@ def is_admin(user):
 @permission_classes([IsAuthenticated])
 def account_report(request):
     currency = str(request.query_params.get("currency", "YER")).upper()
+    summary = wallet_summary(request.user, currency)
     return Response({
-        "customer": wallet_summary(request.user, currency)["customer"],
-        "vendor": wallet_summary(request.user, currency)["vendor"],
+        "currency": currency,
+        "customer": summary["customer"],
+        "vendor": summary["vendor"],
         "wallets": [
             {"id": wallet.id, "kind": wallet.kind, "label": wallet.get_kind_display(), "balance": str(account_balance(wallet.account)), "currency": wallet.currency, "account": wallet.account.code}
             for wallet in Wallet.objects.filter(owner=request.user, currency=currency).select_related("account")
@@ -52,10 +54,7 @@ def post_journal(request):
     try:
         entry = post_entry(
             str(request.data.get("description", "قيد يدوي")).strip() or "قيد يدوي",
-            normalized,
-            source_type="manual_journal",
-            source_id=str(request.data.get("reference", "")),
-            created_by=request.user,
+            normalized, source_type="manual_journal", source_id=str(request.data.get("reference", "")), created_by=request.user,
         )
     except ValueError as exc:
         raise ValidationError({"journal": str(exc)})
