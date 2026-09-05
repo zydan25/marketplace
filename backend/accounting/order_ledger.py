@@ -43,11 +43,8 @@ def fund_order_revision(order, revision, *, created_by=None):
         return existing
     return post_entry(
         f"إعادة تمويل الطلب {order.order_number} - تعديل {revision}",
-        _fund_order_lines(order),
-        source_type="order",
-        source_id=order.pk,
-        idempotency_key=key,
-        created_by=created_by,
+        _fund_order_lines(order), source_type="order", source_id=order.pk,
+        idempotency_key=key, created_by=created_by,
         metadata={"order_total": str(_money(order.total)), "currency": order.currency, "revision": int(revision)},
     )
 
@@ -66,14 +63,8 @@ def release_vendor_amount(vendor_user, amount, currency, *, vendor_order_id, rel
         raise ValueError("الرصيد المعلق للتاجر غير كافٍ لإتمام التسوية.")
     return post_entry(
         f"إطلاق مستحقات الطلب {vendor_order_id}",
-        [
-            {"account": pending.account, "debit": amount, "description": f"تسوية الطلب {vendor_order_id}"},
-            {"account": available.account, "credit": amount, "description": f"إضافة المستحق المتاح {vendor_order_id}"},
-        ],
-        source_type="vendor_order_release",
-        source_id=vendor_order_id,
-        idempotency_key=key,
-        created_by=created_by,
+        [{"account": pending.account, "debit": amount, "description": f"تسوية الطلب {vendor_order_id}"}, {"account": available.account, "credit": amount, "description": f"إضافة المستحق المتاح {vendor_order_id}"}],
+        source_type="vendor_order_release", source_id=vendor_order_id, idempotency_key=key, created_by=created_by,
         metadata={"vendor_order_id": vendor_order_id, "amount": str(amount), "item_ids": [int(x) for x in (item_ids or [])]},
     )
 
@@ -102,7 +93,8 @@ def order_item_refunded(item_id):
 
 def refund_order_item(order, item, *, created_by=None):
     customer = ensure_wallet(order.customer, Wallet.Kinds.CUSTOMER, order.currency)
-    vendor_kind = Wallet.Kinds.VENDOR_AVAILABLE if item_release_exists(item.vendor_order_id, item.id) else Wallet.Kinds.VENDOR_PENDING
+    vendor_order_id = item.vendor_order_item.vendor_order_id
+    vendor_kind = Wallet.Kinds.VENDOR_AVAILABLE if item_release_exists(vendor_order_id, item.id) else Wallet.Kinds.VENDOR_PENDING
     vendor_wallet = ensure_wallet(item.vendor.owner, vendor_kind, order.currency)
     vendor_net = _money(item.vendor_net)
     commission = _money(item.commission)
@@ -111,16 +103,9 @@ def refund_order_item(order, item, *, created_by=None):
         raise ValueError("بيانات القطعة لا تتطابق محاسبيًا مع قيمتها المستردة.")
     return post_entry(
         f"استرداد قطعة من الطلب {order.order_number}",
-        [
-            {"account": vendor_wallet.account, "debit": vendor_net, "description": f"عكس مستحق القطعة {item.id}"},
-            {"account": ensure_chart()["commission_income"], "debit": commission, "description": f"عكس عمولة القطعة {item.id}"},
-            {"account": customer.account, "credit": refund, "description": f"إعادة قيمة القطعة {item.id} للعميل"},
-        ],
-        source_type="order_item_refund",
-        source_id=item.id,
-        idempotency_key=f"order:item-refund:{item.id}",
-        created_by=created_by,
-        metadata={"order_id": order.id, "order_item_id": item.id, "vendor_wallet_kind": vendor_kind, "refund": str(refund)},
+        [{"account": vendor_wallet.account, "debit": vendor_net, "description": f"عكس مستحق القطعة {item.id}"}, {"account": ensure_chart()["commission_income"], "debit": commission, "description": f"عكس عمولة القطعة {item.id}"}, {"account": customer.account, "credit": refund, "description": f"إعادة قيمة القطعة {item.id} للعميل"}],
+        source_type="order_item_refund", source_id=item.id, idempotency_key=f"order:item-refund:{item.id}", created_by=created_by,
+        metadata={"order_id": order.id, "order_item_id": item.id, "vendor_order_id": vendor_order_id, "vendor_wallet_kind": vendor_kind, "refund": str(refund)},
     )
 
 
@@ -139,15 +124,8 @@ def refund_vendor_order(order, vendor_order, *, created_by=None):
         raise ValueError("بيانات طلب التاجر لا تتطابق محاسبيًا مع قيمة استرداده.")
     return post_entry(
         f"استرداد جزء التاجر من الطلب {order.order_number}",
-        [
-            {"account": vendor_wallet.account, "debit": vendor_net, "description": f"عكس مستحقات التاجر {vendor_order.id}"},
-            {"account": ensure_chart()["commission_income"], "debit": commission, "description": f"عكس عمولة التاجر {vendor_order.id}"},
-            {"account": customer.account, "credit": refund, "description": f"إعادة قيمة طلب التاجر {vendor_order.id}"},
-        ],
-        source_type="vendor_order_refund",
-        source_id=vendor_order.id,
-        idempotency_key=key,
-        created_by=created_by,
+        [{"account": vendor_wallet.account, "debit": vendor_net, "description": f"عكس مستحقات التاجر {vendor_order.id}"}, {"account": ensure_chart()["commission_income"], "debit": commission, "description": f"عكس عمولة التاجر {vendor_order.id}"}, {"account": customer.account, "credit": refund, "description": f"إعادة قيمة طلب التاجر {vendor_order.id}"}],
+        source_type="vendor_order_refund", source_id=vendor_order.id, idempotency_key=key, created_by=created_by,
         metadata={"order_id": order.id, "vendor_order_id": vendor_order.id, "vendor_wallet_kind": vendor_kind, "refund": str(refund)},
     )
 
@@ -167,12 +145,8 @@ def reverse_funding_journal(order, entry, *, created_by=None, reason="عكس ت�
         elif line.credit > 0:
             lines.append({"account": line.account, "debit": line.credit, "description": f"عكس القيد {entry.number}"})
     return post_entry(
-        f"{reason} {order.order_number}",
-        lines,
-        source_type="order_funding_reversal",
-        source_id=order.pk,
-        idempotency_key=key,
-        created_by=created_by,
+        f"{reason} {order.order_number}", lines, source_type="order_funding_reversal", source_id=order.pk,
+        idempotency_key=key, created_by=created_by,
         metadata={"reversal_of": entry.number, "order_id": order.pk, "currency": order.currency},
     )
 
@@ -194,20 +168,12 @@ def reverse_current_funding(order, *, created_by=None, reason="عكس تمويل
 def order_has_settlements(order):
     item_ids = [str(x) for x in order.items.values_list("id", flat=True)]
     vendor_order_ids = [str(x) for x in order.vendor_orders.values_list("id", flat=True)]
-    return JournalEntry.objects.filter(
-        status=JournalEntry.Status.POSTED,
-        source_type__in=["vendor_order_release", "order_item_refund", "vendor_order_refund"],
-        source_id__in=vendor_order_ids + item_ids,
-    ).exists()
+    return JournalEntry.objects.filter(status=JournalEntry.Status.POSTED, source_type__in=["vendor_order_release", "order_item_refund", "vendor_order_refund"], source_id__in=vendor_order_ids + item_ids).exists()
 
 
 def vendor_order_has_settlements(vendor_order):
     item_ids = [str(x) for x in vendor_order.items.values_list("order_item_id", flat=True)]
-    return JournalEntry.objects.filter(
-        status=JournalEntry.Status.POSTED,
-        source_type__in=["vendor_order_release", "order_item_refund", "vendor_order_refund"],
-        source_id__in=[str(vendor_order.id)] + item_ids,
-    ).exists()
+    return JournalEntry.objects.filter(status=JournalEntry.Status.POSTED, source_type__in=["vendor_order_release", "order_item_refund", "vendor_order_refund"], source_id__in=[str(vendor_order.id)] + item_ids).exists()
 
 
 def release_order_items(order, *, created_by=None):
