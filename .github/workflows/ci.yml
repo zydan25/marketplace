@@ -71,7 +71,7 @@ jobs:
       - name: Apply migrations
         run: python manage.py migrate --noinput
       - name: Run all Django tests
-        run: python manage.py test marketplace accounts catalog vendors storefront orders finance communication promotions
+        run: python manage.py test marketplace accounts catalog vendors storefront orders finance communication promotions accounting
 
   expo:
     name: Expo TypeScript and Web builds
