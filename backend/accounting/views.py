@@ -6,7 +6,6 @@ from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.db.models import Sum
 
 from .models import Account, JournalEntry, JournalLine, Voucher, Wallet, WithdrawalRequest
 from .services_v2 import account_balance, ensure_chart, post_entry
@@ -53,8 +52,10 @@ def dashboard(request, section="overview"):
                     section = "accounts"
                 elif action == "account_edit":
                     account = get_object_or_404(Account, pk=request.POST.get("pk"))
+                    if account.parent_id is None:
+                        raise ValueError("لا يمكن تعديل الحسابات الجذرية بهذه الطريقة.")
                     if account.journal_lines.exists():
-                        raise ValueError("لا يمكن تعديل حساب لديه قيود؛ عطّله أو أنشئ حسابًا جديدًا للتصحيح.")
+                        raise ValueError("لا يمكن تعديل حساب لديه قيود مرحّلة؛ عطّله أو أنشئ حساب تصحيح.")
                     name = (request.POST.get("name") or "").strip()
                     if not name:
                         raise ValueError("اسم الحساب مطلوب.")
@@ -133,6 +134,10 @@ def dashboard(request, section="overview"):
     if account_id:
         selected_report = get_object_or_404(accounts, pk=account_id)
         report_rows, report_balance = _report(selected_report)
+    edit_account = None
+    edit_id = request.GET.get("edit")
+    if edit_id:
+        edit_account = get_object_or_404(accounts, pk=edit_id)
     wallet_rows = [{"wallet": wallet, "balance": account_balance(wallet.account)} for wallet in Wallet.objects.select_related("owner", "account").order_by("owner_id", "kind")[:100]]
     context = {
         "title": "مركز المحاسبة",
@@ -148,6 +153,7 @@ def dashboard(request, section="overview"):
         "withdrawals": WithdrawalRequest.objects.select_related("requester", "hold_journal", "settlement_journal").order_by("-id")[:100],
         "wallets": Wallet.objects.select_related("owner", "account").order_by("owner_id", "kind")[:100],
         "wallet_rows": wallet_rows,
+        "edit_account": edit_account,
         "recent_entries": JournalEntry.objects.order_by("-id")[:8],
         "pending_withdrawals": WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING),
         "journal_count": JournalEntry.objects.filter(status=JournalEntry.Status.POSTED).count(),
