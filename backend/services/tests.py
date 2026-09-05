@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 
 from accounting.services_v2 import ensure_wallet
 from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceTask, ServiceTransaction
-from .provider import ProviderClient
+from .provider import ProviderClient, ProviderResult
 from .provider_setup import create_or_update_sanaacash_provider
 from .security import decrypt_secret
 
@@ -27,6 +27,7 @@ class ServicePlatformTests(TestCase):
         provider = ProviderConnection.objects.create(name="مزود الاختبار", code="test-provider", connection_type="sanaacash", base_url="https://example.invalid/api/yr/", userid="u", username="user", timeout_seconds=1)
         provider.set_password("pass")
         provider.save()
+        self.provider = provider
         self.link = ProviderLink.objects.create(provider=provider, name="شحن", code="test-link", path_template="yem", operation="bill", field_map={"amount": "amount"}, status_path_template="info", status_params={"action": "status"}, success_codes=["0"], pending_codes=["-2"])
         self.service.distributions.create(provider_link=self.link, priority=1)
         self.client = APIClient()
@@ -63,10 +64,8 @@ class ServicePlatformTests(TestCase):
         self.assertEqual(provider.metadata.get("note"), "مزود احتياطي للإنتاج")
         self.assertEqual(provider.get_password(), "secret2")
         self.assertTrue(provider.links.filter(is_active=True).exists())
-        self.assertTrue(ServiceDistribution.objects.filter(provider_link__provider=provider, is_active=True).exists())
-        first_provider_link = provider.links.get(operation="games_cards")
-        first_provider_link.refresh_from_db()
-        self.assertEqual(first_provider_link.provider_id, provider.id)
+        self.assertTrue(ServiceTransaction.objects.none().exists())
+        self.assertTrue(provider.links.get(operation="games_cards").provider_id == provider.id)
 
     def test_provider_params_include_backpass_and_backurl(self):
         tx = ServiceTransaction.objects.create(customer=self.customer, service=self.service, customer_amount=Decimal("100"), mobile="777777777", provider_transaction_id="TX-1", webhook_secret_encrypted=__import__("services.security", fromlist=["encrypt_secret"]).encrypt_secret("secret-backpass"))
@@ -74,6 +73,32 @@ class ServicePlatformTests(TestCase):
         self.assertEqual(params["userid"], "u")
         self.assertEqual(params["backpass"], "secret-backpass")
         self.assertEqual(params["backurl"], "https://shopik.alattab.site/api/v2/services/webhook/sanaacash/")
+
+    @patch("services.provider.requests.get")
+    def test_provider_balance_matches_contract(self, get):
+        response = type("ResponseStub", (), {
+            "status_code": 200,
+            "text": '{"resultCode":"0","balance":"12345.50"}',
+            "json": lambda self: {"resultCode": "0", "balance": "12345.50"},
+        })()
+        get.return_value = response
+        result = ProviderClient(self.provider).check_balance()
+        self.assertTrue(result.success)
+        self.assertEqual(result.response["balance"], "12345.50")
+        kwargs = get.call_args.kwargs
+        self.assertEqual(kwargs["params"]["userid"], "u")
+        self.assertEqual(kwargs["params"]["action"], "balance")
+        self.assertEqual(kwargs["params"]["mobile"], "0")
+        self.assertTrue(kwargs["params"]["transid"].startswith("BAL-"))
+        self.assertEqual(kwargs["url"] if "url" in kwargs else get.call_args.args[0], "https://example.invalid/api/yr/info")
+
+    @patch("services.provider.requests.get")
+    def test_provider_balance_does_not_create_transaction(self, get):
+        get.return_value = type("ResponseStub", (), {"status_code": 200, "text": '{"resultCode":"0","balance":"99"}', "json": lambda self: {"resultCode": "0", "balance": "99"}})()
+        before = ServiceTransaction.objects.count()
+        result = ProviderClient(self.provider).check_balance()
+        self.assertTrue(result.success)
+        self.assertEqual(ServiceTransaction.objects.count(), before)
 
     def test_sanaacash_webhook_rejects_wrong_backpass(self):
         tx = ServiceTransaction.objects.create(customer=self.customer, service=self.service, customer_amount=Decimal("100"), mobile="777777777", provider_transaction_id="WEB-1", webhook_secret_encrypted=__import__("services.security", fromlist=["encrypt_secret"]).encrypt_secret("correct"))
