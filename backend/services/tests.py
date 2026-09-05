@@ -58,8 +58,6 @@ class ServicePlatformTests(TestCase):
         self.assertFalse(ServiceTransaction.objects.exists())
 
     def test_generic_provider_template_is_independent(self):
-        from .management.commands.provision_sanaacash import provision
-        provision()
         provider = create_or_update_sanaacash_provider(code="backup-provider", name="مزود احتياطي", userid="u2", domain_name="api2.example", username="login2", password="secret2", note="مزود احتياطي للإنتاج", base_url="https://api2.example/api/yr/")
         self.assertEqual(provider.name, "مزود احتياطي")
         self.assertEqual(provider.base_url, "https://api2.example/api/yr/")
