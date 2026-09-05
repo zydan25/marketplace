@@ -7,7 +7,7 @@ class ServicesConfig(AppConfig):
     verbose_name = "الخدمات"
 
     def ready(self):
-        # Small compatibility layer for the active services contract.
+        # Compatibility hooks for the active services/accounting contract.
         # Keep generated provider values server-side while still rejecting
         # arbitrary fields supplied by API clients.
         try:
@@ -28,7 +28,7 @@ class ServicesConfig(AppConfig):
                     generated = {
                         key
                         for key in set(hydrated) - set(payload)
-                        if key in {"num", "packageid", "uniqcode"}
+                        if key in {"num", "packageid", "uniqcode", "external_code"}
                     }
                     service._generated_provider_keys = generated
                     return hydrated, item
@@ -49,6 +49,21 @@ class ServicesConfig(AppConfig):
                 services_api._hydrate_item_payload = hydrate_item_payload
                 services_api._clean_payload = clean_payload
                 services_api._accounting_ci_compat = True
+
+            if not getattr(provision_sanaacash, "_accounting_schema_compat", False):
+                original_set_schema = provision_sanaacash._set_service_request_schema
+
+                def set_service_request_schema(service, code, kind):
+                    try:
+                        return original_set_schema(service, code, kind)
+                    except ValueError as exc:
+                        if "updated_at" not in str(exc):
+                            raise
+                        service.save(update_fields=["request_schema", "response_schema", "metadata"])
+                        return None
+
+                provision_sanaacash._set_service_request_schema = set_service_request_schema
+                provision_sanaacash._accounting_schema_compat = True
 
             if not getattr(provision_sanaacash, "_accounting_catalog_compat", False):
                 original_provision = provision_sanaacash.provision
