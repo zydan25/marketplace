@@ -5,6 +5,7 @@ from .api_v2 import AccountViewSet, JournalEntryViewSet, VoucherViewSet, WalletV
 from .contract_api import accounting_contract
 from .extra_api import account_report, post_journal
 from .financial_api import gift, transfer
+from .views import dashboard
 
 router = DefaultRouter()
 router.register("accounts", AccountViewSet, basename="account")
