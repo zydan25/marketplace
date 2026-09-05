@@ -58,6 +58,8 @@ class ServicePlatformTests(TestCase):
         self.assertFalse(ServiceTransaction.objects.exists())
 
     def test_generic_provider_template_is_independent(self):
+        from .management.commands.provision_sanaacash import provision
+        provision()
         provider = create_or_update_sanaacash_provider(code="backup-provider", name="مزود احتياطي", userid="u2", domain_name="api2.example", username="login2", password="secret2", note="مزود احتياطي للإنتاج", base_url="https://api2.example/api/yr/")
         self.assertEqual(provider.name, "مزود احتياطي")
         self.assertEqual(provider.base_url, "https://api2.example/api/yr/")
@@ -79,7 +81,7 @@ class ServicePlatformTests(TestCase):
         self.assertEqual(response.status_code, 202)
         tx = ServiceTransaction.objects.get(pk=response.data["id"])
         self.assertEqual(tx.payload["external_code"], "100")
-        self.assertEqual(tx.payload["amount"], "100")
+        self.assertEqual(tx.payload["amount"], "100.00")
 
     def test_provider_params_include_backpass_and_backurl(self):
         tx = ServiceTransaction.objects.create(customer=self.customer, service=self.service, customer_amount=Decimal("100"), mobile="777777777", provider_transaction_id="TX-1", webhook_secret_encrypted=__import__("services.security", fromlist=["encrypt_secret"]).encrypt_secret("secret-backpass"))
