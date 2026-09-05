@@ -7,7 +7,9 @@ from .models import MainServiceCategory, ProviderConnection, ProviderLink, Servi
 
 @transaction.atomic
 def _ensure_missing_query_services():
-    main = MainServiceCategory.objects.get(slug="التسديدات")
+    # The initial migration uses the stable `payments` slug. Resolve by name first so
+    # provisioning remains compatible with databases created before this service template.
+    main = MainServiceCategory.objects.filter(name="التسديدات").first() or MainServiceCategory.objects.get(slug="payments")
     category = ServiceCategory.objects.get(main_category=main, slug="yemen-mobile", parent=None)
     definitions = [
         ("Yemen Mobile - استعلام الرصيد", "yem-query-balance", "yem-query-balance", "yem_query"),
@@ -33,12 +35,14 @@ def create_or_update_sanaacash_provider(*, code, name, userid="", domain_name=""
             "domain_name": domain_name,
             "username": username,
             "is_active": True,
-            "metadata": {"note": note.strip()} if note.strip() else {},
         },
     )
+    metadata = dict(provider.metadata or {})
+    metadata["note"] = note.strip()
+    provider.metadata = metadata
     if password:
         provider.set_password(password)
-        provider.save(update_fields=["password_encrypted", "updated_at"])
+    provider.save(update_fields=["base_url", "userid", "domain_name", "username", "is_active", "metadata", "password_encrypted", "updated_at"] if password else ["base_url", "userid", "domain_name", "username", "is_active", "metadata", "updated_at"])
     _, _, services = provision()
     provider_links = provision_links(provider, services)
     query_services = _ensure_missing_query_services()
