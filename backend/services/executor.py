@@ -134,12 +134,9 @@ def process_task(task_id=None):
         task.finished_at = timezone.now()
         task.save(update_fields=["status", "finished_at"])
         if task.kind == ServiceTask.Kinds.SUBMIT:
-            if not _new_status_task(tx, link):
-                task.status = ServiceTask.Statuses.RETRY
-                task.available_at = timezone.now() + timedelta(seconds=20)
-                task.finished_at = None
+            if _new_status_task(tx, link) is None:
                 task.last_error = "PENDING_WITHOUT_STATUS_ROUTE"
-                task.save(update_fields=["status", "available_at", "finished_at", "last_error"])
+                task.save(update_fields=["last_error"])
         elif task.attempts < task.max_attempts:
             _new_status_task(tx, link)
         else:
