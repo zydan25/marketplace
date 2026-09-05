@@ -56,7 +56,7 @@ def _clean_payload(service, payload):
             raise ValueError(f"قيمة {field.label} غير صالحة.")
         if rule.get("min") is not None and field.field_type in {"number", "decimal"} and Decimal(str(value)) < Decimal(str(rule["min"])):
             raise ValueError(f"قيمة {field.label} أقل من الحد الأدنى.")
-        if rule.get("max") is not None and field.field_type in {"number", "decimal"} and Decimal(str(value)) > Decimal(str(rule["max"]):
+        if rule.get("max") is not None and field.field_type in {"number", "decimal"} and Decimal(str(value)) > Decimal(str(rule["max"])):
             raise ValueError(f"قيمة {field.label} أكبر من الحد الأعلى.")
         cleaned[key] = value
     unknown = set(payload) - set(allowed)
