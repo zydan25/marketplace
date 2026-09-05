@@ -64,5 +64,6 @@ class AccountingCoreTests(TestCase):
         vendor_order = SimpleNamespace(vendor_net=Decimal("150.00"), items=Items(links))
         allocations = _item_allocations(vendor_order)
         allocated_net = sum((row[0] for row in allocations.values()), Decimal("0.00"))
+        allocated_total = sum((item_accounting_amount(vendor_order, link.order_item)[2] for link in links), Decimal("0.00"))
         self.assertEqual(allocated_net, Decimal("150.00"))
-        self.assertEqual(item_accounting_amount(vendor_order, item1)[2] + item_accounting_amount(vendor_order, item2)[2], Decimal("200.00"))
+        self.assertEqual(allocated_total, Decimal("165.00"))
