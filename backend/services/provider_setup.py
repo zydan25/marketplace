@@ -23,6 +23,25 @@ def _ensure_missing_query_services():
     return services
 
 
+def _reconcile_seeded_main_categories():
+    """Align migration-seeded category slugs/names with the provisioning contract."""
+    legacy = {
+        "payments": ("التسديدات", "التسديدات", "payments"),
+        "games": ("الألعاب", "الألعاب", "games"),
+        "software": ("البرامج", "البرامج والبطاقات", "البرامج-والبطاقات"),
+    }
+    for lookup_slug, (legacy_name, target_name, target_slug) in legacy.items():
+        category = MainServiceCategory.objects.filter(slug=lookup_slug).first()
+        if category is None:
+            category = MainServiceCategory.objects.filter(name__in=[legacy_name, target_name]).first()
+        if category is None:
+            continue
+        if category.slug != target_slug or category.name != target_name:
+            category.slug = target_slug
+            category.name = target_name
+            category.save(update_fields=["slug", "name"])
+
+
 @transaction.atomic
 def create_or_update_sanaacash_provider(*, code, name, userid="", domain_name="", username="", password="", note="", base_url="https://sanaacash.yrbso.net/api/yr/"):
     provider, _ = ProviderConnection.objects.update_or_create(
@@ -43,6 +62,7 @@ def create_or_update_sanaacash_provider(*, code, name, userid="", domain_name=""
     if password:
         provider.set_password(password)
     provider.save(update_fields=["base_url", "userid", "domain_name", "username", "is_active", "metadata", "password_encrypted", "updated_at"] if password else ["base_url", "userid", "domain_name", "username", "is_active", "metadata", "updated_at"])
+    _reconcile_seeded_main_categories()
     _, _, services = provision()
     provider_links = provision_links(provider, services)
     query_services = _ensure_missing_query_services()
