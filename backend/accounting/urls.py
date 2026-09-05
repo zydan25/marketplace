@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .api_v2 import AccountViewSet, JournalEntryViewSet, VoucherViewSet, WalletViewSet, WithdrawalViewSet
+from .contract_api import accounting_contract
 from .extra_api import account_report, post_journal
 from .financial_api import gift, transfer
 
@@ -17,5 +18,6 @@ urlpatterns = [
     path("journals/post/", post_journal, name="journal-post"),
     path("transfers/", transfer, name="transfer"),
     path("gifts/", gift, name="gift"),
+    path("contract/", accounting_contract, name="accounting-contract"),
 ]
 urlpatterns += router.urls
