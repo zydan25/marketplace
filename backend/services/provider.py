@@ -3,6 +3,9 @@ import json
 from urllib.parse import urljoin
 
 import requests
+from django.conf import settings
+
+from .security import decrypt_secret
 
 
 class ProviderResult:
@@ -56,6 +59,11 @@ class ProviderClient:
             params.setdefault("mobile", transaction.mobile)
             params.setdefault("transid", transaction.provider_transaction_id)
             params.setdefault("token", self.sanaacash_token(self.connection.get_password(), transaction.provider_transaction_id, self.connection.username, transaction.mobile))
+            if transaction.webhook_secret_encrypted:
+                params.setdefault("backpass", decrypt_secret(transaction.webhook_secret_encrypted))
+            webhook_base = getattr(settings, "SERVICES_WEBHOOK_BASE_URL", "").rstrip("/")
+            if webhook_base:
+                params.setdefault("backurl", webhook_base + "/api/v2/services/webhook/sanaacash/")
         return params, context
 
     def call(self, link, transaction, *, status_check=False):
