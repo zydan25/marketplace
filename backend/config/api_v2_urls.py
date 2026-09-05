@@ -24,6 +24,8 @@ def api_v2_root(request):
             "communication": "/api/v2/communication/",
             "promotions": "/api/v2/promotions/",
         },
+        "accounting_contract": "/api/v2/accounting/contract/",
+        "accounting_guide": "/ACCOUNTING_API_GUIDE_AR.md",
         "schema": "/api/v2/schema/",
     })
 
