@@ -10,6 +10,7 @@ from rest_framework.test import APIClient
 from accounting.services_v2 import ensure_wallet
 from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceTask, ServiceTransaction
 from .provider import ProviderClient
+from .provider_setup import create_or_update_sanaacash_provider
 from .security import decrypt_secret
 
 
@@ -54,6 +55,18 @@ class ServicePlatformTests(TestCase):
         response = self.client.post("/api/v2/services/requests/", {"service_id": self.service.pk, "payload": {"mobile": "777777777"}}, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertFalse(ServiceTransaction.objects.exists())
+
+    def test_generic_provider_template_is_independent(self):
+        provider = create_or_update_sanaacash_provider(code="backup-provider", name="مزود احتياطي", userid="u2", domain_name="api2.example", username="login2", password="secret2", note="مزود احتياطي للإنتاج", base_url="https://api2.example/api/yr/")
+        self.assertEqual(provider.name, "مزود احتياطي")
+        self.assertEqual(provider.base_url, "https://api2.example/api/yr/")
+        self.assertEqual(provider.metadata.get("note"), "مزود احتياطي للإنتاج")
+        self.assertEqual(provider.get_password(), "secret2")
+        self.assertTrue(provider.links.filter(is_active=True).exists())
+        self.assertTrue(ServiceDistribution.objects.filter(provider_link__provider=provider, is_active=True).exists())
+        first_provider_link = provider.links.get(operation="games_cards")
+        first_provider_link.refresh_from_db()
+        self.assertEqual(first_provider_link.provider_id, provider.id)
 
     def test_provider_params_include_backpass_and_backurl(self):
         tx = ServiceTransaction.objects.create(customer=self.customer, service=self.service, customer_amount=Decimal("100"), mobile="777777777", provider_transaction_id="TX-1", webhook_secret_encrypted=__import__("services.security", fromlist=["encrypt_secret"]).encrypt_secret("secret-backpass"))
