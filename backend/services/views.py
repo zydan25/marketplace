@@ -16,53 +16,48 @@ MOBILE_SHELL = '''
 <style id="services-mobile-shell">
 .services-drawer-overlay{display:none}
 .services-mobile-bar{display:none}
-@media (max-width: 820px){
-  html,body{max-width:100%;overflow-x:hidden}
-  .layout{display:block !important;min-height:100dvh !important;width:100% !important;max-width:100% !important}
-  .sidebar{position:fixed !important;top:0 !important;right:0 !important;left:auto !important;width:min(86vw,320px) !important;height:100dvh !important;max-height:100dvh !important;overflow-y:auto !important;overflow-x:hidden !important;z-index:220 !important;transform:translateX(110%) !important;transition:transform .24s ease !important;box-shadow:-18px 0 50px rgba(15,39,64,.20) !important;background:#fff !important}
-  .sidebar.open{transform:translateX(0) !important}
-  .services-drawer-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(2px);z-index:210}
-  .services-drawer-overlay.open{display:block}
-  .services-mobile-bar{display:flex;position:fixed;top:0;right:0;left:0;height:58px;z-index:200;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid #e2e8f0;align-items:center;justify-content:space-between;padding:8px 12px;gap:10px}
-  .services-mobile-title{font-size:13px;font-weight:950;color:#102a43;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .services-mobile-btn{width:42px;height:42px;border:1px solid #d6dee7;border-radius:12px;background:#fff;color:#102a43;font-size:20px;display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
-  .content{width:100% !important;max-width:100% !important;min-width:0 !important;padding:74px 12px 18px !important;overflow-x:hidden !important}
-  .top{width:100% !important;max-width:100% !important}
-  .panel{width:100%;max-width:100%;overflow:hidden}
-  .table-wrap{width:100%;max-width:100%;overflow-x:auto !important;-webkit-overflow-scrolling:touch}
-  .table{min-width:760px}
+@media (max-width:820px){
+html,body{max-width:100%;overflow-x:hidden}
+.layout{display:block !important;min-height:100dvh !important;width:100% !important;max-width:100% !important}
+.sidebar{position:fixed !important;top:0 !important;right:0 !important;left:auto !important;width:min(86vw,320px) !important;height:100dvh !important;max-height:100dvh !important;overflow-y:auto !important;overflow-x:hidden !important;z-index:220 !important;transform:translateX(110%) !important;transition:transform .24s ease !important;box-shadow:-18px 0 50px rgba(15,39,64,.20) !important;background:#fff !important}
+.sidebar.open{transform:translateX(0) !important}
+.services-drawer-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(2px);z-index:210}
+.services-drawer-overlay.open{display:block}
+.services-mobile-bar{display:flex;position:fixed;top:0;right:0;left:0;height:58px;z-index:200;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid #e2e8f0;align-items:center;justify-content:space-between;padding:8px 12px;gap:10px}
+.services-mobile-title{font-size:13px;font-weight:950;color:#102a43;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.services-mobile-btn{width:42px;height:42px;border:1px solid #d6dee7;border-radius:12px;background:#fff;color:#102a43;font-size:20px;display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.content{width:100% !important;max-width:100% !important;min-width:0 !important;padding:74px 12px 18px !important;overflow-x:hidden !important}
+.top{width:100% !important;max-width:100% !important}.panel{width:100%;max-width:100%;overflow:hidden}
+.table-wrap{width:100%;max-width:100%;overflow-x:auto !important;-webkit-overflow-scrolling:touch}.table{min-width:760px}
 }
-@media (min-width:821px){
-  .services-drawer-overlay{display:none !important}
-  .services-mobile-bar{display:none !important}
-}
+@media (min-width:821px){.services-drawer-overlay,.services-mobile-bar{display:none !important}}
 </style>
 '''
 
 MOBILE_BAR = '''
 <div class="services-mobile-bar" id="servicesMobileBar">
-  <button class="services-mobile-btn" id="servicesMenuBtn" type="button" aria-label="فتح القائمة">☰</button>
-  <div class="services-mobile-title">شبيك · إدارة الخدمات</div>
-  <button class="services-mobile-btn" id="servicesCloseBtn" type="button" aria-label="إغلاق القائمة" style="visibility:hidden">×</button>
+<button class="services-mobile-btn" id="servicesMenuBtn" type="button" aria-label="فتح القائمة">☰</button>
+<div class="services-mobile-title">شبيك · إدارة الخدمات</div>
+<button class="services-mobile-btn" id="servicesCloseBtn" type="button" aria-label="إغلاق القائمة" style="visibility:hidden">×</button>
 </div>
 <div class="services-drawer-overlay" id="servicesDrawerOverlay"></div>
 '''
 
 MOBILE_SCRIPT = '''
-<script>
+<script id="services-mobile-script">
 (function(){
-  const sidebar=document.querySelector('.sidebar');
-  const overlay=document.getElementById('servicesDrawerOverlay');
-  const menu=document.getElementById('servicesMenuBtn');
-  const close=document.getElementById('servicesCloseBtn');
-  if(!sidebar || !overlay || !menu) return;
-  function openDrawer(){sidebar.classList.add('open');overlay.classList.add('open');document.body.style.overflow='hidden';if(close)close.style.visibility='visible';}
-  function closeDrawer(){sidebar.classList.remove('open');overlay.classList.remove('open');document.body.style.overflow='';if(close)close.style.visibility='hidden';}
-  menu.addEventListener('click',openDrawer);
-  if(close) close.addEventListener('click',closeDrawer);
-  overlay.addEventListener('click',closeDrawer);
-  sidebar.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{if(window.matchMedia('(max-width: 820px)').matches)closeDrawer();}));
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+const sidebar=document.querySelector('.sidebar');
+const overlay=document.getElementById('servicesDrawerOverlay');
+const menu=document.getElementById('servicesMenuBtn');
+const close=document.getElementById('servicesCloseBtn');
+if(!sidebar||!overlay||!menu)return;
+function openDrawer(){sidebar.classList.add('open');overlay.classList.add('open');document.body.style.overflow='hidden';if(close)close.style.visibility='visible';}
+function closeDrawer(){sidebar.classList.remove('open');overlay.classList.remove('open');document.body.style.overflow='';if(close)close.style.visibility='hidden';}
+menu.addEventListener('click',openDrawer);
+if(close)close.addEventListener('click',closeDrawer);
+overlay.addEventListener('click',closeDrawer);
+sidebar.querySelectorAll('a').forEach(a=>a.addEventListener('click',function(){if(window.matchMedia('(max-width:820px)').matches)closeDrawer();}));
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
 })();
 </script>
 '''
@@ -75,7 +70,7 @@ def _render_services_page(request, ctx):
         html = html.replace("</head>", MOBILE_SHELL + "</head>", 1)
     if 'id="servicesMobileBar"' not in html:
         html = html.replace("<div class=\"layout\">", MOBILE_BAR + "<div class=\"layout\">", 1)
-    if 'servicesMenuBtn' not in html.split("</body>", 1)[0]:
+    if 'id="services-mobile-script"' not in html:
         html = html.replace("</body>", MOBILE_SCRIPT + "</body>", 1)
     response.content = html.encode("utf-8")
     return response
