@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from finance.models import Wallet as LegacyWallet
@@ -9,7 +9,7 @@ from .launch_order_api import LaunchOrderViewSet
 from .models import Order
 from .serializers import OrderSerializer
 from accounting.models import Wallet as AccountingWallet
-from accounting.services import account_balance, ensure_legacy_customer_opening, ensure_legacy_vendor_available, ensure_wallet, fund_order, release_vendor_pending, wallet_summary
+from accounting.services_v2 import account_balance, ensure_legacy_customer_opening, ensure_legacy_vendor_available, ensure_wallet, fund_order, release_vendor_pending, wallet_summary
 
 
 class AccountingOrderViewSet(LaunchOrderViewSet):
@@ -19,19 +19,17 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
     def create(self, request, *args, **kwargs):
         if getattr(request.user, "role", None) != "customer":
             return super().create(request, *args, **kwargs)
-
         currency = str(request.data.get("currency", "YER")).upper()
         legacy_customer_wallet = LegacyWallet.objects.select_for_update().filter(user=request.user).first()
         legacy_customer_balance = Decimal(legacy_customer_wallet.balance) if legacy_customer_wallet else Decimal("0.00")
         ensure_legacy_customer_opening(request.user, legacy_customer_balance, currency)
         customer_wallet = ensure_wallet(request.user, AccountingWallet.Kinds.CUSTOMER, currency)
-        if account_balance(customer_wallet.account) < 0:
-            raise ValidationError({"wallet": "تعذر قراءة رصيد المحفظة المحاسبية."})
-
-        requested_rows = request.data.get("items") or []
+        accounting_balance = account_balance(customer_wallet.account)
+        if accounting_balance < 0:
+            raise ValidationError({"wallet": "رصيد المحفظة المحاسبي غير صالح."})
         legacy_vendor_snapshots = {}
         from catalog.models import Product
-        for row in requested_rows:
+        for row in request.data.get("items") or []:
             try:
                 product_id = int(row.get("product_id"))
             except (AttributeError, TypeError, ValueError):
@@ -62,12 +60,13 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         }
         order.save(update_fields=["metadata", "updated_at"])
         payload = OrderSerializer(order, context={"request": request}).data
+        balance_after = account_balance(customer_wallet.account)
         payload["financial"] = {
             "journal": entry.number,
             "customer_debited": str(order.total),
+            "customer_balance": str(balance_after),
             "currency": order.currency,
             "vendor_status": "pending",
-            "customer_wallet": str(account_balance(customer_wallet.account) - Decimal(order.total)),
             "message": f"مرحبًا {request.user.get_full_name() or request.user.phone or request.user.username}، تم قبول الطلب وحجز قيمته من رصيدك. مستحقات التاجر معلقة حتى تأكيد الاستلام.",
         }
         return Response(payload, status=response.status_code)
@@ -77,37 +76,30 @@ class AccountingOrderViewSet(LaunchOrderViewSet):
         response = super().confirm_received(request, pk=pk)
         order = Order.objects.select_for_update().prefetch_related("vendor_orders__vendor__owner").get(pk=pk)
         for vendor_order in order.vendor_orders.all():
-            release_vendor_pending(
-                vendor_order.vendor.owner,
-                Decimal(vendor_order.vendor_net),
-                vendor_order.currency,
-                vendor_order_id=vendor_order.id,
-                created_by=request.user,
-            )
-        summary = wallet_summary(request.user, order.currency)
+            release_vendor_pending(vendor_order.vendor.owner, Decimal(vendor_order.vendor_net), vendor_order.currency, vendor_order_id=vendor_order.id, created_by=request.user)
         return Response({
             **response.data,
             "message": "تم تأكيد الاستلام وإطلاق مستحقات التجار إلى الرصيد المتاح للسحب.",
-            "balance": summary,
+            "balance": wallet_summary(request.user, order.currency),
         })
 
     @transaction.atomic
     def update_pending(self, request, pk=None):
         order = self.get_queryset().select_for_update().get(pk=pk)
         if (order.metadata or {}).get("accounting_funding"):
-            raise ValidationError({"order": "تم تمويل الطلب محاسبيًا ولا يمكن تغيير عناصره بعد إنشاء القيد المالي."})
+            raise ValidationError({"order": "تم تمويل الطلب محاسبيًا؛ لا يمكن تغيير القيمة بعد ترحيل القيد."})
         return super().update_pending(request, pk=pk)
 
     @transaction.atomic
     def reject_item(self, request, pk=None):
         order = self.get_queryset().select_for_update().get(pk=pk)
         if (order.metadata or {}).get("escrow", {}).get("customer_confirmed"):
-            raise ValidationError({"order": "تم تأكيد الاستلام نهائيًا ولا يمكن فتح اعتراض جديد."})
+            raise ValidationError({"order": "تم تأكيد الاستلام نهائيًا."})
         return super().reject_item(request, pk=pk)
 
     @transaction.atomic
     def reject_order(self, request, pk=None):
         order = self.get_queryset().select_for_update().get(pk=pk)
         if (order.metadata or {}).get("escrow", {}).get("customer_confirmed"):
-            raise ValidationError({"order": "تم تأكيد الاستلام نهائيًا ولا يمكن فتح اعتراض جديد."})
+            raise ValidationError({"order": "تم تأكيد الاستلام نهائيًا."})
         return super().reject_order(request, pk=pk)
