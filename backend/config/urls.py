@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import include, path
+from accounting.views import dashboard as accounting_dashboard
 from communication.views import dashboard as communication_dashboard, notification_form
 from finance.views import currency_rate_form, dashboard as finance_dashboard, vendor_shipping_form
 from orders.views import dashboard as orders_dashboard, shipment_form
@@ -48,6 +49,7 @@ urlpatterns = [
     path("admin/dashboard/finance/currency-rates/<int:pk>/edit/", currency_rate_form, name="admin-finance-currency-rate-edit"),
     path("admin/dashboard/finance/shipping/new/", vendor_shipping_form, name="admin-finance-shipping-new"),
     path("admin/dashboard/finance/shipping/<int:pk>/edit/", vendor_shipping_form, name="admin-finance-shipping-edit"),
+    path("admin/dashboard/accounting/", accounting_dashboard, name="admin-dashboard-accounting"),
     path("admin/dashboard/communication/", communication_dashboard, name="admin-dashboard-communication"),
     path("admin/dashboard/communication/notifications/new/", notification_form, name="admin-communication-notification-new"),
     path("admin/dashboard/communication/notifications/<int:pk>/edit/", notification_form, name="admin-communication-notification-edit"),
