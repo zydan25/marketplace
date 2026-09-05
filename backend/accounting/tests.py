@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from .models import Account, JournalEntry, Wallet
-from .services import account_balance, ensure_chart, ensure_wallet, post_entry, wallet_summary
+from .services_v2 import account_balance, ensure_chart, ensure_wallet, post_entry, wallet_summary
 
 
 class AccountingCoreTests(TestCase):
@@ -13,13 +13,17 @@ class AccountingCoreTests(TestCase):
         self.customer = self.User.objects.create_user(username="customer-test", phone="967700000001", password="TestPass123", role="customer")
         self.vendor = self.User.objects.create_user(username="vendor-test", phone="967700000002", password="TestPass123", role="vendor")
 
-    def test_chart_has_required_roots_and_non_postable_roots(self):
+    def test_chart_has_required_roots_and_hierarchy(self):
         chart = ensure_chart()
         self.assertTrue(Account.objects.filter(code="1000", is_group=True).exists())
         self.assertTrue(Account.objects.filter(code="3000", is_group=True).exists())
         self.assertTrue(Account.objects.filter(code="4000", is_group=True).exists())
         self.assertTrue(Account.objects.filter(code="6000", is_group=True).exists())
-        self.assertTrue(chart["main_cash"].is_group is False)
+        self.assertFalse(chart["main_cash"].is_group)
+        wallet = ensure_wallet(self.customer, Wallet.Kinds.CUSTOMER, "YER")
+        self.assertTrue(wallet.account.parent.is_group)
+        self.assertTrue(wallet.account.parent.party_user_id == self.customer.id)
+        self.assertFalse(wallet.account.is_group)
 
     def test_customer_wallet_is_leaf_and_journal_changes_balance(self):
         ensure_chart()
@@ -34,11 +38,11 @@ class AccountingCoreTests(TestCase):
         self.assertFalse(customer_wallet.account.is_group)
         self.assertEqual(JournalEntry.objects.count(), 1)
 
-    def test_vendor_has_pending_and_available_wallets(self):
+    def test_vendor_wallets_are_separate(self):
         summary = wallet_summary(self.vendor, "YER")
-        self.assertIn("pending", summary["vendor"])
-        self.assertIn("available", summary["vendor"])
-        self.assertIn("withdrawable", summary["vendor"])
-        self.assertTrue(Wallet.objects.filter(owner=self.vendor, kind=Wallet.Kinds.CUSTOMER).exists())
+        self.assertEqual(summary["vendor"]["pending"], "0.00")
+        self.assertEqual(summary["vendor"]["available"], "0.00")
+        self.assertEqual(summary["vendor"]["withdrawable"], "0.00")
         self.assertTrue(Wallet.objects.filter(owner=self.vendor, kind=Wallet.Kinds.VENDOR_PENDING).exists())
         self.assertTrue(Wallet.objects.filter(owner=self.vendor, kind=Wallet.Kinds.VENDOR_AVAILABLE).exists())
+        self.assertTrue(Wallet.objects.filter(owner=self.vendor, kind=Wallet.Kinds.WITHDRAWAL_HOLD).exists())
