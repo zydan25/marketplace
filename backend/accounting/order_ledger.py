@@ -14,6 +14,36 @@ def _release_key(vendor_order_id, suffix):
     return f"vendor-order:release:{vendor_order_id}:{suffix}"
 
 
+def _item_allocations(vendor_order):
+    links = list(vendor_order.items.select_related("order_item").order_by("id"))
+    if not links:
+        return {}
+    raw_total = sum((_money(link.order_item.vendor_net) for link in links), Decimal("0.00"))
+    target_net = _money(vendor_order.vendor_net)
+    adjustment = target_net - raw_total
+    weight_total = raw_total if raw_total > 0 else sum((_money(link.order_item.vendor_total) for link in links), Decimal("0.00"))
+    result = {}
+    allocated_adjustment = Decimal("0.00")
+    for link in links[:-1]:
+        item = link.order_item
+        base = _money(item.vendor_net)
+        weight = base / weight_total if weight_total > 0 else Decimal("0.00")
+        share = (adjustment * weight).quantize(Decimal("0.01"))
+        result[item.id] = (max(Decimal("0.00"), base + share), _money(item.commission))
+        allocated_adjustment += share
+    item = links[-1].order_item
+    result[item.id] = (max(Decimal("0.00"), _money(item.vendor_net) + adjustment - allocated_adjustment), _money(item.commission))
+    return result
+
+
+def item_accounting_amount(vendor_order, item):
+    allocation = _item_allocations(vendor_order).get(item.id)
+    if not allocation:
+        raise ValueError("تعذر حساب الحصة المالية للقطعة.")
+    vendor_net, commission = allocation
+    return vendor_net, commission, _money(vendor_net + commission)
+
+
 def _fund_order_lines(order):
     from orders.models import VendorOrder
     customer = ensure_wallet(order.customer, Wallet.Kinds.CUSTOMER, order.currency)
@@ -41,15 +71,10 @@ def fund_order_revision(order, revision, *, created_by=None):
     existing = JournalEntry.objects.filter(idempotency_key=key).first()
     if existing:
         return existing
-    return post_entry(
-        f"إعادة تمويل الطلب {order.order_number} - تعديل {revision}",
-        _fund_order_lines(order), source_type="order", source_id=order.pk,
-        idempotency_key=key, created_by=created_by,
-        metadata={"order_total": str(_money(order.total)), "currency": order.currency, "revision": int(revision)},
-    )
+    return post_entry(f"إعادة تمويل الطلب {order.order_number} - تعديل {revision}", _fund_order_lines(order), source_type="order", source_id=order.pk, idempotency_key=key, created_by=created_by, metadata={"order_total": str(_money(order.total)), "currency": order.currency, "revision": int(revision)})
 
 
-def release_vendor_amount(vendor_user, amount, currency, *, vendor_order_id, release_key, item_ids=None, created_by=None):
+def release_vendor_amount(vendor_user, amount, currency, *, vendor_order_id, release_key, item_ids=None, created_by=None, metadata=None):
     amount = _money(amount)
     if amount <= 0:
         return None
@@ -61,12 +86,7 @@ def release_vendor_amount(vendor_user, amount, currency, *, vendor_order_id, rel
     available = ensure_wallet(vendor_user, Wallet.Kinds.VENDOR_AVAILABLE, currency)
     if account_balance(pending.account) < amount:
         raise ValueError("الرصيد المعلق للتاجر غير كافٍ لإتمام التسوية.")
-    return post_entry(
-        f"إطلاق مستحقات الطلب {vendor_order_id}",
-        [{"account": pending.account, "debit": amount, "description": f"تسوية الطلب {vendor_order_id}"}, {"account": available.account, "credit": amount, "description": f"إضافة المستحق المتاح {vendor_order_id}"}],
-        source_type="vendor_order_release", source_id=vendor_order_id, idempotency_key=key, created_by=created_by,
-        metadata={"vendor_order_id": vendor_order_id, "amount": str(amount), "item_ids": [int(x) for x in (item_ids or [])]},
-    )
+    return post_entry(f"إطلاق مستحقات الطلب {vendor_order_id}", [{"account": pending.account, "debit": amount, "description": f"تسوية الطلب {vendor_order_id}"}, {"account": available.account, "credit": amount, "description": f"إضافة المستحق المتاح {vendor_order_id}"}], source_type="vendor_order_release", source_id=vendor_order_id, idempotency_key=key, created_by=created_by, metadata={"vendor_order_id": vendor_order_id, "amount": str(amount), "item_ids": [int(x) for x in (item_ids or [])], **(metadata or {})})
 
 
 def item_release_exists(vendor_order_id, item_id):
@@ -94,19 +114,11 @@ def order_item_refunded(item_id):
 def refund_order_item(order, item, *, created_by=None):
     customer = ensure_wallet(order.customer, Wallet.Kinds.CUSTOMER, order.currency)
     vendor_order_id = item.vendor_order_item.vendor_order_id
+    vendor_order = item.vendor_order_item.vendor_order
+    vendor_net, commission, refund = item_accounting_amount(vendor_order, item)
     vendor_kind = Wallet.Kinds.VENDOR_AVAILABLE if item_release_exists(vendor_order_id, item.id) else Wallet.Kinds.VENDOR_PENDING
     vendor_wallet = ensure_wallet(item.vendor.owner, vendor_kind, order.currency)
-    vendor_net = _money(item.vendor_net)
-    commission = _money(item.commission)
-    refund = _money(item.vendor_total)
-    if vendor_net + commission != refund:
-        raise ValueError("بيانات القطعة لا تتطابق محاسبيًا مع قيمتها المستردة.")
-    return post_entry(
-        f"استرداد قطعة من الطلب {order.order_number}",
-        [{"account": vendor_wallet.account, "debit": vendor_net, "description": f"عكس مستحق القطعة {item.id}"}, {"account": ensure_chart()["commission_income"], "debit": commission, "description": f"عكس عمولة القطعة {item.id}"}, {"account": customer.account, "credit": refund, "description": f"إعادة قيمة القطعة {item.id} للعميل"}],
-        source_type="order_item_refund", source_id=item.id, idempotency_key=f"order:item-refund:{item.id}", created_by=created_by,
-        metadata={"order_id": order.id, "order_item_id": item.id, "vendor_order_id": vendor_order_id, "vendor_wallet_kind": vendor_kind, "refund": str(refund)},
-    )
+    return post_entry(f"استرداد قطعة من الطلب {order.order_number}", [{"account": vendor_wallet.account, "debit": vendor_net, "description": f"عكس مستحق القطعة {item.id}"}, {"account": ensure_chart()["commission_income"], "debit": commission, "description": f"عكس عمولة القطعة {item.id}"}, {"account": customer.account, "credit": refund, "description": f"إعادة قيمة القطعة {item.id} للعميل"}], source_type="order_item_refund", source_id=item.id, idempotency_key=f"order:item-refund:{item.id}", created_by=created_by, metadata={"order_id": order.id, "order_item_id": item.id, "vendor_order_id": vendor_order_id, "vendor_wallet_kind": vendor_kind, "vendor_net": str(vendor_net), "commission": str(commission), "refund": str(refund)})
 
 
 def refund_vendor_order(order, vendor_order, *, created_by=None):
@@ -122,12 +134,7 @@ def refund_vendor_order(order, vendor_order, *, created_by=None):
     refund = _money(vendor_order.total)
     if vendor_net + commission != refund:
         raise ValueError("بيانات طلب التاجر لا تتطابق محاسبيًا مع قيمة استرداده.")
-    return post_entry(
-        f"استرداد جزء التاجر من الطلب {order.order_number}",
-        [{"account": vendor_wallet.account, "debit": vendor_net, "description": f"عكس مستحقات التاجر {vendor_order.id}"}, {"account": ensure_chart()["commission_income"], "debit": commission, "description": f"عكس عمولة التاجر {vendor_order.id}"}, {"account": customer.account, "credit": refund, "description": f"إعادة قيمة طلب التاجر {vendor_order.id}"}],
-        source_type="vendor_order_refund", source_id=vendor_order.id, idempotency_key=key, created_by=created_by,
-        metadata={"order_id": order.id, "vendor_order_id": vendor_order.id, "vendor_wallet_kind": vendor_kind, "refund": str(refund)},
-    )
+    return post_entry(f"استرداد جزء التاجر من الطلب {order.order_number}", [{"account": vendor_wallet.account, "debit": vendor_net, "description": f"عكس مستحقات التاجر {vendor_order.id}"}, {"account": ensure_chart()["commission_income"], "debit": commission, "description": f"عكس عمولة التاجر {vendor_order.id}"}, {"account": customer.account, "credit": refund, "description": f"إعادة قيمة طلب التاجر {vendor_order.id}"}], source_type="vendor_order_refund", source_id=vendor_order.id, idempotency_key=key, created_by=created_by, metadata={"order_id": order.id, "vendor_order_id": vendor_order.id, "vendor_wallet_kind": vendor_kind, "refund": str(refund)})
 
 
 @transaction.atomic
@@ -144,11 +151,7 @@ def reverse_funding_journal(order, entry, *, created_by=None, reason="عكس ت�
             lines.append({"account": line.account, "credit": line.debit, "description": f"عكس القيد {entry.number}"})
         elif line.credit > 0:
             lines.append({"account": line.account, "debit": line.credit, "description": f"عكس القيد {entry.number}"})
-    return post_entry(
-        f"{reason} {order.order_number}", lines, source_type="order_funding_reversal", source_id=order.pk,
-        idempotency_key=key, created_by=created_by,
-        metadata={"reversal_of": entry.number, "order_id": order.pk, "currency": order.currency},
-    )
+    return post_entry(f"{reason} {order.order_number}", lines, source_type="order_funding_reversal", source_id=order.pk, idempotency_key=key, created_by=created_by, metadata={"reversal_of": entry.number, "order_id": order.pk, "currency": order.currency})
 
 
 def current_funding_journal(order):
@@ -179,22 +182,22 @@ def vendor_order_has_settlements(vendor_order):
 def release_order_items(order, *, created_by=None):
     released = Decimal("0.00")
     for vendor_order in order.vendor_orders.select_related("vendor__owner").all():
+        allocations = _item_allocations(vendor_order)
         for link in vendor_order.items.select_related("order_item").all():
             item = link.order_item
             if order_item_refunded(item.id) or item_release_exists(vendor_order.id, item.id):
                 continue
-            amount = _money(item.vendor_net)
+            amount = _money(allocations[item.id][0])
             if amount <= 0:
                 continue
-            entry = release_vendor_amount(vendor_order.vendor.owner, amount, vendor_order.currency, vendor_order_id=vendor_order.id, release_key=f"item:{item.id}", item_ids=[item.id], created_by=created_by)
+            entry = release_vendor_amount(vendor_order.vendor.owner, amount, vendor_order.currency, vendor_order_id=vendor_order.id, release_key=f"item:{item.id}", item_ids=[item.id], created_by=created_by, metadata={"order_item_id": item.id, "allocated_vendor_net": str(amount)})
             if entry:
                 released += amount
-        target = _money(vendor_order.vendor_net)
-        released_by_items = sum((_money(link.order_item.vendor_net) for link in vendor_order.items.select_related("order_item").all() if item_release_exists(vendor_order.id, link.order_item.id)), Decimal("0.00"))
+        released_by_items = sum((_money(allocations[link.order_item.id][0]) for link in vendor_order.items.select_related("order_item").all() if item_release_exists(vendor_order.id, link.order_item.id)), Decimal("0.00"))
         refunded_net = sum((refunded_item_net(link.order_item.id) for link in vendor_order.items.select_related("order_item").all()), Decimal("0.00"))
-        residual = max(Decimal("0.00"), target - released_by_items - refunded_net)
+        residual = max(Decimal("0.00"), _money(vendor_order.vendor_net) - released_by_items - refunded_net)
         if residual > 0:
-            entry = release_vendor_amount(vendor_order.vendor.owner, residual, vendor_order.currency, vendor_order_id=vendor_order.id, release_key="residual", item_ids=[], created_by=created_by)
+            entry = release_vendor_amount(vendor_order.vendor.owner, residual, vendor_order.currency, vendor_order_id=vendor_order.id, release_key="residual", item_ids=[], created_by=created_by, metadata={"allocated_vendor_net": str(residual), "residual": True})
             if entry:
                 released += residual
     return released
