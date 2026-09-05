@@ -88,8 +88,10 @@ SERVICES = [
 
 LINKS = {
     "yem_query": ("Yemen Mobile - Query", "yem?action=query", {"action": "query"}, {"mobile": "mobile"}),
+    "yem_denomination": ("Yemen Mobile - Denomination", "yem?action=bill", {"action": "bill"}, {"mobile": "mobile", "amount": "amount"}),
     "yem_bill_balance": ("Yemen Mobile - Bill Balance", "yem?action=bill", {"action": "bill"}, {"mobile": "mobile", "amount": "amount"}),
     "yem_offer_query": ("Yemen Mobile - Query Offers", "yem?action=queryoffer", {"action": "queryoffer"}, {"mobile": "mobile"}),
+    "yem_offer": ("Yemen Mobile - Offers", "yem?action=queryoffer", {"action": "queryoffer"}, {"mobile": "mobile"}),
     "yem_bill_offer": ("Yemen Mobile - Bill Offer", "yem?action=billoffer", {"action": "billoffer"}, {"mobile": "mobile", "offerid": "external_code", "method": "method"}),
     "yem_offer_bill": ("Yemen Mobile - Bill Offer Combined", "offeryem?action=billoffer", {"action": "billoffer"}, {"mobile": "mobile", "offerkey": "external_code", "method": "method", "solfa": "solfa"}),
     "post_bill_adsl": ("Yemen Post - ADSL", "post?action=bill", {"action": "bill", "type": "adsl"}, {"mobile": "mobile", "amount": "amount"}),
@@ -154,7 +156,7 @@ def provision():
             for key, label in [("playerid", "رقم اللاعب"), ("playername", "اسم اللاعب"), ("zoneid", "Zone ID"), ("email", "البريد الإلكتروني"), ("uniqcode", "كود الفئة الموحد")]:
                 ensure_field(services[code], key, label, "text", key in {"playerid", "uniqcode"})
         if pricing == "item":
-            ensure_field(services[code], "external_code", "كود المنتج/الباقة", "text", True)
+            ensure_field(services[code], "external_code", "كود المنتج/الباقة", "text", False)
     return mains, categories, services
 
 
