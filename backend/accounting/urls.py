@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .api import AccountViewSet, JournalEntryViewSet, VoucherViewSet, WalletViewSet, WithdrawalViewSet
+from .api_v2 import AccountViewSet, JournalEntryViewSet, VoucherViewSet, WalletViewSet, WithdrawalViewSet
 from .extra_api import account_report, post_journal
 
 router = DefaultRouter()
