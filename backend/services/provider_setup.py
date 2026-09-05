@@ -28,7 +28,7 @@ def create_or_update_sanaacash_provider(*, code, name, userid="", domain_name=""
 
 def distribution_matrix():
     services = list(Service.objects.select_related("category__main_category").filter(is_active=True).order_by("category__main_category__sort_order", "category__sort_order", "sort_order", "id"))
-    providers = list(ProviderConnection.objects.filter(is_active=True).order_by("name"))
-    distribution = {(row.service_id, row.provider_link.provider_id): row for row in ServiceDistribution.objects.select_related("provider_link").all()}
-    links = {(row.provider_id, row.id): row for row in ProviderLink.objects.filter(is_active=True)}
-    return services, providers, distribution, links
+    providers = list(ProviderConnection.objects.filter(is_active=True).prefetch_related("links").order_by("name"))
+    distribution = {(row.service_id, row.provider_link_id): row for row in ServiceDistribution.objects.select_related("provider_link").all()}
+    links_by_provider = {provider.id: [link for link in provider.links.all() if link.is_active] for provider in providers}
+    return services, providers, distribution, links_by_provider
