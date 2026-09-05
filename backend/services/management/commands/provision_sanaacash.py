@@ -1,25 +1,45 @@
+from decimal import Decimal
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils.text import slugify
 
-from services.models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceDistribution, ServiceField
+from services.models import (
+    MainServiceCategory,
+    ProviderConnection,
+    ProviderLink,
+    Service,
+    ServiceCategory,
+    ServiceDistribution,
+    ServiceField,
+    ServiceOption,
+    TelecomDenomination,
+    TelecomPlan,
+)
+from services.provider import DEFAULT_WEBHOOK_PATH
+from services.catalog_data import CATEGORIES, LINKS, MAIN, SABA_DENOMINATIONS, SABA_OFFERS, SBAY_TABLE, SERVICES, ADENET_TABLE, WHY_TABLE, YOU_DENOMINATIONS, YOU_OFFERS, YEMEN_MOBILE_OFFERS
 
-MAIN = {
-    "payments": ("التسديدات", "payments"),
-    "games": ("الألعاب", "games"),
-    "digital": ("البرامج والبطاقات", "software"),
-}
 
-CATEGORIES = [("payments", "يمن موبايل", "yemen-mobile"), ("payments", "سبأفون", "sabafon"), ("payments", "يو", "you"), ("payments", "واي", "why"), ("payments", "يمن فورجي", "yemen-4g"), ("payments", "يمن نت", "yemen-net"), ("payments", "عدن نت", "adenet"), ("payments", "الكهرباء", "electricity"), ("payments", "الماء", "water"), ("payments", "الخدمات الجماعية", "wholesale"), ("games", "الألعاب", "games"), ("digital", "البطاقات الرقمية", "digital-cards")]
-
-SERVICES = [("yemen-mobile", "Yemen Mobile - رصيد", "yem-balance", "amount", "yem_bill_balance"), ("yemen-mobile", "Yemen Mobile - فئات", "yem-denomination", "item", "yem_denomination"), ("yemen-mobile", "Yemen Mobile - باقات", "yem-offer", "item", "yem_offer"), ("yemen-mobile", "Yemen Mobile - تفعيل باقة", "yem-bill-offer", "item", "yem_bill_offer"), ("yemen-mobile", "Yemen Mobile - تسديد وتفعيل", "yem-offer-bill", "item", "yem_offer_bill"), ("sabafon", "سبأفون - فئات", "saba-denomination", "item", "saba_denomination"), ("sabafon", "سبأفون - باقات", "saba-offer", "item", "saba_offer"), ("sabafon", "سبأفون الجنوب - باقات", "sbay-offer", "item", "sbay_offer"), ("sabafon", "سبأفون الجنوب - شحن", "sbay-denomination", "item", "sbay_denominations"), ("sabafon", "سبأفون - وحدات", "saba-units", "amount", "saba_units"), ("you", "يو - رصيد مفتوح", "you-balance", "amount", "you_balance"), ("you", "يو - فئات شحن", "you-denomination", "item", "you_denominations"), ("you", "يو - باقات", "you-offer", "item", "you_offer"), ("why", "واي - تسديد", "why-bill", "amount", "why_bill"), ("why", "واي - رصيد", "why-balance", "amount", "why_balance"), ("why", "واي - باقات", "why-package", "item", "why_package"), ("yemen-4g", "يمن فورجي - باقة", "yem4g-package", "item", "yem4g_bill"), ("yemen-4g", "يمن فورجي - رصيد", "yem4g-balance", "amount", "yem4g_bill"), ("yemen-4g", "يمن فورجي - تغيير باقة", "yem4g-change", "item", "yem4g_bill"), ("yemen-4g", "يمن فورجي - استعلام", "yem4g-query", "amount", "yem4g_query"), ("yemen-net", "يمن نت - ADSL", "post-adsl", "amount", "post_bill_adsl"), ("yemen-net", "يمن نت - خط", "post-line", "amount", "post_bill_line"), ("yemen-net", "يمن نت - استعلام", "post-query", "amount", "post_query"), ("adenet", "عدن نت - تسديد", "adenet-bill", "item", "adenet_bill"), ("adenet", "عدن نت - استعلام", "adenet-query", "item", "adenet_query"), ("electricity", "الكهرباء - استعلام", "electric-query", "item", "electric_query"), ("electricity", "الكهرباء - تسديد", "electric-bill", "item", "electric_bill"), ("water", "الماء - استعلام", "water-query", "item", "water_query"), ("water", "الماء - تسديد", "water-bill", "item", "water_bill"), ("wholesale", "سبأفون جملة", "saba-gomla", "amount", "saba_gomla"), ("wholesale", "MTN جملة", "mtn-gomla", "amount", "mtn_gomla"), ("wholesale", "يمن موبايل جملة", "mobile-gomla", "amount", "mobile_gomla"), ("games", "بوبجي PUBG Mobile", "pubg", "item", "games_cards"), ("games", "فري فاير Free Fire", "freefire", "item", "games_cards"), ("games", "Mobile Legends", "legends", "item", "games_cards"), ("games", "Lord's Mobile", "loardstelmble", "item", "games_cards"), ("games", "Clash Royale", "clashroial", "item", "games_cards"), ("games", "Genshin Impact", "genshmbacket", "item", "games_cards"), ("games", "Clash of Clans", "clashofclanz", "item", "games_cards"), ("games", "PUBG New State", "newstatepobg", "item", "games_cards"), ("games", "Brawl Stars", "praolstars", "item", "games_cards"), ("games", "Hay Day جواهر", "hidadijwaher", "item", "games_cards"), ("games", "Hay Day عملة ذهبية", "ddihadi", "item", "games_cards"), ("games", "Call of Duty", "calloffdyoty", "item", "games_cards"), ("games", "Boom Beach", "pompitch", "item", "games_cards"), ("digital-cards", "Google Play أمريكي", "googleplayusa", "item", "games_cards"), ("digital-cards", "Google Play كوري", "googleplaykorea", "item", "games_cards"), ("digital-cards", "Apple Store Gift", "appstore", "item", "games_cards"), ("digital-cards", "beIN Connect", "beinconnect", "item", "games_cards"), ("digital-cards", "Razer Gold", "razergold", "item", "games_cards"), ("digital-cards", "CrossFire", "crossfire", "item", "games_cards"), ("digital-cards", "PlayStation أمريكي", "plastationusa", "item", "games_cards"), ("digital-cards", "PlayStation سعودي", "plastationsar", "item", "games_cards"), ("digital-cards", "Visa Card", "visacard", "item", "games_cards"), ("digital-cards", "MasterCard", "mastercard", "item", "games_cards"), ("digital-cards", "Likee", "likee", "item", "games_cards"), ("digital-cards", "BIGO LIVE", "bigolive", "item", "games_cards")]
-
-LINKS = {"yem_query": ("Yemen Mobile - Query", "yem?action=query", {"action": "query"}, {"mobile": "mobile"}), "yem_denomination": ("Yemen Mobile - Denomination", "yem?action=bill", {"action": "bill"}, {"mobile": "mobile", "amount": "amount"}), "yem_bill_balance": ("Yemen Mobile - Bill Balance", "yem?action=bill", {"action": "bill"}, {"mobile": "mobile", "amount": "amount"}), "yem_offer_query": ("Yemen Mobile - Query Offers", "yem?action=queryoffer", {"action": "queryoffer"}, {"mobile": "mobile"}), "yem_offer": ("Yemen Mobile - Offers", "yem?action=queryoffer", {"action": "queryoffer"}, {"mobile": "mobile"}), "yem_bill_offer": ("Yemen Mobile - Bill Offer", "yem?action=billoffer", {"action": "billoffer"}, {"mobile": "mobile", "offerid": "external_code", "method": "method"}), "yem_offer_bill": ("Yemen Mobile - Bill Offer Combined", "offeryem?action=billoffer", {"action": "billoffer"}, {"mobile": "mobile", "offerkey": "external_code", "method": "method", "solfa": "solfa"}), "post_bill_adsl": ("Yemen Post - ADSL", "post?action=bill", {"action": "bill", "type": "adsl"}, {"mobile": "mobile", "amount": "amount"}), "post_bill_line": ("Yemen Post - Line", "post?action=bill", {"action": "bill", "type": "line"}, {"mobile": "mobile", "amount": "amount"}), "post_query": ("Yemen Post - Query", "post?action=query", {"action": "query"}, {"mobile": "mobile"}), "why_bill": ("Why - Bill", "why?action=bill", {"action": "bill"}, {"mobile": "mobile", "num": "num"}), "why_balance": ("Why - Balance", "why?action=bill", {"action": "bill"}, {"mobile": "mobile", "num": "num", "rasid": "amount"}), "why_package": ("Why - Package", "why?action=bill", {"action": "bill"}, {"mobile": "mobile", "num": "num", "packageid": "external_code"}), "you_balance": ("You - Balance", "mtn?action=bill", {"action": "bill", "israsid": "1"}, {"mobile": "mobile", "num": "amount", "type": "type"}), "you_denominations": ("You - Denominations", "mtn?action=bill", {"action": "bill"}, {"mobile": "mobile", "num": "external_code", "type": "type"}), "you_offer": ("You - Offer", "mtnoffer", {}, {"mobile": "mobile", "num": "external_code"}), "saba_denomination": ("Sabafon - Denomination", "sabaphone?action=bill", {"action": "bill"}, {"mobile": "mobile", "num": "external_code"}), "saba_offer": ("Sabafon - Offer", "sabaoffer", {}, {"mobile": "mobile", "num": "external_code"}), "sbay_offer": ("Sabafon South - Offer", "sbayoffer", {}, {"mobile": "mobile", "num": "external_code"}), "sbay_denominations": ("Sabafon South - Recharge", "sbay?action=bill", {"action": "bill"}, {"mobile": "mobile", "num": "external_code"}), "saba_units": ("Sabafon - Units", "sabaunits", {}, {"mobile": "mobile", "num": "amount"}), "adenet_bill": ("Aden Net - Bill", "adenet?action=bill", {"action": "bill"}, {"mobile": "mobile", "num": "external_code"}), "adenet_query": ("Aden Net - Query", "adenet?action=query", {"action": "query"}, {"mobile": "mobile", "num": "external_code"}), "saba_gomla": ("Sabafon - Wholesale", "sabagomla", {}, {"mobile": "mobile", "num": "amount"}), "mtn_gomla": ("MTN - Wholesale", "mtngomla", {}, {"mobile": "mobile", "num": "amount"}), "mobile_gomla": ("Yemen Mobile - Wholesale", "mobilegomla", {}, {"mobile": "mobile", "num": "amount"}), "games_cards": ("Games and Cards", "gameswcards", {}, {"mobile": "mobile", "type": "external_code", "uniqcode": "uniqcode", "playerid": "playerid", "playername": "playername", "zoneid": "zoneid", "email": "email", "mobile": "mobile"}), "yem4g_bill": ("Yemen 4G - Bill", "yem4g", {"action": "bill"}, {"mobile": "mobile", "amount": "amount", "type": "type"}), "yem4g_query": ("Yemen 4G - Query", "yem4g", {"action": "query"}, {"mobile": "mobile"}), "electric_query": ("Electricity - Query", "electwater", {"action": "query", "act": "elect"}, {"mobile": "mobile", "customer_id": "customer_id", "placeid": "placeid"}), "electric_bill": ("Electricity - Bill", "electwater", {"action": "bill", "act": "elect"}, {"mobile": "mobile", "customer_id": "customer_id", "placeid": "placeid", "amount": "amount"}), "water_query": ("Water - Query", "electwater", {"action": "query", "act": "water"}, {"mobile": "mobile", "customer_id": "customer_id", "placeid": "placeid"}), "water_bill": ("Water - Bill", "electwater", {"action": "bill", "act": "water"}, {"mobile": "mobile", "customer_id": "customer_id", "placeid": "placeid", "amount": "amount"})}
-
-BASE_FIELDS = [("mobile", "رقم المستفيد/الاشتراك", "text", True)]
+MOBILE_9 = {"yem-balance", "yem-denomination", "yem-offer", "yem-bill-offer", "yem-offer-bill", "yem-query-balance", "yem-query-offers", "saba-denomination", "saba-offer", "sbay-offer", "sbay-denomination", "saba-units", "you-balance", "you-denomination", "you-offer", "yem4g-package", "yem4g-balance", "yem4g-change", "games_cards"}
+MOBILE_8 = {"why-bill", "why-balance", "why-package", "post-adsl", "post-line", "post-query"}
 
 
-def ensure_field(service, key, label, field_type="text", required=True):
+def _ensure_main_category(key, values):
+    name, slug, icon = values
+    obj = MainServiceCategory.objects.filter(slug=slug).first() or MainServiceCategory.objects.filter(name=name).first()
+    if obj is None:
+        return MainServiceCategory.objects.create(name=name, slug=slug, icon=icon, is_active=True)
+    changed = False
+    for attr, value in (("name", name), ("slug", slug), ("icon", icon), ("is_active", True)):
+        if getattr(obj, attr) != value:
+            setattr(obj, attr, value)
+            changed = True
+    if changed:
+        obj.save(update_fields=["name", "slug", "icon", "is_active"])
+    return obj
+
+
+def ensure_field(service, key, label, field_type="text", required=True, *, choices=None, validation=None, default=None, secret=False, sort_order=10):
     ServiceField.objects.update_or_create(
         service=service,
         key=key,
@@ -27,85 +47,118 @@ def ensure_field(service, key, label, field_type="text", required=True):
             "label": label,
             "field_type": field_type,
             "required": required,
-            "sort_order": 10 if key == "mobile" else 20,
+            "secret": secret,
+            "choices": choices or [],
+            "validation": validation or {},
+            "default_value": default,
+            "sort_order": sort_order,
+            "is_active": True,
         },
     )
 
 
-def _ensure_main_category(name, slug):
-    """Resolve seeded/legacy rows first, then create the canonical row."""
-    main = MainServiceCategory.objects.filter(slug=slug).first()
-    if main is None:
-        main = MainServiceCategory.objects.filter(name=name).first()
-    if main is None:
-        main = MainServiceCategory.objects.create(name=name, slug=slug, is_active=True)
-        return main
-    changed = False
-    if main.name != name:
-        main.name = name
-        changed = True
-    if main.slug != slug:
-        main.slug = slug
-        changed = True
-    if not main.is_active:
-        main.is_active = True
-        changed = True
-    if changed:
-        main.save(update_fields=["name", "slug", "is_active"])
-    return main
+def _service_fields(service, code, link_key):
+    if code in MOBILE_9:
+        ensure_field(service, "mobile", "رقم الهاتف/المستفيد", validation={"min_length": 9, "max_length": 9})
+    elif code in MOBILE_8:
+        ensure_field(service, "mobile", "رقم الهاتف/الاشتراك", validation={"min_length": 8, "max_length": 8})
+    else:
+        ensure_field(service, "mobile", "رقم الهاتف", required=False)
+
+    amount_services = {"yem-balance", "saba-units", "you-balance", "why-balance", "yem4g-balance", "post-adsl", "post-line", "saba-gomla", "mtn-gomla", "mobile-gomla", "electric-bill", "water-bill"}
+    if code in amount_services:
+        ensure_field(service, "amount", "المبلغ", "decimal", True, validation={"min": "0.01"}, sort_order=20)
+
+    if service.pricing_mode == Service.PricingModes.ITEM:
+        ensure_field(service, "external_code", "كود الباقة/المنتج لدى المزود", required=False, sort_order=80)
+
+    if code in {"yem-bill-offer", "yem-offer-bill"}:
+        ensure_field(service, "method", "طريقة الباقة", "select", True, choices=["New", "Renew", "Remove"], sort_order=20)
+    if code == "yem-offer-bill":
+        ensure_field(service, "solfa", "سلفة", "select", True, choices=["Y", "N"], default="N", sort_order=30)
+    if code in {"you-balance", "you-denomination"}:
+        ensure_field(service, "type", "نوع الخط", "select", True, choices=["prepaid", "postpaid"], default="prepaid", sort_order=30)
+    if code in {"you-denomination", "you-offer", "saba-denomination", "saba-offer", "sbay-offer", "sbay-denomination", "adenet-bill", "adenet-query", "why-bill", "why-package"}:
+        ensure_field(service, "num", "رقم/فئة المزود", "text", True, sort_order=20)
+    if code == "why-balance":
+        ensure_field(service, "num", "الكمية/الفئة", "text", True, sort_order=30)
+    if code == "why-package":
+        ensure_field(service, "packageid", "رقم الباقة", "text", True, sort_order=30)
+    if code in {"electric-query", "electric-bill", "water-query", "water-bill"}:
+        ensure_field(service, "customer_id", "رقم المشترك للعداد", required=True, sort_order=20)
+        ensure_field(service, "placeid", "رقم المنطقة", required=True, sort_order=30)
+    if link_key == "games_cards":
+        ensure_field(service, "uniqcode", "كود الفئة الموحد", required=True, sort_order=20)
+        ensure_field(service, "playerid", "رقم اللاعب", required=True, sort_order=30)
+        ensure_field(service, "playername", "اسم اللاعب", required=False, sort_order=40)
+        ensure_field(service, "zoneid", "Zone ID", required=False, sort_order=50)
+        ensure_field(service, "email", "البريد الإلكتروني", "email", required=False, sort_order=60)
+    if link_key in {"yem4g_package", "yem4g_change"}:
+        ensure_field(service, "amount", "قيمة العملية", "decimal", True, validation={"min": "0.01"}, sort_order=20)
+    if code == "yem4g-query":
+        ensure_field(service, "mobile", "رقم يمن فورجي", validation={"min_length": 9, "max_length": 9})
+    if code in {"why-package", "adenet-bill"}:
+        ensure_field(service, "external_code", "كود المنتج/الباقة", required=False, sort_order=40)
 
 
-@transaction.atomic
+def _set_service_request_schema(service, code, kind):
+    service.request_schema = {
+        "type": "object",
+        "service_code": code,
+        "fields": [f.key for f in service.fields.filter(is_active=True).order_by("sort_order", "id")],
+        "async": True,
+    }
+    service.response_schema = {
+        "resultCode": "string",
+        "resultDesc": "string",
+        "provider_response": "object",
+    }
+    if kind in {"query", "catalog"}:
+        service.metadata = {**service.metadata, "no_wallet_charge": True}
+    service.save(update_fields=["request_schema", "response_schema", "metadata", "updated_at"])
+
+
 def provision():
-    mains = {key: _ensure_main_category(name, slug) for key, (name, slug) in MAIN.items()}
-
+    mains = {key: _ensure_main_category(key, values) for key, values in MAIN.items()}
     categories = {}
     for main_key, name, slug in CATEGORIES:
-        categories[slug], _ = ServiceCategory.objects.update_or_create(
+        category, _ = ServiceCategory.objects.update_or_create(
             main_category=mains[main_key],
-            slug=slug,
             parent=None,
+            slug=slug,
             defaults={"name": name, "is_active": True},
         )
+        categories[slug] = category
 
     services = {}
-    amount_services = {"you-balance", "why-balance", "yem4g-balance", "yem-balance", "why-bill", "saba-units", "saba-gomla", "mtn-gomla", "mobile-gomla", "post-adsl", "post-line"}
-    for category_slug, name, code, pricing, link_key in SERVICES:
-        category = categories[category_slug]
-        services[code], _ = Service.objects.update_or_create(
+    for code, name, category_slug, kind, pricing, link_key, requires_balance in SERVICES:
+        service, _ = Service.objects.update_or_create(
             code=code,
             defaults={
-                "category": category,
+                "category": categories[category_slug],
                 "name": name,
                 "slug": slugify(code, allow_unicode=True),
+                "description": f"عقد API Sanaacash: {link_key}",
+                "service_kind": kind,
+                "requires_balance": requires_balance,
                 "pricing_mode": pricing,
+                "price": Decimal("0.00"),
+                "min_amount": Decimal("200") if code == "you-balance" else None,
+                "max_amount": Decimal("100000") if code == "you-balance" else None,
                 "currency": "YER",
                 "is_active": True,
             },
         )
-        ensure_field(services[code], "mobile", "رقم المستفيد/الاشتراك")
-        if code in amount_services:
-            ensure_field(services[code], "amount", "المبلغ", "decimal", True)
-        if code == "yem-denomination":
-            ensure_field(services[code], "amount", "قيمة الفئة", "decimal", False)
-        if code in {"you-balance", "yem4g-balance"}:
-            ensure_field(services[code], "type", "نوع الخط/الباقة")
-        if code == "why-balance":
-            ensure_field(services[code], "num", "الكمية", "decimal")
-        if code in {"electric-query", "electric-bill", "water-query", "water-bill"}:
-            ensure_field(services[code], "customer_id", "رقم المشترك", "text", True)
-            ensure_field(services[code], "placeid", "رقم المنطقة", "text", True)
-        if link_key == "games_cards":
-            for key, label in [("playerid", "رقم اللاعب"), ("playername", "اسم اللاعب"), ("zoneid", "Zone ID"), ("email", "البريد الإلكتروني"), ("uniqcode", "كود الفئة الموحد")]:
-                ensure_field(services[code], key, label, "text", key in {"playerid", "uniqcode"})
-        if pricing == "item":
-            ensure_field(services[code], "external_code", "كود المنتج/الباقة", "text", False)
+        services[code] = service
+        _service_fields(service, code, link_key)
+        _set_service_request_schema(service, code, kind)
+
     return mains, categories, services
 
 
 def provision_links(connection, services):
-    result = {}
-    for code, (name, path, fixed, field_map) in LINKS.items():
+    links = {}
+    for code, (name, path, method, encoding, fixed_params, field_map, status_path, status_params) in LINKS.items():
         link, _ = ProviderLink.objects.update_or_create(
             code=f"{connection.code}-{code}",
             defaults={
@@ -113,50 +166,157 @@ def provision_links(connection, services):
                 "name": name,
                 "operation": code,
                 "path_template": path,
-                "http_method": "GET",
-                "fixed_params": fixed,
+                "http_method": method,
+                "request_encoding": encoding,
+                "fixed_params": fixed_params,
                 "field_map": field_map,
                 "success_codes": ["0"],
                 "pending_codes": ["-2"],
-                "status_path_template": "info",
-                "status_params": {"action": "status"},
+                "status_path_template": status_path,
+                "status_params": status_params,
                 "priority": 100,
+                "is_active": True,
+                "metadata": {"source": "api 1 (59).pdf", "webhook_path": DEFAULT_WEBHOOK_PATH},
             },
         )
-        result[code] = link
-    for category_slug, name, service_code, pricing, link_key in SERVICES:
+        links[code] = link
+    for code, _, _, _, _, link_key, _ in SERVICES:
         ServiceDistribution.objects.update_or_create(
-            service=services[service_code],
-            provider_link=result[link_key],
+            service=services[code],
+            provider_link=links[link_key],
             defaults={"priority": 100, "is_active": True, "conditions": {}},
         )
-    return result
+    return links
+
+
+def _upsert_plan(service, *, external_code, name, price, provider_num="", payment_type="", line_type="", metadata=None):
+    TelecomPlan.objects.update_or_create(
+        service=service,
+        external_code=external_code,
+        defaults={
+            "name": name,
+            "price": Decimal(str(price)),
+            "payment_type": payment_type,
+            "line_type": line_type,
+            "metadata": {"provider_num": str(provider_num), **(metadata or {})},
+            "is_active": True,
+        },
+    )
+
+
+def _upsert_denom(service, *, external_code, name, face_value, sale_price, metadata=None):
+    TelecomDenomination.objects.update_or_create(
+        service=service,
+        external_code=str(external_code),
+        defaults={
+            "name": name,
+            "face_value": Decimal(str(face_value)),
+            "sale_price": Decimal(str(sale_price)),
+            "metadata": {"provider_num": str(external_code), **(metadata or {})},
+            "is_active": True,
+        },
+    )
+
+
+def _upsert_option(service, *, name, external_code="", provider_num="", price=0, metadata=None):
+    ServiceOption.objects.update_or_create(
+        service=service,
+        external_code=str(external_code),
+        provider_num=str(provider_num),
+        name=name,
+        defaults={
+            "price": Decimal(str(price)),
+            "currency": "YER",
+            "metadata": metadata or {},
+            "is_active": True,
+        },
+    )
+
+
+def seed_catalog(services):
+    bill_offer = services["yem-bill-offer"]
+    combined_offer = services["yem-offer-bill"]
+    catalog_offer = services["yem-offer"]
+    for code, price, name, payment_type, line_type in YEMEN_MOBILE_OFFERS:
+        metadata = {"provider_offer_code": code, "catalog_source": "api 1 (59).pdf"}
+        _upsert_plan(bill_offer, external_code=code, name=name, price=price, payment_type=payment_type, line_type=line_type, metadata=metadata)
+        _upsert_plan(combined_offer, external_code=code, name=name, price=price, payment_type=payment_type, line_type=line_type, metadata=metadata)
+        _upsert_plan(catalog_offer, external_code=code, name=name, price=0, payment_type=payment_type, line_type=line_type, metadata={**metadata, "catalog_only": True, "requires_balance": False})
+
+    for number, face, sale in YOU_DENOMINATIONS:
+        _upsert_denom(services["you-denomination"], external_code=number, name=f"فئة يو {number}", face_value=face, sale_price=sale)
+    for num, name, price, code, free_item, pay_type in YOU_OFFERS:
+        _upsert_plan(services["you-offer"], external_code=code or num, name=name, price=price, provider_num=num, payment_type=pay_type, metadata={"requires_balance": not free_item, "catalog_number": num})
+
+    for number, face, sale in SABA_DENOMINATIONS:
+        _upsert_denom(services["saba-denomination"], external_code=number, name=f"فئة سبأفون {number}", face_value=face, sale_price=sale)
+    for num, name, price, code in SABA_OFFERS:
+        _upsert_plan(services["saba-offer"], external_code=code, name=name, price=price, provider_num=num)
+
+    # The PDF explicitly says these numbering tables are provided separately.
+    for row in SBAY_TABLE:
+        _upsert_option(services["sbay-offer"], name=str(row[1] if len(row) > 1 else row[0]), provider_num=str(row[0]))
+    for row in ADENET_TABLE:
+        _upsert_option(services["adenet-bill"], name=str(row[1] if len(row) > 1 else row[0]), provider_num=str(row[0]))
+    for row in WHY_TABLE:
+        _upsert_option(services["why-package"], name=str(row[1] if len(row) > 1 else row[0]), provider_num=str(row[0]))
+
+
+def create_or_update_sanaacash_provider(*, code, name, userid="", domain_name="", username="", password="", note="", base_url="https://sanaacash.yrbso.net/api/yr/"):
+    provider, _ = ProviderConnection.objects.update_or_create(
+        code=code,
+        defaults={
+            "name": name,
+            "connection_type": ProviderConnection.Types.SANAACASH,
+            "base_url": base_url,
+            "userid": userid,
+            "domain_name": domain_name,
+            "username": username,
+            "is_active": True,
+        },
+    )
+    metadata = dict(provider.metadata or {})
+    metadata.update({"note": note.strip(), "contract_source": "api 1 (59).pdf"})
+    provider.metadata = metadata
+    if password:
+        provider.set_password(password)
+    fields = ["base_url", "userid", "domain_name", "username", "metadata", "is_active", "updated_at"]
+    if password:
+        fields.append("password_encrypted")
+    provider.save(update_fields=fields)
+    _, _, services = provision()
+    provision_links(provider, services)
+    seed_catalog(services)
+    return provider
 
 
 class Command(BaseCommand):
-    help = "تهيئة كاملة لقالب Sanaacash/Yemen Robot كما هو موثق في ملف الربط. لا تُدخل أي بيانات اعتماد."
+    help = "تهيئة عقد الخدمات الكامل من ملف Sanaacash API والكتالوجات المتوفرة فيه."
 
     def add_arguments(self, parser):
         parser.add_argument("--provider-code", default="sanaacash-1")
         parser.add_argument("--provider-name", default="صنعاء كاش - الربطية الأولى")
         parser.add_argument("--base-url", default="https://sanaacash.yrbso.net/api/yr/")
+        parser.add_argument("--userid", default="")
+        parser.add_argument("--domain-name", default="")
+        parser.add_argument("--username", default="")
+        parser.add_argument("--password", default="")
         parser.add_argument("--dry-run", action="store_true")
 
+    @transaction.atomic
     def handle(self, *args, **options):
         if options["dry_run"]:
-            self.stdout.write(self.style.WARNING("Dry run: لن يتم تعديل قاعدة البيانات."))
-            self.stdout.write(f"سيتم إنشاء {len(CATEGORIES)} فئات و{len(SERVICES)} خدمة و{len(LINKS)} مسار API.")
+            self.stdout.write(self.style.WARNING(f"Dry run: {len(MAIN)} فئات رئيسية، {len(CATEGORIES)} فئات، {len(SERVICES)} خدمة، {len(LINKS)} مسار API."))
             return
-        with transaction.atomic():
-            connection, _ = ProviderConnection.objects.update_or_create(
-                code=options["provider_code"],
-                defaults={
-                    "name": options["provider_name"],
-                    "connection_type": ProviderConnection.Types.SANAACASH,
-                    "base_url": options["base_url"],
-                    "is_active": True,
-                },
-            )
-            _, _, services = provision()
-            links = provision_links(connection, services)
-        self.stdout.write(self.style.SUCCESS(f"تمت تهيئة Sanaacash: {len(services)} خدمة و{len(links)} مسار وربطها بالتوزيع."))
+        provider = create_or_update_sanaacash_provider(
+            code=options["provider_code"],
+            name=options["provider_name"],
+            userid=options["userid"],
+            domain_name=options["domain_name"],
+            username=options["username"],
+            password=options["password"],
+            base_url=options["base_url"],
+        )
+        count_plans = TelecomPlan.objects.count()
+        count_denoms = TelecomDenomination.objects.count()
+        self.stdout.write(self.style.SUCCESS(f"تمت تهيئة {provider.name}: {len(SERVICES)} خدمة و{len(LINKS)} مسار، مع {count_plans} باقة و{count_denoms} فئة في الكتالوج."))
