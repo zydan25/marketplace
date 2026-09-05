@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
 
+# Services production webhook base: https://shopik.alattab.site
 jobs:
   django:
     name: Django checks and tests
