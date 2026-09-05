@@ -1,9 +1,11 @@
 from decimal import Decimal
+from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from .models import Account, JournalEntry, Wallet
+from .order_ledger import _item_allocations, item_accounting_amount
 from .services_v2 import account_balance, ensure_chart, ensure_wallet, post_entry, wallet_summary
 
 
@@ -46,3 +48,21 @@ class AccountingCoreTests(TestCase):
         self.assertTrue(Wallet.objects.filter(owner=self.vendor, kind=Wallet.Kinds.VENDOR_PENDING).exists())
         self.assertTrue(Wallet.objects.filter(owner=self.vendor, kind=Wallet.Kinds.VENDOR_AVAILABLE).exists())
         self.assertTrue(Wallet.objects.filter(owner=self.vendor, kind=Wallet.Kinds.WITHDRAWAL_HOLD).exists())
+
+    def test_item_allocation_preserves_vendor_order_net_after_shipping_and_discount(self):
+        class Items:
+            def __init__(self, links):
+                self.links = links
+            def select_related(self, *args):
+                return self
+            def order_by(self, *args):
+                return self.links
+
+        item1 = SimpleNamespace(id=1, vendor_net=Decimal("90.00"), vendor_total=Decimal("100.00"), commission=Decimal("10.00"))
+        item2 = SimpleNamespace(id=2, vendor_net=Decimal("45.00"), vendor_total=Decimal("50.00"), commission=Decimal("5.00"))
+        links = [SimpleNamespace(order_item=item1), SimpleNamespace(order_item=item2)]
+        vendor_order = SimpleNamespace(vendor_net=Decimal("150.00"), items=Items(links))
+        allocations = _item_allocations(vendor_order)
+        allocated_net = sum((row[0] for row in allocations.values()), Decimal("0.00"))
+        self.assertEqual(allocated_net, Decimal("150.00"))
+        self.assertEqual(item_accounting_amount(vendor_order, item1)[2] + item_accounting_amount(vendor_order, item2)[2], Decimal("200.00"))
