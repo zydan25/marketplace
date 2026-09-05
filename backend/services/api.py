@@ -1,8 +1,8 @@
-from uuid import UUID
+import hashlib
 import secrets
 
-from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -69,27 +69,42 @@ def _resolve_price(service, payload, *, item_id=None, item_type=""):
     return amount.quantize(Decimal("0.01"))
 
 
+def _service_items(service):
+    result = []
+    for rel_name, item_type in (("telecom_denominations", "telecom_denominations"), ("telecom_plans", "telecom_plans"), ("game_products", "game_products"), ("digital_products", "digital_products")):
+        for item in getattr(service, rel_name).filter(is_active=True).order_by("sort_order", "id"):
+            price = getattr(item, "sale_price", getattr(item, "price", 0))
+            result.append({"id": item.id, "type": item_type, "name": item.name, "code": item.external_code, "price": str(price), "currency": getattr(item, "currency", service.currency), "metadata": item.metadata})
+    return result
+
+
 class ServiceCatalogAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         roots = []
         for main in MainServiceCategory.objects.filter(is_active=True).order_by("sort_order", "id"):
-            categories = []
-            for category in main.categories.filter(is_active=True).prefetch_related("services").order_by("sort_order", "id"):
-                categories.append({
-                    "id": category.id, "name": category.name, "slug": category.slug, "parent_id": category.parent_id,
-                    "services": [self._service_data(service) for service in category.services.filter(is_active=True).order_by("sort_order", "id")],
-                })
-            roots.append({"id": main.id, "name": main.name, "slug": main.slug, "icon": main.icon, "categories": categories})
+            roots.append({"id": main.id, "name": main.name, "slug": main.slug, "icon": main.icon, "categories": self._categories(main)})
         return Response({"categories": roots})
+
+    def _categories(self, main):
+        categories = list(main.categories.filter(is_active=True).prefetch_related("services", "children__services").order_by("sort_order", "id"))
+        by_parent = {}
+        for category in categories:
+            by_parent.setdefault(category.parent_id, []).append(category)
+        def build(category):
+            return {"id": category.id, "name": category.name, "slug": category.slug, "parent_id": category.parent_id, "services": [self._service_data(service) for service in category.services.filter(is_active=True).order_by("sort_order", "id")], "children": [build(child) for child in by_parent.get(category.id, [])]}
+        return [build(category) for category in by_parent.get(None, [])]
 
     @staticmethod
     def _service_data(service):
         return {
             "id": service.id, "code": service.code, "name": service.name, "description": service.description,
             "pricing_mode": service.pricing_mode, "price": str(service.price), "currency": service.currency,
+            "min_amount": str(service.min_amount) if service.min_amount is not None else None,
+            "max_amount": str(service.max_amount) if service.max_amount is not None else None,
             "fields": [{"key": f.key, "label": f.label, "type": f.field_type, "required": f.required, "choices": f.choices} for f in service.fields.filter(is_active=True).order_by("sort_order", "id")],
+            "items": _service_items(service),
         }
 
 
@@ -99,7 +114,7 @@ class ServiceDetailAPIView(APIView):
     def get(self, request, pk):
         service = get_object_or_404(Service.objects.select_related("category__main_category"), pk=pk, is_active=True)
         data = ServiceCatalogAPIView._service_data(service)
-        data.update({"category": {"id": service.category_id, "name": service.category.name, "main_category": service.category.main_category.name}, "min_amount": str(service.min_amount) if service.min_amount is not None else None, "max_amount": str(service.max_amount) if service.max_amount is not None else None})
+        data.update({"category": {"id": service.category_id, "name": service.category.name, "main_category": service.category.main_category.name}})
         return Response(data)
 
 
