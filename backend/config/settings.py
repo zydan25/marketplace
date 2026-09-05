@@ -12,7 +12,7 @@ INSTALLED_APPS = [
     "marketplace.apps.MarketplaceConfig",
     "accounts.apps.AccountsConfig", "catalog.apps.CatalogConfig", "vendors.apps.VendorsConfig",
     "storefront.apps.StorefrontConfig", "orders.apps.OrdersConfig", "finance.apps.FinanceConfig",
-    "communication.apps.CommunicationConfig", "promotions.apps.PromotionsConfig",
+    "accounting.apps.AccountingConfig", "services.apps.ServicesConfig", "communication.apps.CommunicationConfig", "promotions.apps.PromotionsConfig",
 ]
 MIDDLEWARE = ["corsheaders.middleware.CorsMiddleware", "django.middleware.security.SecurityMiddleware", "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware", "config.middleware.ApiCsrfExemptMiddleware", "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware", "django.contrib.messages.middleware.MessageMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware"]
 ROOT_URLCONF = "config.urls"
@@ -33,6 +33,7 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SERVICES_CREDENTIALS_KEY = os.getenv("SERVICES_CREDENTIALS_KEY", "")
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
