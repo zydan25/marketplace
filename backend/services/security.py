@@ -21,4 +21,4 @@ def decrypt_secret(value):
     try:
         return _fernet().decrypt(value.encode("utf-8")).decode("utf-8")
     except InvalidToken as exc:
-        raise RuntimeError("تعذر فك بيانات اعتماد الربط؛ تحقق من SERVIC​ES_CREDENTIALS_KEY.") from exc
+        raise RuntimeError("تعذر فك بيانات اعتماد الربط؛ تحقق من SERVICES_CREDENTIALS_KEY.") from exc

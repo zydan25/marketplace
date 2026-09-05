@@ -8,6 +8,7 @@ from communication.views import dashboard as communication_dashboard, notificati
 from finance.views import currency_rate_form, dashboard as finance_dashboard, vendor_shipping_form
 from orders.views import dashboard as orders_dashboard, shipment_form
 from promotions.views import coupon_form, dashboard as promotions_dashboard, loan_review
+from services.views import dashboard as services_dashboard
 from storefront.views import dashboard as storefront_dashboard, media_form, section_form, theme_form
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
@@ -50,6 +51,7 @@ urlpatterns = [
     path("admin/dashboard/finance/shipping/new/", vendor_shipping_form, name="admin-finance-shipping-new"),
     path("admin/dashboard/finance/shipping/<int:pk>/edit/", vendor_shipping_form, name="admin-finance-shipping-edit"),
     path("admin/dashboard/accounting/", accounting_dashboard, name="admin-dashboard-accounting"),
+    path("admin/dashboard/services/", services_dashboard, name="admin-dashboard-services"),
     path("admin/dashboard/communication/", communication_dashboard, name="admin-dashboard-communication"),
     path("admin/dashboard/communication/notifications/new/", notification_form, name="admin-communication-notification-new"),
     path("admin/dashboard/communication/notifications/<int:pk>/edit/", notification_form, name="admin-communication-notification-edit"),

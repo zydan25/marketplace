@@ -20,9 +20,9 @@ def _clean_payload(service, payload):
         if value is not None and field.field_type in {field.FieldTypes.NUMBER, field.FieldTypes.DECIMAL}:
             try:
                 value = Decimal(str(value)) if field.field_type == field.FieldTypes.DECIMAL else int(value)
-            except (InvalidOperation, ValueError, TypeError):
-                raise ValueError(f"قيمة {field.label} غير صالحة.")
-        if isinstance(field.validation, dict):
+            except (InvalidOperation, ValueError, TypeError) as exc:
+                raise ValueError(f"قيمة {field.label} غير صالحة.") from exc
+        if isinstance(field.validation, dict) and value is not None:
             min_len = field.validation.get("min_length")
             max_len = field.validation.get("max_length")
             if min_len and len(str(value)) < int(min_len):
@@ -33,24 +33,36 @@ def _clean_payload(service, payload):
     return clean
 
 
-def _resolve_price(service, payload, item_id=None):
+def _resolve_price(service, payload, item_id=None, item_type=""):
     if service.pricing_mode == Service.PricingModes.FIXED:
         return Decimal(service.price)
     if service.pricing_mode == Service.PricingModes.AMOUNT:
-        amount = Decimal(str(payload.get("amount", "0")))
+        try:
+            amount = Decimal(str(payload.get("amount", "0")))
+        except InvalidOperation as exc:
+            raise ValueError("المبلغ غير صالح.") from exc
+        if amount <= 0:
+            raise ValueError("المبلغ يجب أن يكون أكبر من صفر.")
         if service.min_amount is not None and amount < service.min_amount:
             raise ValueError("المبلغ أقل من الحد الأدنى المسموح.")
         if service.max_amount is not None and amount > service.max_amount:
             raise ValueError("المبلغ أكبر من الحد الأعلى المسموح.")
         return amount
-    if item_id is None:
-        raise ValueError("يجب اختيار عنصر من جدول الخدمة.")
-    item_models = [service.telecom_denominations.model, service.telecom_plans.model, service.game_products.model, service.digital_products.model]
-    for model in item_models:
-        item = model.objects.filter(pk=item_id, service=service, is_active=True).first()
-        if item:
-            return Decimal(item.sale_price if hasattr(item, "sale_price") else item.price)
-    raise ValueError("عنصر الخدمة غير موجود أو غير فعال.")
+    if item_id is None or not item_type:
+        raise ValueError("يجب اختيار عنصر من جدول الخدمة وتحديد نوعه.")
+    models_by_type = {
+        "telecom_denomination": service.telecom_denominations.model,
+        "telecom_plan": service.telecom_plans.model,
+        "game_product": service.game_products.model,
+        "digital_product": service.digital_products.model,
+    }
+    model = models_by_type.get(item_type)
+    if model is None:
+        raise ValueError("نوع عنصر الخدمة غير مدعوم.")
+    item = model.objects.filter(pk=item_id, service=service, is_active=True).first()
+    if not item:
+        raise ValueError("عنصر الخدمة غير موجود أو غير فعال.")
+    return Decimal(item.sale_price if hasattr(item, "sale_price") else item.price)
 
 
 class ServiceCatalogAPIView(APIView):
@@ -58,45 +70,23 @@ class ServiceCatalogAPIView(APIView):
 
     def get(self, request):
         roots = []
-        for main in MainServiceCategory.objects.filter(is_active=True).prefetch_related("categories__children__services", "categories__services").order_by("sort_order", "id"):
-            roots.append({
-                "id": main.id,
-                "name": main.name,
-                "slug": main.slug,
-                "icon": main.icon,
-                "categories": [
-                    {
-                        "id": category.id,
-                        "name": category.name,
-                        "slug": category.slug,
-                        "parent_id": category.parent_id,
-                        "services": [
-                            {
-                                "id": service.id,
-                                "code": service.code,
-                                "name": service.name,
-                                "description": service.description,
-                                "pricing_mode": service.pricing_mode,
-                                "price": str(service.price),
-                                "currency": service.currency,
-                                "fields": [
-                                    {
-                                        "key": f.key,
-                                        "label": f.label,
-                                        "type": f.field_type,
-                                        "required": f.required,
-                                        "choices": f.choices,
-                                    }
-                                    for f in service.fields.filter(is_active=True).order_by("sort_order", "id")
-                                ],
-                            }
-                            for service in category.services.filter(is_active=True).order_by("sort_order", "id")
-                        ],
-                    }
-                    for category in main.categories.filter(is_active=True, parent__isnull=True).order_by("sort_order", "id")
-                ],
-            })
+        for main in MainServiceCategory.objects.filter(is_active=True).prefetch_related("categories__services", "categories__children").order_by("sort_order", "id"):
+            categories = []
+            for category in main.categories.filter(is_active=True).prefetch_related("services").order_by("sort_order", "id"):
+                categories.append({
+                    "id": category.id, "name": category.name, "slug": category.slug, "parent_id": category.parent_id,
+                    "services": [self._service_data(service) for service in category.services.filter(is_active=True).order_by("sort_order", "id")],
+                })
+            roots.append({"id": main.id, "name": main.name, "slug": main.slug, "icon": main.icon, "categories": categories})
         return Response({"categories": roots})
+
+    @staticmethod
+    def _service_data(service):
+        return {
+            "id": service.id, "code": service.code, "name": service.name, "description": service.description,
+            "pricing_mode": service.pricing_mode, "price": str(service.price), "currency": service.currency,
+            "fields": [{"key": f.key, "label": f.label, "type": f.field_type, "required": f.required, "choices": f.choices} for f in service.fields.filter(is_active=True).order_by("sort_order", "id")],
+        }
 
 
 class ServiceDetailAPIView(APIView):
@@ -104,19 +94,9 @@ class ServiceDetailAPIView(APIView):
 
     def get(self, request, pk):
         service = get_object_or_404(Service.objects.select_related("category__main_category"), pk=pk, is_active=True)
-        return Response({
-            "id": service.id,
-            "code": service.code,
-            "name": service.name,
-            "description": service.description,
-            "category": {"id": service.category_id, "name": service.category.name, "main_category": service.category.main_category.name},
-            "pricing_mode": service.pricing_mode,
-            "price": str(service.price),
-            "min_amount": str(service.min_amount) if service.min_amount is not None else None,
-            "max_amount": str(service.max_amount) if service.max_amount is not None else None,
-            "currency": service.currency,
-            "fields": [{"key": f.key, "label": f.label, "type": f.field_type, "required": f.required, "choices": f.choices} for f in service.fields.filter(is_active=True).order_by("sort_order", "id")],
-        })
+        data = ServiceCatalogAPIView._service_data(service)
+        data.update({"category": {"id": service.category_id, "name": service.category.name, "main_category": service.category.main_category.name}, "min_amount": str(service.min_amount) if service.min_amount is not None else None, "max_amount": str(service.max_amount) if service.max_amount is not None else None})
+        return Response(data)
 
 
 class ServiceRequestAPIView(APIView):
@@ -124,30 +104,20 @@ class ServiceRequestAPIView(APIView):
 
     @transaction.atomic
     def post(self, request):
-        service_id = request.data.get("service_id")
+        service = get_object_or_404(Service, pk=request.data.get("service_id"), is_active=True)
         payload = request.data.get("payload", {})
         item_id = request.data.get("item_id")
+        item_type = request.data.get("item_type", "")
         idempotency_key = request.headers.get("Idempotency-Key") or request.data.get("idempotency_key")
-        service = get_object_or_404(Service, pk=service_id, is_active=True)
         if idempotency_key:
             existing = ServiceTransaction.objects.filter(idempotency_key=idempotency_key, customer=request.user).first()
             if existing:
                 return Response(_transaction_data(existing), status=200)
         try:
             payload = _clean_payload(service, payload)
-            amount = _resolve_price(service, payload, item_id=item_id)
+            amount = _resolve_price(service, payload, item_id=item_id, item_type=item_type)
             mobile = str(payload.get("mobile", "")).strip()
-            tx = ServiceTransaction.objects.create(
-                customer=request.user,
-                service=service,
-                item_id=int(item_id) if item_id else None,
-                currency=service.currency,
-                customer_amount=amount,
-                payload=payload,
-                mobile=mobile,
-                status=ServiceTransaction.Status.ACCEPTED,
-                idempotency_key=idempotency_key,
-            )
+            tx = ServiceTransaction.objects.create(customer=request.user, service=service, item_type=item_type, item_id=int(item_id) if item_id else None, currency=service.currency, customer_amount=amount, payload=payload, mobile=mobile, status=ServiceTransaction.Status.ACCEPTED, idempotency_key=idempotency_key)
             journal = reserve_service_funds(tx)
             tx.reserved_journal_id = journal.pk
             tx.status = ServiceTransaction.Status.QUEUED
@@ -161,18 +131,7 @@ class ServiceRequestAPIView(APIView):
 
 
 def _transaction_data(tx):
-    return {
-        "id": str(tx.id),
-        "service": tx.service.code,
-        "status": tx.status,
-        "amount": str(tx.customer_amount),
-        "currency": tx.currency,
-        "provider_transaction_id": tx.provider_transaction_id or None,
-        "error_code": tx.error_code or None,
-        "error_message": tx.error_message or None,
-        "created_at": tx.created_at.isoformat(),
-        "completed_at": tx.completed_at.isoformat() if tx.completed_at else None,
-    }
+    return {"id": str(tx.id), "service": tx.service.code, "status": tx.status, "amount": str(tx.customer_amount), "currency": tx.currency, "provider_transaction_id": tx.provider_transaction_id or None, "error_code": tx.error_code or None, "error_message": tx.error_message or None, "created_at": tx.created_at.isoformat(), "completed_at": tx.completed_at.isoformat() if tx.completed_at else None}
 
 
 class ServiceTransactionDetailAPIView(APIView):
