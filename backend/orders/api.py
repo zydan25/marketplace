@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 
 from .launch_order_api import LaunchOrderViewSet
-from .accounting_api import AccountingOrderViewSet
+from .accounting_ledger_api import LedgerAccountingOrderViewSet
 from .models import InventoryReservation, OrderItem, OrderStatusHistory, Payment, Shipment, VendorOrder, VendorOrderItem
 from .secure_order_api import SecureOrderViewSet
 from .serializers import (
@@ -49,7 +49,7 @@ class ReadOnlyDomainViewSet(viewsets.ReadOnlyModelViewSet):
     http_method_names = ["get", "head", "options"]
 
 
-class OrderViewSet(AccountingOrderViewSet):
+class OrderViewSet(LedgerAccountingOrderViewSet):
     """Canonical checkout endpoint with accounting-backed wallet funding and escrow."""
 
 
@@ -149,5 +149,5 @@ def api_info(request):
             "status-history", "shipments", "inventory-reservations", "payments",
         ],
         "write_rules": "تغيير حالة الطلب والشحن والمخزون يتم فقط عبر دورة الطلب الآمنة داخل orders.",
-        "financial_rules": "تمويل الطلب يخصم من محفظة العميل محاسبيًا ويضع صافي التاجر في محفظة مستحقات معلقة حتى تأكيد الاستلام.",
+        "financial_rules": "تمويل الطلب يخصم من محفظة العميل محاسبيًا ويضع صافي التاجر في محفظة مستحقات معلقة حتى تأكيد الاستلام؛ التسوية والاسترداد والتعديل والإلغاء كلها قيود غير قابلة للتعديل.",
     })
