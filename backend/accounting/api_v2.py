@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from .models import Account, JournalEntry, Voucher, Wallet, WithdrawalRequest
 from .serializers import AccountSerializer, JournalEntrySerializer, VoucherSerializer, WalletSerializer, WithdrawalRequestSerializer
 from .services_v2 import account_balance, ensure_chart, ensure_wallet, hold_withdrawal, post_entry, reject_withdrawal, settle_withdrawal, statement_for_user, wallet_summary
+from .legacy_sync import sync_vendor_pending
 
 
 def is_admin(user):
@@ -52,14 +53,9 @@ class AccountViewSet(AdminOnlyMixin, viewsets.ModelViewSet):
         if not name:
             raise ValidationError({"name": "اسم الحساب مطلوب."})
         account_type = request.data.get("account_type") or Account.Types.ASSET
-        normal_side = request.data.get("normal_side") or (
-            Account.NormalSides.CREDIT if account_type in {Account.Types.LIABILITY, Account.Types.EQUITY, Account.Types.INCOME} else Account.NormalSides.DEBIT
-        )
+        normal_side = request.data.get("normal_side") or (Account.NormalSides.CREDIT if account_type in {Account.Types.LIABILITY, Account.Types.EQUITY, Account.Types.INCOME} else Account.NormalSides.DEBIT)
         from .services_v2 import _get_or_create_child
-        account = _get_or_create_child(
-            parent, name, is_group=False, account_type=account_type, normal_side=normal_side,
-            party_type=str(request.data.get("party_type", "")).strip(),
-        )
+        account = _get_or_create_child(parent, name, is_group=False, account_type=account_type, normal_side=normal_side, party_type=str(request.data.get("party_type", "")).strip())
         return Response(AccountSerializer(account).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -94,6 +90,8 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
     def list(self, request, *args, **kwargs):
         currency = str(request.query_params.get("currency", "YER")).upper()
+        if getattr(request.user, "role", None) == "vendor":
+            sync_vendor_pending(request.user, currency)
         summary = wallet_summary(request.user, currency)
         return Response({**summary, "wallets": WalletSerializer(self.get_queryset().filter(currency=currency), many=True).data})
 
@@ -103,11 +101,15 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=["get"], url_path="me/balance")
     def my_balance(self, request):
         currency = str(request.query_params.get("currency", "YER")).upper()
+        if getattr(request.user, "role", None) == "vendor":
+            sync_vendor_pending(request.user, currency)
         return Response(wallet_summary(request.user, currency))
 
     @action(detail=False, methods=["get"], url_path="me/statement")
     def my_statement(self, request):
         currency = str(request.query_params.get("currency", "YER")).upper()
+        if getattr(request.user, "role", None) == "vendor":
+            sync_vendor_pending(request.user, currency)
         return Response({"currency": currency, "statement": statement_for_user(request.user, currency)})
 
 
@@ -142,21 +144,9 @@ class VoucherViewSet(viewsets.ReadOnlyModelViewSet):
         if not cash or not party:
             raise ValidationError("يجب اختيار حسابين فرعيين فعالين.")
         description = str(request.data.get("description", "")).strip()
-        if voucher_type == Voucher.Types.RECEIPT:
-            lines = [{"account": cash, "debit": amount}, {"account": party, "credit": amount}]
-        else:
-            lines = [{"account": party, "debit": amount}, {"account": cash, "credit": amount}]
-        entry = post_entry(
-            description or ("سند قبض" if voucher_type == Voucher.Types.RECEIPT else "سند صرف"),
-            lines, source_type="voucher", source_id=str(uuid.uuid4()), created_by=request.user,
-        )
-        voucher = Voucher.objects.create(
-            number=f"{'RV' if voucher_type == Voucher.Types.RECEIPT else 'PV'}-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}",
-            voucher_type=voucher_type, voucher_date=date.today(), amount=amount,
-            currency=str(request.data.get("currency", "YER")).upper(), cash_account=cash, party_account=party,
-            journal_entry=entry, description=description, source_type=str(request.data.get("source_type", "manual")),
-            source_id=str(request.data.get("source_id", "")), created_by=request.user,
-        )
+        lines = ([{"account": cash, "debit": amount}, {"account": party, "credit": amount}] if voucher_type == Voucher.Types.RECEIPT else [{"account": party, "debit": amount}, {"account": cash, "credit": amount}])
+        entry = post_entry(description or ("سند قبض" if voucher_type == Voucher.Types.RECEIPT else "سند صرف"), lines, source_type="voucher", source_id=str(uuid.uuid4()), created_by=request.user)
+        voucher = Voucher.objects.create(number=f"{'RV' if voucher_type == Voucher.Types.RECEIPT else 'PV'}-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}", voucher_type=voucher_type, voucher_date=date.today(), amount=amount, currency=str(request.data.get("currency", "YER")).upper(), cash_account=cash, party_account=party, journal_entry=entry, description=description, source_type=str(request.data.get("source_type", "manual")), source_id=str(request.data.get("source_id", "")), created_by=request.user)
         return Response(VoucherSerializer(voucher).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"])
@@ -182,6 +172,7 @@ class WithdrawalViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("طلبات السحب مخصصة للتاجر.")
         amount = money(request.data.get("amount"))
         currency = str(request.data.get("currency", "YER")).upper()
+        sync_vendor_pending(request.user, currency)
         available = account_balance(ensure_wallet(request.user, Wallet.Kinds.VENDOR_AVAILABLE, currency).account)
         held = WithdrawalRequest.objects.filter(requester=request.user, currency=currency, status__in=[WithdrawalRequest.Status.PENDING, WithdrawalRequest.Status.APPROVED]).aggregate(v=Sum("amount"))["v"] or Decimal("0.00")
         withdrawable = available - held
