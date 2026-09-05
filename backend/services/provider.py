@@ -61,9 +61,8 @@ class ProviderClient:
             params.setdefault("token", self.sanaacash_token(self.connection.get_password(), transaction.provider_transaction_id, self.connection.username, transaction.mobile))
             if transaction.webhook_secret_encrypted:
                 params.setdefault("backpass", decrypt_secret(transaction.webhook_secret_encrypted))
-            webhook_base = os.getenv("SERVICES_WEBHOOK_BASE_URL", "").rstrip("/")
-            if webhook_base:
-                params.setdefault("backurl", webhook_base + "/api/v2/services/webhook/sanaacash/")
+            webhook_base = os.getenv("SERVICES_WEBHOOK_BASE_URL", "https://shopik.alattab.site").rstrip("/")
+            params.setdefault("backurl", webhook_base + "/api/v2/services/webhook/sanaacash/")
         return params, context
 
     def call(self, link, transaction, *, status_check=False):
