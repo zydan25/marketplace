@@ -16,7 +16,6 @@ def _release_key(vendor_order_id, suffix):
 
 def _fund_order_lines(order):
     from orders.models import VendorOrder
-
     customer = ensure_wallet(order.customer, Wallet.Kinds.CUSTOMER, order.currency)
     vendor_orders = list(VendorOrder.objects.select_related("vendor__owner").filter(order=order).order_by("id"))
     order_total = _money(order.total)
@@ -57,6 +56,10 @@ def release_vendor_amount(vendor_user, amount, currency, *, vendor_order_id, rel
     amount = _money(amount)
     if amount <= 0:
         return None
+    key = _release_key(vendor_order_id, release_key)
+    existing = JournalEntry.objects.filter(idempotency_key=key).first()
+    if existing:
+        return existing
     pending = ensure_wallet(vendor_user, Wallet.Kinds.VENDOR_PENDING, currency)
     available = ensure_wallet(vendor_user, Wallet.Kinds.VENDOR_AVAILABLE, currency)
     if account_balance(pending.account) < amount:
@@ -69,25 +72,18 @@ def release_vendor_amount(vendor_user, amount, currency, *, vendor_order_id, rel
         ],
         source_type="vendor_order_release",
         source_id=vendor_order_id,
-        idempotency_key=_release_key(vendor_order_id, release_key),
+        idempotency_key=key,
         created_by=created_by,
         metadata={"vendor_order_id": vendor_order_id, "amount": str(amount), "item_ids": [int(x) for x in (item_ids or [])]},
     )
 
 
 def item_release_exists(vendor_order_id, item_id):
-    return JournalEntry.objects.filter(
-        idempotency_key=_release_key(vendor_order_id, f"item:{item_id}"),
-        status=JournalEntry.Status.POSTED,
-    ).exists()
+    return JournalEntry.objects.filter(idempotency_key=_release_key(vendor_order_id, f"item:{item_id}"), status=JournalEntry.Status.POSTED).exists()
 
 
 def vendor_order_has_release(vendor_order_id):
-    return JournalEntry.objects.filter(
-        source_type="vendor_order_release",
-        source_id=str(vendor_order_id),
-        status=JournalEntry.Status.POSTED,
-    ).exists()
+    return JournalEntry.objects.filter(source_type="vendor_order_release", source_id=str(vendor_order_id), status=JournalEntry.Status.POSTED).exists()
 
 
 def refunded_item_net(item_id):
@@ -224,34 +220,15 @@ def release_order_items(order, *, created_by=None):
             amount = _money(item.vendor_net)
             if amount <= 0:
                 continue
-            entry = release_vendor_amount(
-                vendor_order.vendor.owner,
-                amount,
-                vendor_order.currency,
-                vendor_order_id=vendor_order.id,
-                release_key=f"item:{item.id}",
-                item_ids=[item.id],
-                created_by=created_by,
-            )
+            entry = release_vendor_amount(vendor_order.vendor.owner, amount, vendor_order.currency, vendor_order_id=vendor_order.id, release_key=f"item:{item.id}", item_ids=[item.id], created_by=created_by)
             if entry:
                 released += amount
         target = _money(vendor_order.vendor_net)
-        released_by_items = sum(
-            (_money(link.order_item.vendor_net) for link in vendor_order.items.select_related("order_item").all() if item_release_exists(vendor_order.id, link.order_item.id)),
-            Decimal("0.00"),
-        )
+        released_by_items = sum((_money(link.order_item.vendor_net) for link in vendor_order.items.select_related("order_item").all() if item_release_exists(vendor_order.id, link.order_item.id)), Decimal("0.00"))
         refunded_net = sum((refunded_item_net(link.order_item.id) for link in vendor_order.items.select_related("order_item").all()), Decimal("0.00"))
         residual = max(Decimal("0.00"), target - released_by_items - refunded_net)
         if residual > 0:
-            entry = release_vendor_amount(
-                vendor_order.vendor.owner,
-                residual,
-                vendor_order.currency,
-                vendor_order_id=vendor_order.id,
-                release_key="residual",
-                item_ids=[],
-                created_by=created_by,
-            )
+            entry = release_vendor_amount(vendor_order.vendor.owner, residual, vendor_order.currency, vendor_order_id=vendor_order.id, release_key="residual", item_ids=[], created_by=created_by)
             if entry:
                 released += residual
     return released
