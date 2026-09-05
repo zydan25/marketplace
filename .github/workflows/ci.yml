@@ -2,10 +2,12 @@ name: Marketplace CI
 
 on:
   push:
-    branches: [main, "refactor/**", "work/**"]
+    branches: [main, "refactor/**", "work/**", "feat/**"]
   pull_request:
     branches: [main]
 
+# Services production webhook base: https://shopik.alattab.site
+# Full services-platform verification is intentionally run on feature branches before merge.
 jobs:
   django:
     name: Django checks and tests
@@ -70,8 +72,10 @@ jobs:
         run: python manage.py migrate --plan
       - name: Apply migrations
         run: python manage.py migrate --noinput
+      - name: Verify services catalog definition
+        run: python manage.py check_sanaacash_catalog
       - name: Run all Django tests
-        run: python manage.py test marketplace accounts catalog vendors storefront orders finance communication promotions accounting
+        run: python manage.py test marketplace accounts catalog vendors storefront orders finance communication promotions accounting services
 
   expo:
     name: Expo TypeScript and Web builds
