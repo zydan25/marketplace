@@ -50,13 +50,7 @@ def reserve_service_funds(service_transaction):
     key = f"service:reserve:{service_transaction.id}"
     existing = JournalEntry.objects.filter(idempotency_key=key).first()
     if existing:
-        _project_customer_movement(
-            service_transaction,
-            -amount,
-            "payment",
-            existing,
-            f"حجز خدمة {service_transaction.service.code}",
-        )
+        _project_customer_movement(service_transaction, -amount, "payment", existing, f"حجز خدمة {service_transaction.service.code}")
         return existing
     entry = post_entry(
         f"حجز مبلغ خدمة {service_transaction.service.code}",
@@ -64,13 +58,7 @@ def reserve_service_funds(service_transaction):
         source_type="service_reservation", source_id=service_transaction.id, idempotency_key=key,
         created_by=service_transaction.customer, metadata={"service_transaction": str(service_transaction.id), "currency": service_transaction.currency},
     )
-    _project_customer_movement(
-        service_transaction,
-        -amount,
-        "payment",
-        entry,
-        f"حجز خدمة {service_transaction.service.code}",
-    )
+    _project_customer_movement(service_transaction, -amount, "payment", entry, f"حجز خدمة {service_transaction.service.code}")
     return entry
 
 
@@ -79,6 +67,8 @@ def settle_service(service_transaction):
     amount = Decimal(service_transaction.customer_amount).quantize(Decimal("0.01"))
     if amount <= 0 or not service_transaction.service.requires_balance:
         return None
+    if not service_transaction.reserved_journal_id:
+        raise ValueError("لا يمكن تسوية خدمة مدفوعة لم يتم تسجيل حجزها المحاسبي.")
     accounts = ensure_service_accounts()
     key = f"service:settle:{service_transaction.id}"
     existing = JournalEntry.objects.filter(idempotency_key=key).first()
@@ -97,18 +87,14 @@ def refund_service(service_transaction):
     amount = Decimal(service_transaction.customer_amount).quantize(Decimal("0.01"))
     if amount <= 0 or not service_transaction.service.requires_balance:
         return None
+    if not service_transaction.reserved_journal_id:
+        raise ValueError("لا يمكن رد مبلغ خدمة مدفوعة لم يتم تسجيل حجزها المحاسبي.")
     customer_wallet = ensure_wallet(service_transaction.customer, Wallet.Kinds.CUSTOMER, service_transaction.currency)
     accounts = ensure_service_accounts()
     key = f"service:refund:{service_transaction.id}"
     existing = JournalEntry.objects.filter(idempotency_key=key).first()
     if existing:
-        _project_customer_movement(
-            service_transaction,
-            amount,
-            "refund",
-            existing,
-            f"استرداد خدمة {service_transaction.service.code}",
-        )
+        _project_customer_movement(service_transaction, amount, "refund", existing, f"استرداد خدمة {service_transaction.service.code}")
         return existing
     entry = post_entry(
         f"إعادة مبلغ خدمة فاشلة {service_transaction.service.code}",
@@ -117,11 +103,5 @@ def refund_service(service_transaction):
         metadata={"service_transaction": str(service_transaction.id), "currency": service_transaction.currency},
         idempotency_key=key,
     )
-    _project_customer_movement(
-        service_transaction,
-        amount,
-        "refund",
-        entry,
-        f"استرداد خدمة {service_transaction.service.code}",
-    )
+    _project_customer_movement(service_transaction, amount, "refund", entry, f"استرداد خدمة {service_transaction.service.code}")
     return entry
