@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -21,6 +22,20 @@ class Wallet(TimeStampedModel):
 
     class Meta:
         db_table = "marketplace_wallet"
+
+    def save(self, *args, **kwargs):
+        # This table is now only a compatibility projection. Financial writes
+        # must go through accounting.services_v2. Only the projection bridge may
+        # update the stored balance.
+        if self.pk and "update_fields" not in kwargs:
+            current = type(self).objects.filter(pk=self.pk).values("balance").first()
+            if current is not None and Decimal(current["balance"]) != Decimal(self.balance) and not getattr(self, "_allow_projection_write", False):
+                raise ValidationError("رصيد المحفظة لا يُعدل مباشرة؛ استخدم دفتر الحسابات.")
+        elif self.pk and kwargs.get("update_fields") and "balance" in kwargs["update_fields"]:
+            current = type(self).objects.filter(pk=self.pk).values("balance").first()
+            if current is not None and Decimal(current["balance"]) != Decimal(self.balance) and not getattr(self, "_allow_projection_write", False):
+                raise ValidationError("رصيد المحفظة لا يُعدل مباشرة؛ استخدم دفتر الحسابات.")
+        super().save(*args, **kwargs)
 
 
 class WalletTransaction(TimeStampedModel):
