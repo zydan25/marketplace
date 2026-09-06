@@ -6,6 +6,30 @@ from .models import Account, JournalEntry, Wallet
 from .services_v2 import account_balance, ensure_wallet, post_entry
 
 
+def _project_transfer(sender, recipient, amount, currency, entry, source_type):
+    from finance.unified_wallet import record_projection_transaction
+
+    incoming_type = "reward" if source_type == "gift" else "top_up"
+    record_projection_transaction(
+        sender,
+        -amount,
+        currency,
+        transaction_type="payment",
+        reference=entry.number,
+        note=f"{'هدية' if source_type == 'gift' else 'تحويل'} إلى {recipient.phone}",
+        metadata={"accounting_journal": entry.number, "source_type": source_type, "recipient_id": recipient.pk},
+    )
+    record_projection_transaction(
+        recipient,
+        amount,
+        currency,
+        transaction_type=incoming_type,
+        reference=f"{entry.number}:receiver",
+        note=f"{'هدية' if source_type == 'gift' else 'تحويل'} من {sender.phone}",
+        metadata={"accounting_journal": entry.number, "source_type": source_type, "sender_id": sender.pk},
+    )
+
+
 def transfer_between_users(
     sender,
     recipient,
@@ -49,13 +73,11 @@ def transfer_between_users(
                 }
                 if actual != expected:
                     raise ValueError("Idempotency-Key سبق استخدامه لعملية مالية مختلفة.")
+                _project_transfer(sender, recipient, amount, currency, existing, source_type)
                 return existing
 
         source = ensure_wallet(sender, Wallet.Kinds.CUSTOMER, currency)
         target = ensure_wallet(recipient, Wallet.Kinds.CUSTOMER, currency)
-
-        # Lock both customer ledger accounts in deterministic order so concurrent
-        # A->B and B->A transfers cannot deadlock on PostgreSQL.
         account_ids = sorted([source.account_id, target.account_id])
         locked = {
             account.pk: account
@@ -76,7 +98,7 @@ def transfer_between_users(
             "source_id": str(source_id or ""),
             "note": note,
         }
-        return post_entry(
+        entry = post_entry(
             note or ("تحويل رصيد" if source_type == "transfer" else "إرسال هدية"),
             [
                 {"account": source_account, "debit": amount, "description": "خصم من محفظة المرسل"},
@@ -88,6 +110,8 @@ def transfer_between_users(
             created_by=created_by or sender,
             metadata=metadata,
         )
+        _project_transfer(sender, recipient, amount, currency, entry, source_type)
+        return entry
 
 
 def refund_to_customer(
@@ -109,7 +133,7 @@ def refund_to_customer(
     source = source_account
     if source.is_group:
         raise ValueError("حساب مصدر الاسترداد يجب أن يكون حسابًا فرعيًا.")
-    return post_entry(
+    entry = post_entry(
         description,
         [
             {"account": source, "debit": amount},
@@ -121,3 +145,14 @@ def refund_to_customer(
         created_by=created_by,
         metadata={"customer_id": customer.pk, "currency": str(currency).upper(), "amount": str(amount)},
     )
+    from finance.unified_wallet import record_projection_transaction
+    record_projection_transaction(
+        customer,
+        amount,
+        currency,
+        transaction_type="refund",
+        reference=entry.number,
+        note=description,
+        metadata={"accounting_journal": entry.number, "source_type": source_type},
+    )
+    return entry
