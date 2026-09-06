@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>إدارة الربطيات</title>
+<style>
+body{margin:0;background:#f3f6fa;color:#17324d;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.wrap{max-width:1180px;margin:auto;padding:16px}.card{background:#fff;border:1px solid #dbe5ee;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 7px 22px #17324d10}.head{background:#173b5f;color:#fff}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.full{grid-column:1/-1}label{display:block;font-size:13px;font-weight:800;margin-bottom:5px}input{width:100%;box-sizing:border-box;padding:11px;border:1px solid #cad6e1;border-radius:10px;background:#fff}.btn{border:0;border-radius:9px;padding:10px 14px;background:#117a8b;color:#fff;font-weight:900;cursor:pointer}.btn.alt{background:#e8f0f5;color:#17324d}.btn.danger{background:#b42318}.muted{font-size:12px;color:#718096}.msg{padding:10px 12px;border-radius:9px;background:#edf8fa;margin-bottom:8px}.row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:13px 0;border-bottom:1px solid #edf1f5}.actions{display:flex;gap:6px;flex-wrap:wrap}.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.chip{background:#edf3f7;padding:4px 8px;border-radius:999px;font-size:11px}.links{margin-top:10px;background:#f8fafc;border-radius:10px;padding:10px}.link{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #e9eef2;font-size:12px}.code{direction:ltr;font-family:ui-monospace,monospace;color:#40566b}
+@media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.row{flex-direction:column}}
+</style>
+</head>
+<body><div class="wrap">
+<div class="card head"><h1 style="margin:0 0 6px">إدارة الربطيات</h1><p style="margin:0">أدخل بيانات الاتصال فقط. المسارات القياسية تُنشأ تلقائيًا من عقد الـAPI ولا تُعرض للتحرير اليدوي.</p></div>
+{% for message in messages %}<div class="msg">{{message}}</div>{% endfor %}
+<div class="card">
+<h2>{% if editing_provider %}تعديل الربطية: {{editing_provider.name}}{% else %}إضافة ربطية جديدة{% endif %}</h2>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="save">{% if editing_provider %}<input type="hidden" name="provider" value="{{editing_provider.id}}">{% endif %}
+<div class="grid">
+<div><label>اسم الربطية</label><input name="name" required value="{{editing_provider.name|default:''}}" placeholder="صنعاء كاش الرئيسي"></div>
+<div><label>الكود الداخلي</label><input name="code" {% if editing_provider %}readonly{% endif %} value="{{editing_provider.code|default:''}}" placeholder="sanaacash-main"></div>
+<div class="full"><label>API URL / Domain</label><input name="base_url" required value="{{editing_provider.base_url|default:''}}" placeholder="https://example.com/api/yr/"></div>
+<div><label>User ID</label><input name="userid" value="{{editing_provider.userid|default:''}}"></div>
+<div><label>Username</label><input name="username" value="{{editing_provider.username|default:''}}"></div>
+<div><label>Password</label><input type="password" name="password" autocomplete="new-password" placeholder="اتركه فارغًا للإبقاء على كلمة المرور الحالية"></div>
+<div><label>ملاحظة</label><input name="note" value="{{editing_provider.metadata.note|default:''}}" placeholder="إنتاج / احتياطي / أولوية"></div>
+</div>
+<div style="margin-top:12px"><button class="btn" type="submit">{% if editing_provider %}حفظ التعديلات{% else %}حفظ وإنشاء المسارات{% endif %}</button>{% if editing_provider %}<a class="btn alt" href="/admin/dashboard/services/providers/" style="text-decoration:none;margin-right:6px">إلغاء التعديل</a>{% endif %}</div>
+<p class="muted">كلمة المرور تحفظ مشفرة، ولا يتم عرضها. تغيير رابط الـAPI أو بيانات الدخول يعيد مزامنة تعريفات الخدمة القياسية.</p>
+</form></div>
+<div class="card"><h2>الربطيات الحالية</h2>
+{% for p in providers %}<div class="row"><div style="flex:1"><b>{{p.name}}</b><div class="muted">{{p.code}} · {{p.base_url}} · {{p.links.count}} مسار · {% if p.is_active %}فعالة{% else %}متوقفة{% endif %}</div><div class="chips">{% for l in p.links.all|slice:":8" %}<span class="chip">{{l.name}} — {{l.operation}}</span>{% endfor %}{% if p.links.count > 8 %}<span class="chip">+{{p.links.count|add:"-8"}} مسارات</span>{% endif %}</div><details class="links"><summary>عرض المسارات القياسية (قراءة فقط)</summary>{% for l in p.links.all %}<div class="link"><span>{{l.name}} · {{l.http_method}}</span><span class="code">{{l.path_template}}</span></div>{% endfor %}</details></div><div class="actions"><a class="btn alt" href="?edit={{p.id}}" style="text-decoration:none">تعديل</a>{% if p.is_active %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="balance"><input type="hidden" name="provider" value="{{p.id}}"><button class="btn">فحص الرصيد</button></form><form method="post">{% csrf_token %}<input type="hidden" name="action" value="archive"><input type="hidden" name="provider" value="{{p.id}}"><button class="btn danger">إيقاف</button></form>{% else %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="activate"><input type="hidden" name="provider" value="{{p.id}}"><button class="btn">تفعيل</button></form>{% endif %}<form method="post" onsubmit="return confirm('سيتم حذف الربطية فقط إذا لم يكن لها سجل تاريخي. عند وجود تاريخ سيتم أرشفتها. متابعة؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="provider" value="{{p.id}}"><button class="btn danger">حذف</button></form></div></div>{% empty %}<p class="muted">لا توجد ربطيات بعد.</p>{% endfor %}
+</div><a href="/admin/dashboard/services/">← مركز الخدمات</a>
+</div></body></html>
