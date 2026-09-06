@@ -4,6 +4,12 @@ from rest_framework.throttling import ScopedRateThrottle
 from .api import ServiceRequestAPIView, ServiceTransactionDetailAPIView
 
 
+class IdempotencyConflict(APIException):
+    status_code = 409
+    default_detail = "Idempotency-Key تعارض مع عملية مختلفة."
+    default_code = "idempotency_conflict"
+
+
 class ServiceRequestThrottle(ScopedRateThrottle):
     scope = "service_request"
 
@@ -12,16 +18,11 @@ class SecureServiceRequestAPIView(ServiceRequestAPIView):
     throttle_classes = [ServiceRequestThrottle]
 
     def post(self, request, *args, **kwargs):
+        from django.db import IntegrityError
         try:
             return super().post(request, *args, **kwargs)
-        except Exception as exc:
-            # Let DRF's normal exceptions propagate; convert only an idempotency
-            # collision from the DB layer into an explicit conflict when it
-            # escapes the base endpoint.
-            from django.db import IntegrityError
-            if isinstance(exc, IntegrityError):
-                raise APIException("تعذر تثبيت العملية بسبب تعارض فريد؛ أعد استخدام نفس Idempotency-Key لنفس الطلب فقط.")
-            raise
+        except IntegrityError as exc:
+            raise IdempotencyConflict() from exc
 
 
 class SecureServiceTransactionDetailAPIView(ServiceTransactionDetailAPIView):
