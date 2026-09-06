@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from accounts.preferences_api import PreferencesView
 from catalog.models import City, PriceGroup
 from finance.compat_api import AccountingBackedWalletViewSet
+from finance.wallet_admin_api import AdminWalletAdjustAPIView
 from marketplace.catalog_api import CurrencyRateViewSet
 from marketplace.cms_views import DynamicHomeView
 from marketplace.secure_cart import SecureCartCalculateView
@@ -77,6 +78,7 @@ urlpatterns = [
     path("admin/support/<int:conversation_id>/messages/", AdminSupportMessageView.as_view(), name="admin-support-message"),
     path("admin/support/<int:conversation_id>/close/", AdminSupportCloseView.as_view(), name="admin-support-close"),
     path("admin-dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
+    path("wallets/<int:pk>/admin_adjust/", AdminWalletAdjustAPIView.as_view(), name="wallet-admin-adjust-canonical"),
     path("", include("catalog.urls")),
     path("", include("vendors.urls")),
     path("", include(router.urls)),
