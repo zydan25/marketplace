@@ -7,31 +7,16 @@ from .accounting_bridge import refund_service, settle_service
 from .models import ServiceDistribution, ServiceTask, ServiceTransaction
 from .provider import ProviderClient
 
-
 STALE_TASK_AFTER = timedelta(minutes=10)
 
 
 def _recover_stale_tasks(now):
-    stale = ServiceTask.objects.filter(
-        status=ServiceTask.Statuses.RUNNING,
-        started_at__isnull=False,
-        started_at__lt=now - STALE_TASK_AFTER,
-    )
-    stale.update(
-        status=ServiceTask.Statuses.RETRY,
-        available_at=now,
-        last_error="STALE_WORKER_RECOVERY",
-        started_at=None,
-    )
+    stale = ServiceTask.objects.filter(status=ServiceTask.Statuses.RUNNING, started_at__isnull=False, started_at__lt=now - STALE_TASK_AFTER)
+    stale.update(status=ServiceTask.Statuses.RETRY, available_at=now, last_error="STALE_WORKER_RECOVERY", started_at=None)
 
 
 def _next_route(service, *, after_priority=None, exclude=None):
-    qs = ServiceDistribution.objects.select_related("provider_link__provider").filter(
-        service=service,
-        is_active=True,
-        provider_link__is_active=True,
-        provider_link__provider__is_active=True,
-    ).order_by("priority", "id")
+    qs = ServiceDistribution.objects.select_related("provider_link__provider").filter(service=service, is_active=True, provider_link__is_active=True, provider_link__provider__is_active=True).order_by("priority", "id")
     if after_priority is not None:
         qs = qs.filter(priority__gt=after_priority)
     if exclude:
@@ -39,24 +24,26 @@ def _next_route(service, *, after_priority=None, exclude=None):
     return qs.first()
 
 
-def _used_links(tx):
-    return [int(x) for x in (tx.metadata or {}).get("used_provider_links", []) if str(x).isdigit()]
+def _used_links(task):
+    return [int(x) for x in (task.metadata or {}).get("used_provider_links", []) if str(x).isdigit()]
 
 
-def _remember_link(tx, link_id):
-    data = dict(tx.metadata or {})
-    used = set(_used_links(tx))
+def _remember_link(task, link_id):
+    data = dict(task.metadata or {})
+    used = set(_used_links(task))
     used.add(int(link_id))
     data["used_provider_links"] = sorted(used)
-    tx.metadata = data
+    task.metadata = data
 
 
-def _remember_transid(tx, transid):
-    data = dict(tx.metadata or {})
+def _remember_transid(task, transid):
+    data = dict(task.metadata or {})
     history = [int(x) for x in data.get("provider_transids", []) if str(x).isdigit()]
-    if int(transid) not in history:
-        history.append(int(transid))
+    value = int(transid)
+    if value not in history:
+        history.append(value)
     data["provider_transids"] = history
+    task.metadata = data
 
 
 def _is_billable(tx):
@@ -121,26 +108,15 @@ def _mark_manual_review(tx, *, code, message):
 def _new_status_task(tx, provider_link, delay=8, max_attempts=30):
     if not provider_link.status_path_template:
         return None
-    return ServiceTask.objects.create(
-        transaction=tx,
-        kind=ServiceTask.Kinds.STATUS_CHECK,
-        provider_link=provider_link,
-        available_at=timezone.now() + timedelta(seconds=delay),
-        max_attempts=max_attempts,
-        metadata={"poll_seconds": delay},
-    )
+    return ServiceTask.objects.create(transaction=tx, kind=ServiceTask.Kinds.STATUS_CHECK, provider_link=provider_link, available_at=timezone.now() + timedelta(seconds=delay), max_attempts=max_attempts, metadata={"poll_seconds": delay, "used_provider_links": [provider_link.pk]})
 
 
-def _prepare_provider_ref(tx, *, force_new=False):
+def _prepare_provider_ref(tx, task, *, force_new=False):
     if force_new or not tx.provider_transid:
-        transid = ProviderClient.new_numeric_transid(
-            tx.provider_link.provider,
-            request_kind=f"service:{tx.service.service_kind}",
-            service_transaction=tx,
-        )
+        transid = ProviderClient.new_numeric_transid(task.provider_link.provider, request_kind=f"service:{tx.service.service_kind}", service_transaction=tx)
         tx.provider_transid = transid
         tx.provider_transaction_id = str(transid)
-        _remember_transid(tx, transid)
+        _remember_transid(task, transid)
     elif not tx.provider_transaction_id or not tx.provider_transaction_id.isdigit():
         tx.provider_transaction_id = str(tx.provider_transid)
 
@@ -159,7 +135,6 @@ def _handle_ambiguous_result(tx, task, link, result):
             task.finished_at = timezone.now()
         task.save(update_fields=["status", "available_at", "last_error", "started_at", "finished_at"])
         return task
-
     tx.status = ServiceTransaction.Status.PENDING_PROVIDER
     tx.error_code = result.code
     tx.error_message = result.description
@@ -171,11 +146,7 @@ def _handle_ambiguous_result(tx, task, link, result):
         task.last_error = result.description or result.code
         task.started_at = None
     else:
-        _mark_manual_review(
-            tx,
-            code=result.code or "AMBIGUOUS_PROVIDER_RESULT",
-            message=result.description or "نتيجة العملية لدى المزود غير مؤكدة.",
-        )
+        _mark_manual_review(tx, code=result.code or "AMBIGUOUS_PROVIDER_RESULT", message=result.description or "نتيجة العملية لدى المزود غير مؤكدة.")
         task.status = ServiceTask.Statuses.FAILED
         task.last_error = result.description or result.code
         task.finished_at = timezone.now()
@@ -188,7 +159,6 @@ def process_task(task_id=None):
     if task_id is None:
         with transaction.atomic():
             _recover_stale_tasks(now)
-
     with transaction.atomic():
         qs = ServiceTask.objects.select_for_update().select_related("transaction__service", "provider_link__provider")
         if task_id is not None:
@@ -196,10 +166,7 @@ def process_task(task_id=None):
             if task.status not in {ServiceTask.Statuses.QUEUED, ServiceTask.Statuses.RETRY}:
                 return task
         else:
-            task = qs.filter(
-                status__in=[ServiceTask.Statuses.QUEUED, ServiceTask.Statuses.RETRY],
-                available_at__lte=now,
-            ).order_by("available_at", "id").first()
+            task = qs.filter(status__in=[ServiceTask.Statuses.QUEUED, ServiceTask.Statuses.RETRY], available_at__lte=now).order_by("available_at", "id").first()
             if not task:
                 return None
         task.status = ServiceTask.Statuses.RUNNING
@@ -208,12 +175,7 @@ def process_task(task_id=None):
         task.save(update_fields=["status", "attempts", "started_at"])
 
     tx = ServiceTransaction.objects.select_related("service").get(pk=task.transaction_id)
-    if tx.status in {
-        ServiceTransaction.Status.SUCCESS,
-        ServiceTransaction.Status.REFUNDED,
-        ServiceTransaction.Status.FAILED,
-        ServiceTransaction.Status.MANUAL_REVIEW,
-    }:
+    if tx.status in {ServiceTransaction.Status.SUCCESS, ServiceTransaction.Status.REFUNDED, ServiceTransaction.Status.FAILED, ServiceTransaction.Status.MANUAL_REVIEW}:
         task.status = ServiceTask.Statuses.DONE
         task.finished_at = timezone.now()
         task.save(update_fields=["status", "finished_at"])
@@ -222,7 +184,7 @@ def process_task(task_id=None):
     link = task.provider_link
     selected_new_link = False
     if not link:
-        dist = _next_route(tx.service, exclude=_used_links(tx))
+        dist = _next_route(tx.service, exclude=_used_links(task))
         if not dist:
             _complete_failure(tx, code="NO_ROUTE", message="لا توجد ربطية فعالة لهذه الخدمة.")
             task.status = ServiceTask.Statuses.FAILED
@@ -235,18 +197,18 @@ def process_task(task_id=None):
         task.save(update_fields=["provider_link"])
         selected_new_link = True
 
-    if link.pk not in _used_links(tx):
-        _remember_link(tx, link.pk)
+    if link.pk not in _used_links(task):
+        _remember_link(task, link.pk)
         tx.provider_link = link
-        _prepare_provider_ref(tx, force_new=True)
+        _prepare_provider_ref(tx, task, force_new=True)
     elif selected_new_link:
-        _prepare_provider_ref(tx, force_new=True)
+        _prepare_provider_ref(tx, task, force_new=True)
     else:
-        _prepare_provider_ref(tx)
-
+        _prepare_provider_ref(tx, task)
     if task.kind == ServiceTask.Kinds.SUBMIT:
         tx.status = ServiceTransaction.Status.PROCESSING
-    tx.save(update_fields=["provider_link", "provider_transid", "provider_transaction_id", "metadata", "status", "updated_at"])
+    tx.save(update_fields=["provider_link", "provider_transid", "provider_transaction_id", "status", "updated_at"])
+    task.save(update_fields=["metadata", "provider_link"])
 
     if task.kind == ServiceTask.Kinds.STATUS_CHECK and not link.status_path_template:
         _mark_manual_review(tx, code="NO_STATUS_ROUTE", message="المزوّد أعاد Pending ولا تحتوي الربطية مسارًا لفحص الحالة.")
@@ -258,7 +220,6 @@ def process_task(task_id=None):
 
     result = ProviderClient(link.provider).call(link, tx, status_check=task.kind == ServiceTask.Kinds.STATUS_CHECK)
     tx.provider_response = result.response
-
     if result.success:
         tx.save(update_fields=["provider_response", "updated_at"])
         _complete_success(tx)
@@ -267,22 +228,16 @@ def process_task(task_id=None):
         task.last_error = ""
         task.save(update_fields=["status", "finished_at", "last_error"])
         return task
-
     if result.ambiguous and _is_billable(tx):
         tx.save(update_fields=["provider_response", "updated_at"])
         return _handle_ambiguous_result(tx, task, link, result)
-
     if result.pending:
         tx.status = ServiceTransaction.Status.PENDING_PROVIDER
         tx.save(update_fields=["status", "provider_response", "updated_at"])
         if task.kind == ServiceTask.Kinds.SUBMIT:
             status_task = _new_status_task(tx, link)
             if status_task is None:
-                _mark_manual_review(
-                    tx,
-                    code="PENDING_NO_STATUS_ROUTE",
-                    message="المزوّد أعاد Pending ولا يوجد مسار حالة؛ تم تعليق الرصيد للمراجعة.",
-                )
+                _mark_manual_review(tx, code="PENDING_NO_STATUS_ROUTE", message="المزوّد أعاد Pending ولا يوجد مسار حالة؛ تم تعليق الرصيد للمراجعة.")
                 task.status = ServiceTask.Statuses.FAILED
                 task.last_error = "PENDING_NO_STATUS_ROUTE"
                 task.finished_at = timezone.now()
@@ -307,26 +262,23 @@ def process_task(task_id=None):
     tx.error_code = result.code
     tx.error_message = result.description
     tx.save(update_fields=["provider_response", "error_code", "error_message", "updated_at"])
-
     if result.code == "NETWORK" and _is_billable(tx):
         return _handle_ambiguous_result(tx, task, link, result)
-
     if task.kind == ServiceTask.Kinds.SUBMIT:
-        dist = _next_route(tx.service, after_priority=link.priority, exclude=_used_links(tx))
+        dist = _next_route(tx.service, after_priority=link.priority, exclude=_used_links(task))
         if dist:
             task.status = ServiceTask.Statuses.QUEUED
             task.provider_link = dist.provider_link
             task.available_at = timezone.now()
             task.last_error = result.description
             task.started_at = None
-            task.save(update_fields=["status", "provider_link", "available_at", "last_error", "started_at"])
-            _remember_link(tx, dist.provider_link_id)
+            _remember_link(task, dist.provider_link_id)
+            _prepare_provider_ref(tx, task, force_new=True)
             tx.provider_link = dist.provider_link
-            _prepare_provider_ref(tx, force_new=True)
             tx.status = ServiceTransaction.Status.QUEUED
-            tx.save(update_fields=["provider_link", "provider_transid", "provider_transaction_id", "metadata", "status", "updated_at"])
+            task.save(update_fields=["status", "provider_link", "available_at", "last_error", "started_at", "metadata"])
+            tx.save(update_fields=["provider_link", "provider_transid", "provider_transaction_id", "status", "updated_at"])
             return task
-
     if task.attempts < task.max_attempts:
         task.status = ServiceTask.Statuses.RETRY
         task.available_at = timezone.now() + timedelta(seconds=min(120, 10 * task.attempts))
@@ -336,7 +288,6 @@ def process_task(task_id=None):
         tx.status = ServiceTransaction.Status.PROCESSING
         tx.save(update_fields=["status", "updated_at"])
         return task
-
     _complete_failure(tx, code=result.code, message=result.description)
     task.status = ServiceTask.Statuses.FAILED
     task.last_error = result.description
