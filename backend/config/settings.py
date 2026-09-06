@@ -1,10 +1,12 @@
 from pathlib import Path
 import os
+import sys
 
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
+RUNNING_TESTS = "test" in sys.argv[1:]
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-change-me") if DEBUG else os.environ["DJANGO_SECRET_KEY"]
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 AUTH_USER_MODEL = "marketplace.User"
@@ -70,7 +72,7 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_REFERRER_POLICY = "same-origin"
-    SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "1") == "1"
+    SECURE_SSL_REDIRECT = False if RUNNING_TESTS else os.getenv("DJANGO_SECURE_SSL_REDIRECT", "1") == "1"
     X_FRAME_OPTIONS = "DENY"
     SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
