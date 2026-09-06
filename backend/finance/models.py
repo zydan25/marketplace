@@ -24,17 +24,14 @@ class Wallet(TimeStampedModel):
         db_table = "marketplace_wallet"
 
     def save(self, *args, **kwargs):
-        # This table is now only a compatibility projection. Financial writes
-        # must go through accounting.services_v2. Only the projection bridge may
-        # update the stored balance.
-        if self.pk and "update_fields" not in kwargs:
-            current = type(self).objects.filter(pk=self.pk).values("balance").first()
-            if current is not None and Decimal(current["balance"]) != Decimal(self.balance) and not getattr(self, "_allow_projection_write", False):
-                raise ValidationError("رصيد المحفظة لا يُعدل مباشرة؛ استخدم دفتر الحسابات.")
-        elif self.pk and kwargs.get("update_fields") and "balance" in kwargs["update_fields"]:
-            current = type(self).objects.filter(pk=self.pk).values("balance").first()
-            if current is not None and Decimal(current["balance"]) != Decimal(self.balance) and not getattr(self, "_allow_projection_write", False):
-                raise ValidationError("رصيد المحفظة لا يُعدل مباشرة؛ استخدم دفتر الحسابات.")
+        # Compatibility projection only. Accounting is the sole source of
+        # truth; direct non-zero creation/update is blocked.
+        current = type(self).objects.filter(pk=self.pk).values("balance").first() if self.pk else None
+        balance_changed = current is not None and Decimal(current["balance"]) != Decimal(self.balance)
+        if current is None and self.pk is None and Decimal(self.balance) != Decimal("0.00"):
+            balance_changed = True
+        if balance_changed and not getattr(self, "_allow_projection_write", False):
+            raise ValidationError("رصيد المحفظة لا يُعدل مباشرة؛ استخدم دفتر الحسابات.")
         super().save(*args, **kwargs)
 
 
@@ -57,6 +54,11 @@ class WalletTransaction(TimeStampedModel):
 
     class Meta:
         db_table = "marketplace_wallettransaction"
+
+    def save(self, *args, **kwargs):
+        if not getattr(self, "_allow_compat_write", False):
+            raise ValidationError("سجل المحفظة القديم للقراءة فقط؛ يجب إنشاء الحركة عبر القيد المحاسبي.")
+        super().save(*args, **kwargs)
 
 
 class VendorLedgerEntry(models.Model):
