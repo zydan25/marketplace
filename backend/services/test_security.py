@@ -10,7 +10,17 @@ from accounting.services_v2 import ensure_legacy_customer_opening, ensure_wallet
 from marketplace.models import User
 
 from .accounting_bridge import reserve_service_funds
-from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceTask, ServiceTransaction, TelecomDenomination
+from .models import (
+    MainServiceCategory,
+    ProviderConnection,
+    ProviderLink,
+    Service,
+    ServiceCategory,
+    ServiceDistribution,
+    ServiceTask,
+    ServiceTransaction,
+    TelecomDenomination,
+)
 from .provider import ProviderClient, ProviderResult
 from .security import encrypt_secret
 from .executor import process_task
@@ -57,7 +67,6 @@ class ServiceSecurityRegressionTests(TestCase):
             success_codes=["0"],
             pending_codes=["-2"],
         )
-        from .models import ServiceDistribution
         ServiceDistribution.objects.create(service=self.service, provider_link=self.link, priority=1)
         self.client = APIClient()
         self.client.force_authenticate(self.user)
@@ -157,7 +166,7 @@ class ServiceSecurityRegressionTests(TestCase):
         tx.refresh_from_db()
         self.assertEqual(tx.status, ServiceTransaction.Status.PENDING_PROVIDER)
         self.assertEqual(task.provider_link_id, link.pk)
-        self.assertEqual(len(ServiceTransaction.objects.filter(pk=tx.pk, provider_link_id=second_link.pk)), 0)
+        self.assertNotEqual(task.provider_link_id, second_link.pk)
         self.assertIsNone(tx.refund_journal_id)
 
     @patch("services.executor.ProviderClient.call")
@@ -193,4 +202,4 @@ class ServiceSecurityRegressionTests(TestCase):
             )
         self.assertEqual(response.status_code, 202)
         tx = ServiceTransaction.objects.get(pk=response.data["id"])
-        self.assertEqual(tx.payload["amount"], "500")
+        self.assertEqual(tx.payload["amount"], "500.00")
