@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>إدارة الكتالوج والخدمات</title>
+<style>
+:root{--bg:#eef7fb;--panel:#fff;--line:#d5e5ee;--ink:#17324d;--muted:#6c8294;--blue:#1e8bc5;--cyan:#43b7d7;--nav:#d9eaf3;--danger:#e53935;--ok:#11845b;--shadow:0 5px 18px rgba(30,65,90,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:Tahoma,Arial,sans-serif;line-height:1.55}.shell{min-height:100vh}.header{position:sticky;top:0;z-index:50;background:#214e70;color:#fff;padding:10px 12px;box-shadow:0 2px 10px rgba(0,0,0,.12)}.header-inner{max-width:1400px;margin:auto;display:flex;align-items:center;gap:10px}.header h1{font-size:16px;margin:0}.header small{display:block;color:#d8edf8;font-size:10px;margin-top:2px}.brand-mark{width:38px;height:38px;border-radius:10px;background:#42bddf;display:grid;place-items:center;font-weight:900}.layout{max-width:1400px;margin:auto;display:grid;grid-template-columns:220px minmax(0,1fr);gap:10px;padding:10px}.sidebar{background:var(--nav);border:1px solid #c6dce8;border-radius:10px;padding:7px;position:sticky;top:67px;height:calc(100vh - 77px);overflow:auto}.sidebar a{display:block;text-decoration:none;color:#244b65;background:#edf7fb;border:1px solid #cfe1ea;padding:9px 10px;border-radius:7px;margin-bottom:5px;font-size:12px;font-weight:900}.sidebar a:hover,.sidebar a.active{background:#cdebf6;color:#0d6d96}.content{min-width:0}.alert{padding:9px 11px;border-radius:8px;margin-bottom:8px;background:#e5f6f7;border:1px solid #bee4e7;font-size:12px}.alert.error{background:#fff1f0;border-color:#ffc7c3;color:#a92721}.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);margin-bottom:9px;overflow:hidden}.card-head{background:#d7eff8;color:#1d5f7d;font-weight:900;font-size:13px;padding:9px 11px;border-bottom:1px solid var(--line)}.card-body{padding:10px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.field{display:flex;flex-direction:column;gap:4px}.field.full{grid-column:1/-1}.field label{font-size:11px;font-weight:900;color:#2d6786}.field label b{color:var(--danger)}input,select,textarea{width:100%;border:1px solid #c8d9e3;background:#fff;border-radius:7px;padding:8px 9px;font:inherit;font-size:12px;color:var(--ink)}textarea{min-height:74px;resize:vertical}.hint{background:#eef7f2;border:1px solid #cce6d7;color:#386c50;border-radius:7px;padding:7px 8px;font-size:10px}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.btn{border:0;border-radius:7px;padding:8px 11px;background:var(--blue);color:#fff;font-weight:900;font-size:11px;cursor:pointer}.btn.gray{background:#edf2f5;color:#345064;border:1px solid #cfdee7}.btn.danger{background:#fff1f0;color:#a92721;border:1px solid #ffc7c3}.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:720px}.table th,.table td{padding:7px 8px;border-bottom:1px solid #ebf0f4;text-align:right;font-size:10px}.table th{background:#f6fafc;color:#3d6379}.pill{display:inline-block;padding:3px 7px;border-radius:99px;background:#edf2f5;font-size:9px;font-weight:900}.pill.ok{background:#e4f6ed;color:#147151}.pill.off{background:#fff0ef;color:#aa2620}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}.stat{background:#fff;border:1px solid var(--line);padding:8px;border-radius:9px}.stat b{display:block;font-size:18px}.stat span{font-size:9px;color:var(--muted)}.subgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.muted{color:var(--muted);font-size:10px}.code{direction:ltr;text-align:left;font-family:monospace}.danger-text{color:var(--danger);font-weight:900;font-size:10px}
+@media(max-width:900px){.layout{grid-template-columns:165px minmax(0,1fr);padding:6px}.sidebar{top:63px;height:calc(100vh - 69px)}.stats{grid-template-columns:repeat(2,1fr)}.grid,.subgrid{grid-template-columns:1fr}.field.full{grid-column:auto}.header{padding:8px}.header h1{font-size:14px}}
+@media(max-width:560px){.layout{grid-template-columns:150px minmax(0,1fr);gap:6px}.sidebar a{font-size:10px;padding:8px}.card-head{font-size:11px}.card-body{padding:8px}.stats{grid-template-columns:1fr 1fr}.stats .stat b{font-size:16px}.table{min-width:650px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="header"><div class="header-inner"><div class="brand-mark">API</div><div><h1>مركز إدارة الخدمات والكتالوج</h1><small>فئات رئيسية ← فئات ← خدمات ← حقول ← موارد ← مزودون ← ربطيات ← توزيع</small></div></div></header>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="active" href="#overview">إجمالي / الرئيسية</a>
+      <a href="#main">الفئات الرئيسية</a>
+      <a href="#categories">الفئات والفئات الفرعية</a>
+      <a href="#services">الخدمات</a>
+      <a href="#fields">حقول الإدخال</a>
+      <a href="#resources">الباقات والوحدات</a>
+      <a href="#providers">المزودون</a>
+      <a href="#links">الربطيات</a>
+      <a href="#distribution">توزيع الخدمات</a>
+      <a href="#live">آخر العمليات والمهام</a>
+      <a href="/api/v2/services/admin/catalog/">API الإدارة</a>
+    </aside>
+
+    <main class="content">
+      {% if messages %}
+        {% for message in messages %}<div class="alert {% if 'error' in message.tags %}error{% endif %}">{{ message }}</div>{% endfor %}
+      {% endif %}
+
+      <section id="overview" class="stats">
+        <div class="stat"><b>{{ stats.main }}</b><span>فئات رئيسية فعالة</span></div>
+        <div class="stat"><b>{{ stats.categories }}</b><span>فئات</span></div>
+        <div class="stat"><b>{{ stats.services }}</b><span>خدمات</span></div>
+        <div class="stat"><b>{{ stats.queued }}</b><span>مهام معلقة</span></div>
+      </section>
+
+      <section id="main" class="card"><div class="card-head">الفئة الرئيسية</div><div class="card-body">
+        <form method="post"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}"><input type="hidden" name="action" value="main"><div class="grid">
+          <div class="field"><label>اسم الفئة الرئيسية <b>*</b></label><input name="name" placeholder="الألعاب / الاتصالات / البرامج" required></div>
+          <div class="field"><label>المعرف slug <b>*</b></label><input name="slug" placeholder="games" required></div>
+          <div class="field"><label>الأيقونة</label><input name="icon" placeholder="gamepad"></div><div class="field"><label>الترتيب</label><input name="sort_order" type="number" value="0"></div>
+          <div class="field full"><label>الوصف</label><textarea name="description"></textarea></div>
+        </div><div class="actions"><button class="btn">حفظ الفئة الرئيسية</button></div></form>
+        <div class="table-wrap"><table class="table"><thead><tr><th>الاسم</th><th>slug</th><th>الترتيب</th><th>الحالة</th></tr></thead><tbody>{% for row in mains %}<tr><td>{{ row.name }}</td><td class="code">{{ row.slug }}</td><td>{{ row.sort_order }}</td><td>{% if row.is_active %}<span class="pill ok">فعالة</span>{% else %}<span class="pill off">متوقفة</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+      </div></section>
+
+      <section id="categories" class="card"><div class="card-head">الفئات والفئات الفرعية</div><div class="card-body">
+        <form method="post"><input type="hidden" name="action" value="category"><div class="grid">
+          <div class="field"><label>الفئة الرئيسية <b>*</b></label><select name="main_category" required>{% for row in mains %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></div>
+          <div class="field"><label>الفئة الأب</label><select name="parent"><option value="">بدون</option>{% for row in categories %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></div>
+          <div class="field"><label>اسم الفئة <b>*</b></label><input name="name" required></div><div class="field"><label>slug <b>*</b></label><input name="slug" required></div>
+          <div class="field"><label>الأيقونة</label><input name="icon"></div><div class="field"><label>الترتيب</label><input name="sort_order" type="number" value="0"></div>
+          <div class="field full"><label>الوصف</label><textarea name="description"></textarea></div>
+        </div><div class="actions"><button class="btn">إضافة فئة / فئة فرعية</button></div></form>
+        <div class="hint">مثال الألعاب: الألعاب ← PUBG ← UC / عروض. ومثال الاتصالات: الاتصالات ← يمن موبايل ← 4G / فولتي / شحن.</div>
+      </div></section>
+
+      <section id="services" class="card"><div class="card-head">الخدمات</div><div class="card-body">
+        <form method="post"><input type="hidden" name="action" value="service"><div class="grid">
+          <div class="field"><label>الفئة <b>*</b></label><select name="category" required>{% for row in categories %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></div>
+          <div class="field"><label>اسم الخدمة <b>*</b></label><input name="name" placeholder="بوبجي / باقات 4G" required></div>
+          <div class="field"><label>كود الخدمة <b>*</b></label><input name="code" placeholder="pubg / yem-4g" required></div>
+          <div class="field"><label>نوع الخدمة</label><select name="service_kind"><option value="purchase">شراء</option><option value="query">استعلام</option><option value="catalog">كتالوج</option></select></div>
+          <div class="field"><label>طريقة التسعير</label><select name="pricing_mode"><option value="item">حسب العنصر</option><option value="fixed">ثابت</option><option value="amount">مبلغ يدخله العميل</option></select></div>
+          <div class="field"><label>السعر الأساسي</label><input name="price" type="number" step="0.01" value="0"></div>
+          <div class="field"><label>العملة</label><input name="currency" value="YER"></div><div class="field"><label>الترتيب</label><input name="sort_order" type="number" value="0"></div>
+          <div class="field"><label>الحد الأدنى</label><input name="min_amount" type="number" step="0.01"></div><div class="field"><label>الحد الأعلى</label><input name="max_amount" type="number" step="0.01"></div>
+          <div class="field full"><label>الوصف</label><textarea name="description"></textarea></div>
+        </div><div class="actions"><button class="btn">حفظ الخدمة</button></div></form>
+        <div class="table-wrap"><table class="table"><thead><tr><th>الخدمة</th><th>الكود</th><th>النوع</th><th>التسعير</th><th>السعر</th><th>الحالة</th></tr></thead><tbody>{% for row in services %}<tr><td>{{ row.name }}</td><td class="code">{{ row.code }}</td><td>{{ row.service_kind }}</td><td>{{ row.pricing_mode }}</td><td>{{ row.price }} {{ row.currency }}</td><td>{% if row.is_active %}<span class="pill ok">فعالة</span>{% else %}<span class="pill off">متوقفة</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+      </div></section>
+
+      <section id="fields" class="card"><div class="card-head">حقول الإدخال الديناميكية</div><div class="card-body">
+        <form method="post"><input type="hidden" name="action" value="field"><div class="grid">
+          <div class="field"><label>الخدمة <b>*</b></label><select name="service" required>{% for row in services %}<option value="{{ row.id }}">{{ row.name }} — {{ row.code }}</option>{% endfor %}</select></div>
+          <div class="field"><label>مفتاح الحقل <b>*</b></label><input name="key" placeholder="playerid / email / mobile" required></div>
+          <div class="field"><label>العنوان <b>*</b></label><input name="label" required></div>
+          <div class="field"><label>النوع</label><select name="field_type"><option value="text">نص</option><option value="number">رقم</option><option value="decimal">عشري</option><option value="email">بريد</option><option value="select">قائمة</option></select></div>
+          <div class="field"><label>مطلوب</label><select name="required"><option value="1">نعم</option><option value="0">لا</option></select></div>
+          <div class="field"><label>سري</label><select name="secret"><option value="0">لا</option><option value="1">نعم</option></select></div>
+          <div class="field full"><label>التحقق JSON</label><textarea name="validation" placeholder='{"min_length":9,"max_length":9}'></textarea></div>
+          <div class="field full"><label>القيم choices JSON</label><textarea name="choices" placeholder='[]'></textarea></div>
+        </div><div class="actions"><button class="btn">إضافة الحقل</button></div></form>
+      </div></section>
+
+      <section id="resources" class="card"><div class="card-head">الباقات والوحدات والبطاقات والألعاب</div><div class="card-body">
+        <form method="post"><input type="hidden" name="action" value="game"><div class="grid">
+          <div class="field"><label>خدمة اللعبة <b>*</b></label><select name="service" required>{% for row in games %}<option value="{{ row.service_id }}">{{ row.service.name }} — {{ row.service.code }}</option>{% endfor %}</select></div>
+          <div class="field"><label>اسم الفئة / الوحدة <b>*</b></label><input name="name" placeholder="60 UC / 325 UC" required></div>
+          <div class="field"><label>كود المزود الخارجي <b>*</b></label><input name="external_code" required></div>
+          <div class="field"><label>السعر <b>*</b></label><input name="price" type="number" step="0.01" required></div>
+          <div class="field"><label>العملة</label><input name="currency" value="YER"></div>
+          <div class="field full"><label>Metadata JSON</label><textarea name="metadata" placeholder='{"uniqcode":"...","provider_num":"...","provider_link_number":"...","provider_quantity":"100","purchaseable":true}'></textarea></div>
+        </div><div class="actions"><button class="btn">إضافة فئة لعبة</button></div></form>
+        <form method="post" style="margin-top:10px"><input type="hidden" name="action" value="telecom_plan"><div class="grid">
+          <div class="field"><label>خدمة الباقات <b>*</b></label><select name="service" required>{% for row in plans %}<option value="{{ row.service_id }}">{{ row.service.name }} — {{ row.service.code }}</option>{% endfor %}</select></div>
+          <div class="field"><label>اسم الباقة <b>*</b></label><input name="name" placeholder="4G 10GB" required></div>
+          <div class="field"><label>كود المزود الخارجي <b>*</b></label><input name="external_code" required></div>
+          <div class="field"><label>السعر <b>*</b></label><input name="price" type="number" step="0.01" required></div>
+          <div class="field"><label>الحجم / الحصة</label><input name="quota" type="number" step="0.01"></div>
+          <div class="field"><label>الوحدة</label><input name="quota_unit" placeholder="GB / MB / دقيقة"></div>
+          <div class="field"><label>مدة الصلاحية</label><input name="validity_days" type="number"></div>
+          <div class="field"><label>نوع الدفع</label><input name="payment_type" placeholder="New / Renew"></div>
+          <div class="field"><label>نوع الخط</label><input name="line_type" placeholder="4G / VoLTE"></div>
+          <div class="field full"><label>Metadata JSON</label><textarea name="metadata" placeholder='{"provider_num":"...","packageid":"...","provider_quantity":"...","purchaseable":true}'></textarea></div>
+        </div><div class="actions"><button class="btn">إضافة باقة اتصالات</button></div></form>
+        <div class="hint">البطاقات الرقمية تستخدم DigitalProduct، وأي عنصر مدفوع بدون سعر صالح أو mapping مزود موثوق يجب إبقاؤه غير قابل للشراء حتى تكتمل بياناته.</div>
+      </div></section>
+
+      <section id="providers" class="card"><div class="card-head">المزودون</div><div class="card-body">
+        <form method="post"><input type="hidden" name="action" value="provider"><div class="grid">
+          <div class="field"><label>اسم المزود <b>*</b></label><input name="name" required></div><div class="field"><label>الكود <b>*</b></label><input name="code" required></div>
+          <div class="field"><label>نوع الربط</label><select name="connection_type"><option value="sanaacash">Sanaacash</option><option value="manual">يدوي</option></select></div>
+          <div class="field"><label>base_url <b>*</b></label><input name="base_url" placeholder="https://..."></div>
+          <div class="field"><label>userid</label><input name="userid"></div><div class="field"><label>domain_name</label><input name="domain_name"></div>
+          <div class="field"><label>username</label><input name="username"></div><div class="field"><label>Password</label><input name="password" type="password"></div>
+          <div class="field"><label>timeout</label><input name="timeout_seconds" type="number" value="20"></div><div class="field"><label>headers JSON</label><textarea name="headers">{}</textarea></div>
+        </div><div class="actions"><button class="btn">حفظ المزود</button></div></form>
+        <div class="table-wrap"><table class="table"><thead><tr><th>المزود</th><th>الكود</th><th>النوع</th><th>الرابط</th><th>الحالة</th></tr></thead><tbody>{% for row in providers %}<tr><td>{{ row.name }}</td><td class="code">{{ row.code }}</td><td>{{ row.connection_type }}</td><td class="code">{{ row.base_url }}</td><td>{% if row.is_active %}<span class="pill ok">فعال</span>{% else %}<span class="pill off">متوقف</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+      </div></section>
+
+      <section id="links" class="card"><div class="card-head">ProviderLink — الربطيات ومسارات المزود</div><div class="card-body">
+        <form method="post"><input type="hidden" name="action" value="link"><div class="grid">
+          <div class="field"><label>المزود <b>*</b></label><select name="provider" required>{% for row in providers %}<option value="{{ row.id }}">{{ row.name }} — {{ row.code }}</option>{% endfor %}</select></div>
+          <div class="field"><label>اسم الربطية <b>*</b></label><input name="name" required></div>
+          <div class="field"><label>الكود <b>*</b></label><input name="code" required></div><div class="field"><label>operation</label><input name="operation" placeholder="games_cards / yem_bill"></div>
+          <div class="field"><label>path_template <b>*</b></label><input name="path_template" placeholder="gameswcards"></div><div class="field"><label>HTTP method</label><select name="http_method"><option>GET</option><option>POST</option><option>PUT</option></select></div>
+          <div class="field"><label>request encoding</label><select name="request_encoding"><option value="query">query</option><option value="form">form</option><option value="json">json</option></select></div><div class="field"><label>priority</label><input name="priority" type="number" value="100"></div>
+          <div class="field full"><label>field_map JSON</label><textarea name="field_map" placeholder='{"type":"{{service.code}}","uniqcode":"{{uniqcode}}","mobile":"{{mobile}}"}'>{}</textarea></div>
+          <div class="field"><label>fixed_params JSON</label><textarea name="fixed_params">{}</textarea></div><div class="field"><label>headers JSON</label><textarea name="headers">{}</textarea></div>
+          <div class="field"><label>status_path_template</label><input name="status_path_template"></div><div class="field"><label>status_params JSON</label><textarea name="status_params">{}</textarea></div>
+          <div class="field"><label>success_codes JSON</label><textarea name="success_codes">["0"]</textarea></div><div class="field"><label>pending_codes JSON</label><textarea name="pending_codes">["-2"]</textarea></div>
+          <div class="field full"><label>metadata JSON — كتالوج المزود</label><textarea name="metadata" placeholder='{"catalog":{"enabled":true,"service_code":"you-offer","item_type":"telecom_plans","response_path":"data.offers"}}'>{}</textarea></div>
+        </div><div class="actions"><button class="btn">حفظ الربطية</button></div></form>
+      </div></section>
+
+      <section id="distribution" class="card"><div class="card-head">ServiceDistribution — ربط الخدمة بالمزود والبديل</div><div class="card-body">
+        <form method="post"><input type="hidden" name="action" value="distribution"><div class="grid">
+          <div class="field"><label>الخدمة <b>*</b></label><select name="service" required>{% for row in services %}<option value="{{ row.id }}">{{ row.name }} — {{ row.code }}</option>{% endfor %}</select></div>
+          <div class="field"><label>ProviderLink <b>*</b></label><select name="provider_link" required>{% for row in links %}<option value="{{ row.id }}">{{ row.provider.name }} — {{ row.name }}</option>{% endfor %}</select></div>
+          <div class="field"><label>الأولوية</label><input name="priority" type="number" value="100"></div>
+          <div class="field full"><label>شروط التوزيع JSON</label><textarea name="conditions">{}</textarea></div>
+        </div><div class="actions"><button class="btn">حفظ التوزيع</button></div></form>
+        <div class="table-wrap"><table class="table"><thead><tr><th>الخدمة</th><th>المزود</th><th>الربطية</th><th>الأولوية</th><th>الحالة</th></tr></thead><tbody>{% for row in distributions %}<tr><td>{{ row.service.name }}</td><td>{{ row.provider_link.provider.name }}</td><td class="code">{{ row.provider_link.code }}</td><td>{{ row.priority }}</td><td>{% if row.is_active %}<span class="pill ok">فعال</span>{% else %}<span class="pill off">متوقف</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+      </div></section>
+
+      <section id="live" class="card"><div class="card-head">آخر العمليات والمهام</div><div class="card-body"><div class="subgrid"><div><b>آخر معاملات</b><div class="muted">{{ transactions|length }} عملية معروضة</div></div><div><b>مهام التنفيذ</b><div class="muted">{{ tasks|length }} مهمة معروضة</div></div><div><b>الكتالوج</b><div class="muted">ألعاب {{ games|length }} / باقات {{ plans|length }} / بطاقات {{ digital|length }}</div></div></div>
+      <div class="table-wrap" style="margin-top:8px"><table class="table"><thead><tr><th>الخدمة</th><th>الحالة</th><th>المبلغ</th><th>transid</th><th>الوقت</th></tr></thead><tbody>{% for row in transactions %}<tr><td>{{ row.service.name }}</td><td>{{ row.status }}</td><td>{{ row.customer_amount }} {{ row.currency }}</td><td class="code">{{ row.provider_transid|default:"-" }}</td><td>{{ row.created_at }}</td></tr>{% endfor %}</tbody></table></div>
+      </div></section>
+    </main>
+  </div>
+</div>
+</body>
+</html>
