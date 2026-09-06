@@ -1,6 +1,7 @@
 name: Marketplace CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, "refactor/**", "work/**", "feat/**"]
   pull_request:
@@ -8,6 +9,7 @@ on:
 
 # Services production webhook base: https://shopik.alattab.site
 # Full services-platform verification is intentionally run on feature branches before merge.
+# workflow_dispatch is enabled so the branch can be verified manually after infrastructure changes.
 jobs:
   django:
     name: Django checks and tests
