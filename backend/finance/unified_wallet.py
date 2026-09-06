@@ -24,15 +24,18 @@ def sync_finance_projection(user, currency="YER"):
     kind = accounting_kind_for_user(user)
     accounting_wallet = ensure_accounting_wallet(user, kind, currency)
     balance = wallet_balance(accounting_wallet).quantize(Decimal("0.01"))
-    projection, _ = Wallet.objects.get_or_create(
+    projection, created = Wallet.objects.get_or_create(
         user=user,
-        defaults={"currency": currency, "balance": balance},
+        defaults={"currency": currency, "balance": Decimal("0.00")},
     )
     changed = []
     if projection.currency != currency:
         projection.currency = currency
         changed.append("currency")
     if projection.balance != balance:
+        projection.balance = balance
+        changed.append("balance")
+    if created and "balance" not in changed:
         projection.balance = balance
         changed.append("balance")
     if changed:
@@ -63,16 +66,7 @@ def _adjustment_account():
 
 
 @transaction.atomic
-def adjust_user_wallet(
-    user,
-    amount,
-    currency="YER",
-    *,
-    reference="",
-    note="",
-    transaction_type=WalletTransaction.Types.ADJUSTMENT,
-    created_by=None,
-):
+def adjust_user_wallet(user, amount, currency="YER", *, reference="", note="", transaction_type=WalletTransaction.Types.ADJUSTMENT, created_by=None):
     amount = Decimal(str(amount)).quantize(Decimal("0.01"))
     currency = str(currency or "YER").upper()
     if amount == 0:
@@ -82,7 +76,6 @@ def adjust_user_wallet(
     account = Account.objects.select_for_update().get(pk=accounting_wallet.account_id)
     adjustment = Account.objects.select_for_update().get(pk=_adjustment_account().pk)
     current = wallet_balance(accounting_wallet)
-
     if amount > 0:
         lines = [
             {"account": adjustment, "debit": amount, "description": "تسوية موجبة للرصيد"},
@@ -96,7 +89,6 @@ def adjust_user_wallet(
             {"account": account, "debit": absolute, "description": "خفض محفظة العميل/التاجر"},
             {"account": adjustment, "credit": absolute, "description": "تسوية سالبة للرصيد"},
         ]
-
     key = f"wallet-adjustment:{user.pk}:{currency}:{reference}" if reference else None
     entry = post_entry(
         note or "تسوية رصيد",
@@ -105,18 +97,12 @@ def adjust_user_wallet(
         source_id=str(user.pk),
         idempotency_key=key,
         created_by=created_by or user,
-        metadata={
-            "user_id": user.pk,
-            "currency": currency,
-            "amount": str(amount),
-            "reference": reference,
-            "wallet_kind": kind,
-        },
+        metadata={"user_id": user.pk, "currency": currency, "amount": str(amount), "reference": reference, "wallet_kind": kind},
     )
     projection = sync_finance_projection(user, currency)
     tx = projection.transactions.filter(reference=reference).order_by("-id").first() if reference else None
     if tx is None:
-        tx = WalletTransaction.objects.create(
+        tx = WalletTransaction(
             wallet=projection,
             transaction_type=transaction_type,
             amount=amount,
@@ -125,6 +111,8 @@ def adjust_user_wallet(
             note=note,
             metadata={"accounting_journal": entry.number, "source_type": "wallet_adjustment"},
         )
+        tx._allow_compat_write = True
+        tx.save()
     return entry, projection, tx
 
 
@@ -134,7 +122,7 @@ def record_projection_transaction(user, amount, currency="YER", *, transaction_t
         existing = projection.transactions.filter(reference=reference).order_by("-id").first()
         if existing:
             return existing
-    return WalletTransaction.objects.create(
+    tx = WalletTransaction(
         wallet=projection,
         transaction_type=transaction_type,
         amount=Decimal(str(amount)).quantize(Decimal("0.01")),
@@ -143,13 +131,10 @@ def record_projection_transaction(user, amount, currency="YER", *, transaction_t
         note=note,
         metadata=metadata or {},
     )
+    tx._allow_compat_write = True
+    tx.save()
+    return tx
 
 
 def record_customer_projection_transaction(user, amount, currency="YER", *, transaction_type, reference="", note="", metadata=None):
-    return record_projection_transaction(
-        user, amount, currency,
-        transaction_type=transaction_type,
-        reference=reference,
-        note=note,
-        metadata=metadata,
-    )
+    return record_projection_transaction(user, amount, currency, transaction_type=transaction_type, reference=reference, note=note, metadata=metadata)
