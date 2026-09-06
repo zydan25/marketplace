@@ -18,7 +18,6 @@ KillSignal=SIGTERM
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=true
 ReadWritePaths=/home/root/projects/marketplace/backend
 
 [Install]
