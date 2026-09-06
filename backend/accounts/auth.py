@@ -1,4 +1,5 @@
 from django.contrib.auth import password_validation
+from django.db import transaction
 from django.db.models import Q
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -12,6 +13,7 @@ from marketplace.models import User, Wallet
 from marketplace.serializers import UserSerializer
 from accounting.models import Wallet as AccountingWallet
 from accounting.services_v2 import ensure_wallet
+from finance.unified_wallet import sync_finance_projection
 
 
 class AuthBurstThrottle(AnonRateThrottle):
@@ -30,15 +32,14 @@ class SecureLoginView(APIView):
         user = User.objects.filter(Q(username__iexact=identifier) | Q(phone=identifier)).first()
         if not user or not user.check_password(password) or not user.is_active:
             return Response({"detail": "اسم المستخدم/رقم الهاتف أو كلمة المرور غير صحيحة"}, status=status.HTTP_400_BAD_REQUEST)
-        token, _ = Token.objects.get_or_create(user=user)
-        try:
+        with transaction.atomic():
+            token, _ = Token.objects.get_or_create(user=user)
             ensure_wallet(user, AccountingWallet.Kinds.CUSTOMER, "YER")
             if getattr(user, "role", None) == "vendor":
                 ensure_wallet(user, AccountingWallet.Kinds.VENDOR_PENDING, "YER")
                 ensure_wallet(user, AccountingWallet.Kinds.VENDOR_AVAILABLE, "YER")
                 ensure_wallet(user, AccountingWallet.Kinds.WITHDRAWAL_HOLD, "YER")
-        except Exception:
-            pass
+            sync_finance_projection(user, "YER")
         display_name = user.get_full_name() or user.phone or user.username or "العميل"
         return Response({
             "token": token.key,
@@ -51,6 +52,7 @@ class SecureRegisterView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [AuthBurstThrottle]
 
+    @transaction.atomic
     def post(self, request):
         phone = str(request.data.get("phone", "")).strip()
         username = str(request.data.get("username", "")).strip()
@@ -66,11 +68,11 @@ class SecureRegisterView(APIView):
         user = User(
             phone=phone,
             username=username or phone,
-            first_name=request.data.get("first_name", ""),
-            middle_name=request.data.get("middle_name", ""),
-            third_name=request.data.get("third_name", ""),
-            last_name=request.data.get("last_name", ""),
-            governorate=request.data.get("governorate", ""),
+            first_name=str(request.data.get("first_name", ""))[:80],
+            middle_name=str(request.data.get("middle_name", ""))[:80],
+            third_name=str(request.data.get("third_name", ""))[:80],
+            last_name=str(request.data.get("last_name", ""))[:80],
+            governorate=str(request.data.get("governorate", ""))[:80],
             role="customer",
         )
         try:
@@ -79,9 +81,10 @@ class SecureRegisterView(APIView):
             return Response({"detail": getattr(exc, "messages", [str(exc)])}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(password)
         user.save()
-        Wallet.objects.get_or_create(user=user)
+        Wallet.objects.get_or_create(user=user, defaults={"currency": "YER", "balance": 0})
         ensure_wallet(user, AccountingWallet.Kinds.CUSTOMER, "YER")
-        token = Token.objects.create(user=user)
+        sync_finance_projection(user, "YER")
+        token, _ = Token.objects.get_or_create(user=user)
         display_name = user.get_full_name() or user.phone or user.username or "العميل"
         return Response({
             "token": token.key,
