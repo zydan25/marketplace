@@ -78,6 +78,8 @@ jobs:
         run: python manage.py check_sanaacash_catalog
       - name: Audit service catalog integrity
         run: python manage.py audit_service_catalog --fail
+      - name: Audit production provider routing contract
+        run: python manage.py audit_production_routes
       - name: Audit financial invariants on clean database
         run: python manage.py audit_financial_integrity --fail-on-mismatch --strict
       - name: Dry-run legacy wallet migration
