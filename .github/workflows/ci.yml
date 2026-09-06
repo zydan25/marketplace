@@ -21,6 +21,7 @@ jobs:
       DJANGO_SECRET_KEY: ci-only-not-for-production
       DJANGO_DEBUG: "1"
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      ALLOW_LOCAL_REDIS_FALLBACK: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -40,6 +41,7 @@ jobs:
         run: python manage.py check --deploy --fail-level ERROR
         env:
           DJANGO_DEBUG: "0"
+          ALLOW_LOCAL_REDIS_FALLBACK: "1"
       - name: Verify migrations are committed
         run: python manage.py makemigrations --check
       - name: Verify domain migrations are database no-ops
