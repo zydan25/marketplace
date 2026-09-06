@@ -13,16 +13,20 @@ from .models import DigitalProduct, GameProduct, MainServiceCategory, Service, S
 from .security import encrypt_secret
 
 
+SERVER_GENERATED_KEYS = {"external_code", "num", "packageid", "uniqcode", "amount"}
+
+
 def _normalize_digits(value):
     if value is None:
         return ""
     return str(value).translate(str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789"))
 
 
-def _clean_payload(service, payload):
+def _clean_payload(service, payload, generated_keys=None):
     if not isinstance(payload, dict):
         raise ValueError("بيانات الخدمة يجب أن تكون بصيغة JSON object.")
     allowed = {f.key: f for f in service.fields.filter(is_active=True)}
+    generated_keys = set(generated_keys or ()) & SERVER_GENERATED_KEYS
     cleaned = {}
     for key, field in allowed.items():
         value = payload.get(key, field.default_value)
@@ -59,9 +63,11 @@ def _clean_payload(service, payload):
         if rule.get("max") is not None and field.field_type in {"number", "decimal"} and Decimal(str(value)) > Decimal(str(rule["max"])):
             raise ValueError(f"قيمة {field.label} أكبر من الحد الأعلى.")
         cleaned[key] = value
-    unknown = set(payload) - set(allowed)
+    unknown = set(payload) - set(allowed) - generated_keys
     if unknown:
         raise ValueError(f"حقول غير مسموحة: {', '.join(sorted(unknown))}")
+    for key in generated_keys:
+        cleaned[key] = payload[key]
     return cleaned
 
 
@@ -113,6 +119,11 @@ def _hydrate_item_payload(service, payload, *, item_id=None, item_type=""):
         if uniqcode:
             hydrated["uniqcode"] = str(uniqcode)
     return hydrated, item
+
+
+def _generated_keys(original_payload, hydrated):
+    original_keys = set(original_payload.keys()) if isinstance(original_payload, dict) else set()
+    return (set(hydrated.keys()) - original_keys) & SERVER_GENERATED_KEYS
 
 
 def _item_amount(item):
@@ -250,16 +261,19 @@ class ServiceRequestAPIView(APIView):
     def post(self, request):
         service = get_object_or_404(Service, pk=request.data.get("service_id"), is_active=True)
         original_payload = request.data.get("payload", {})
+        if not isinstance(original_payload, dict):
+            return Response({"detail": "بيانات الخدمة يجب أن تكون بصيغة JSON object."}, status=400)
         item_id = request.data.get("item_id")
         item_type = str(request.data.get("item_type", "") or "")
-        idempotency_key = request.headers.get("Idempotency-Key") or request.data.get("idempotency_key")
+        idempotency_key = str(request.headers.get("Idempotency-Key") or request.data.get("idempotency_key") or "").strip() or None
         if idempotency_key:
             existing = ServiceTransaction.objects.filter(idempotency_key=idempotency_key, customer=request.user).first()
             if existing:
                 return Response(_transaction_data(existing), status=200)
         try:
             hydrated, item = _hydrate_item_payload(service, original_payload, item_id=item_id, item_type=item_type)
-            payload = _clean_payload(service, hydrated)
+            generated_keys = _generated_keys(original_payload, hydrated)
+            payload = _clean_payload(service, hydrated, generated_keys=generated_keys)
             if service.pricing_mode == Service.PricingModes.ITEM and item is None and service.requires_balance:
                 raise ValueError("هذه الخدمة تعتمد على كتالوج؛ اختر الباقة/الفئة أولًا.")
             amount = _resolve_price(service, payload, item=item)
