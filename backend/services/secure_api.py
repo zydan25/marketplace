@@ -1,10 +1,11 @@
 from decimal import Decimal
 
+from django.db import IntegrityError
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from .api import ServiceRequestAPIView, ServiceTransactionDetailAPIView
+from .api import ServiceRequestAPIView, ServiceTransactionDetailAPIView, _transaction_data
 from .models import DigitalProduct, GameProduct, Service, ServiceOption, ServiceTransaction, TelecomDenomination, TelecomPlan
 
 
@@ -68,8 +69,6 @@ def _assert_item_ready_for_purchase(service, item_type, item_id):
     if metadata.get("purchaseable", True) is False:
         reason = metadata.get("purchase_disabled_reason") or "العنصر معروض في الكتالوج لكنه غير مفعّل للتنفيذ لدى المزود."
         raise ValidationError({"item_id": reason})
-    # Some documented catalog rows are free to the customer. The base service
-    # resolver already handles these with metadata.requires_balance=false.
     if metadata.get("requires_balance", True) is False:
         return
     try:
@@ -78,6 +77,25 @@ def _assert_item_ready_for_purchase(service, item_type, item_id):
         price = Decimal("0")
     if price <= 0:
         raise ValidationError({"item_id": "سعر هذا العنصر غير مهيأ؛ لا يمكن تنفيذ عملية مدفوعة به."})
+
+
+def _matches_existing(existing, service, request):
+    if existing.customer_id != request.user.id:
+        return False
+    if service and existing.service_id != service.id:
+        return False
+    if str(existing.item_id or "") != str(request.data.get("item_id") or ""):
+        return False
+    if existing.item_type != str(request.data.get("item_type", "") or ""):
+        return False
+    incoming_payload = request.data.get("payload", {})
+    if not isinstance(incoming_payload, dict):
+        raise ValidationError({"payload": "بيانات الخدمة يجب أن تكون بصيغة JSON object."})
+    for key_name, value in incoming_payload.items():
+        stored = (existing.payload or {}).get(key_name)
+        if str(stored) != str(value):
+            return False
+    return True
 
 
 class SecureServiceRequestAPIView(ServiceRequestAPIView):
@@ -90,6 +108,8 @@ class SecureServiceRequestAPIView(ServiceRequestAPIView):
         ).first()
         key = str(request.headers.get("Idempotency-Key") or request.data.get("idempotency_key") or "").strip()
 
+        if len(key) > 180:
+            raise ValidationError({"idempotency_key": "Idempotency-Key طويل جدًا."})
         if service and service.requires_balance and service.service_kind == Service.ServiceKinds.PURCHASE and not key:
             raise ValidationError({"idempotency_key": "Idempotency-Key مطلوب لكل عملية مدفوعة لمنع الخصم المكرر."})
 
@@ -99,27 +119,20 @@ class SecureServiceRequestAPIView(ServiceRequestAPIView):
         if key:
             existing = ServiceTransaction.objects.filter(idempotency_key=key).select_related("service").first()
             if existing:
-                if existing.customer_id != request.user.id:
+                if not _matches_existing(existing, service, request):
                     raise IdempotencyConflict()
-                if service and existing.service_id != service.id:
-                    raise IdempotencyConflict()
-                if str(existing.item_id or "") != str(request.data.get("item_id") or ""):
-                    raise IdempotencyConflict()
-                if existing.item_type != str(request.data.get("item_type", "") or ""):
-                    raise IdempotencyConflict()
-                incoming_payload = request.data.get("payload", {})
-                if not isinstance(incoming_payload, dict):
-                    raise ValidationError({"payload": "بيانات الخدمة يجب أن تكون بصيغة JSON object."})
-                for key_name, value in incoming_payload.items():
-                    stored = (existing.payload or {}).get(key_name)
-                    if str(stored) != str(value):
-                        raise IdempotencyConflict()
+                return Response(_transaction_data(existing), status=200)
 
-        from django.db import IntegrityError
         try:
             response = super().post(request, *args, **kwargs)
         except IntegrityError as exc:
-            raise IdempotencyConflict() from exc
+            if key:
+                existing = ServiceTransaction.objects.filter(idempotency_key=key).select_related("service").first()
+                if existing:
+                    if _matches_existing(existing, service, request):
+                        return Response(_transaction_data(existing), status=200)
+                    raise IdempotencyConflict() from exc
+            raise
         if isinstance(response, Response) and isinstance(response.data, dict) and "result" in response.data:
             response.data["result"] = _safe_result(response.data["result"])
         return response
