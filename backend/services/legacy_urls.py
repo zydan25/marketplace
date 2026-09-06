@@ -1,16 +1,15 @@
 from django.urls import path
 
-from .legacy_views import distribution_v2, service_center
+from .admin_v4 import center, distribution
 from .provider_setup_v3 import provider_setup
-from .resource_views import resources
 
 urlpatterns = [
-    path("", service_center, name="legacy-services-home"),
-    path("main/", service_center, {"section": "main"}, name="legacy-services-main"),
-    path("categories/", service_center, {"section": "categories"}, name="legacy-services-categories"),
-    path("services/", service_center, {"section": "services"}, name="legacy-services-list"),
-    path("fields/", service_center, {"section": "fields"}, name="legacy-services-fields"),
-    path("resources/", resources, name="legacy-services-resources"),
+    path("", center, name="legacy-services-home"),
+    path("main/", center, {"section": "main"}, name="legacy-services-main"),
+    path("categories/", center, {"section": "categories"}, name="legacy-services-categories"),
+    path("services/", center, {"section": "services"}, name="legacy-services-list"),
+    path("fields/", center, {"section": "fields"}, name="legacy-services-fields"),
+    path("resources/", center, {"section": "resources"}, name="legacy-services-resources"),
     path("providers/", provider_setup, name="legacy-services-providers"),
-    path("distribution/", distribution_v2, name="legacy-services-distribution"),
+    path("distribution/", distribution, name="legacy-services-distribution"),
 ]
