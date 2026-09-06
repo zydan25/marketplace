@@ -8,7 +8,7 @@ from .models import MainServiceCategory, Service, ServiceCategory
 from .provider_setup import create_or_update_sanaacash_provider
 
 
-@override_settings(SERVICES_CREDENTIALS_KEY="Z0ZxRkV2c2V0dGJ5Qm9uZGZpZ3VyYXRpb25rZXk9")
+@override_settings(SERVICES_CREDENTIALS_KEY="MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 class ServiceAdminV4Tests(TestCase):
     def setUp(self):
         User = get_user_model()
