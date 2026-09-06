@@ -14,11 +14,12 @@ DEFAULT_WEBHOOK_PATH = "/api/v2/services/webhook/sanaacash/"
 
 
 class ProviderResult:
-    def __init__(self, *, code="", description="", pending=False, success=False, response=None, raw_text=""):
+    def __init__(self, *, code="", description="", pending=False, success=False, ambiguous=False, response=None, raw_text=""):
         self.code = str(code or "")
         self.description = str(description or "")
         self.pending = pending
         self.success = success
+        self.ambiguous = ambiguous
         self.response = response if isinstance(response, dict) else {"raw": response}
         self.raw_text = raw_text
 
@@ -99,12 +100,13 @@ class ProviderClient:
         if self.connection.connection_type == "sanaacash":
             if not transid.isdigit() or not 10000 <= int(transid) <= 999_999_999:
                 raise ValueError("transid يجب أن يكون رقمًا صحيحًا من 5 إلى 9 أرقام للمزود.")
-            if not self.connection.userid or not self.connection.username or not self.connection.get_password():
+            password = self.connection.get_password()
+            if not self.connection.userid or not self.connection.username or not password:
                 raise RuntimeError("بيانات اعتماد المزود غير مكتملة؛ أوقف التنفيذ بدل إرسال طلب ناقص.")
             params.setdefault("userid", self.connection.userid)
             params.setdefault("mobile", transaction.mobile or "0")
             params.setdefault("transid", transid)
-            params.setdefault("token", self.sanaacash_token(self.connection.get_password(), transid, self.connection.username, transaction.mobile or "0"))
+            params.setdefault("token", self.sanaacash_token(password, transid, self.connection.username, transaction.mobile or "0"))
             if transaction.webhook_secret_encrypted:
                 params.setdefault("backpass", decrypt_secret(transaction.webhook_secret_encrypted))
             webhook_base = os.getenv("SERVICES_WEBHOOK_BASE_URL", "https://shopik.alattab.site").rstrip("/")
@@ -132,11 +134,17 @@ class ProviderClient:
         raw_text = response.text[:20000]
         try:
             data = response.json()
+            parsed = True
         except (ValueError, json.JSONDecodeError):
             data = {"http_status": response.status_code, "raw": raw_text}
-        code = data.get("resultCode", response.status_code) if isinstance(data, dict) else response.status_code
-        desc = data.get("resultDesc", data.get("message", "")) if isinstance(data, dict) else ""
-        return data if isinstance(data, dict) else {"raw": data}, raw_text, code, desc
+            parsed = False
+        if isinstance(data, dict):
+            code = data.get("resultCode", response.status_code)
+            desc = data.get("resultDesc", data.get("message", ""))
+        else:
+            code, desc = response.status_code, ""
+            data = {"raw": data}
+        return data, raw_text, code, desc, parsed
 
     def check_balance(self):
         if self.connection.connection_type != "sanaacash":
@@ -144,21 +152,23 @@ class ProviderClient:
         transid = self.new_numeric_transid(self.connection, request_kind="balance")
         mobile = "0"
         try:
-            if not self.connection.userid or not self.connection.username or not self.connection.get_password():
+            password = self.connection.get_password()
+            if not self.connection.userid or not self.connection.username or not password:
                 return ProviderResult(code="CONFIG", description="بيانات اعتماد المزود غير مكتملة.")
             params = {
                 "userid": self.connection.userid, "mobile": mobile, "transid": str(transid),
-                "token": self.sanaacash_token(self.connection.get_password(), transid, self.connection.username, mobile),
+                "token": self.sanaacash_token(password, transid, self.connection.username, mobile),
                 "action": "balance",
             }
             headers = dict(self.connection.headers or {})
             timeout = max(1, int(self.connection.timeout_seconds or 20))
             response = requests.get(self._url("info"), params=params, headers=headers, timeout=timeout)
-            data, raw_text, code, desc = self._decode(response)
+            data, raw_text, code, desc, parsed = self._decode(response)
             if not 200 <= response.status_code < 300:
-                return ProviderResult(code=f"HTTP_{response.status_code}", description=desc or "فشل رد المزود HTTP.", response=data, raw_text=raw_text)
+                return ProviderResult(code=f"HTTP_{response.status_code}", description=desc or "فشل رد المزود HTTP.", ambiguous=response.status_code >= 500, response=data, raw_text=raw_text)
             success = str(code) == "0" and "balance" in data
-            return ProviderResult(code=code, description=desc or ("تم جلب رصيد المزود بنجاح." if success else ""), success=success, response=data, raw_text=raw_text)
+            ambiguous = not parsed
+            return ProviderResult(code=code if parsed else "INVALID_RESPONSE", description=desc or ("تم جلب رصيد المزود بنجاح." if success else "رد المزود غير صالح."), success=success, ambiguous=ambiguous, response=data, raw_text=raw_text)
         except (requests.RequestException, ValueError, RuntimeError) as exc:
             return ProviderResult(code="NETWORK" if isinstance(exc, requests.RequestException) else "CONFIG", description=str(exc), success=False, response={"error": str(exc)})
 
@@ -173,9 +183,15 @@ class ProviderClient:
             headers.update(link.headers or {})
             timeout = max(1, int(self.connection.timeout_seconds or 20))
             response = self._request(link, self._url(path), params, headers, timeout)
-            data, raw_text, code, desc = self._decode(response)
+            data, raw_text, code, desc, parsed = self._decode(response)
             if not 200 <= response.status_code < 300:
-                return ProviderResult(code=f"HTTP_{response.status_code}", description=desc or "فشل رد المزود HTTP.", response=data, raw_text=raw_text)
+                return ProviderResult(
+                    code=f"HTTP_{response.status_code}",
+                    description=desc or "فشل رد المزود HTTP.",
+                    ambiguous=response.status_code >= 500,
+                    response=data,
+                    raw_text=raw_text,
+                )
             success_codes = {str(x) for x in (link.success_codes or ["0"])}
             pending_codes = {str(x) for x in (link.pending_codes or ["-2"])}
             pending = str(code) in pending_codes or "under process" in str(desc).lower() or "under proccess" in str(desc).lower()
@@ -184,8 +200,10 @@ class ProviderClient:
                 success = True; pending = False
             if status_check and str(data.get("isBan")) == "1" and str(data.get("isDone")) != "1":
                 success = False; pending = False
+            if not parsed:
+                return ProviderResult(code="INVALID_RESPONSE", description="رد المزود ليس JSON صالحًا؛ نتيجة العملية غير مؤكدة.", ambiguous=True, response=data, raw_text=raw_text)
             return ProviderResult(code=code, description=desc, pending=pending, success=success, response=data, raw_text=raw_text)
         except requests.RequestException as exc:
-            return ProviderResult(code="NETWORK", description=str(exc), success=False, pending=False, response={"error": str(exc)})
+            return ProviderResult(code="NETWORK", description=str(exc), success=False, pending=False, ambiguous=True, response={"error": str(exc)})
         except (ValueError, RuntimeError) as exc:
             return ProviderResult(code="CONFIG", description=str(exc), success=False, pending=False, response={"error": str(exc)})
