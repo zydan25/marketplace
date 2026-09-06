@@ -9,12 +9,12 @@ from .api import (
     VendorLedgerEntryViewSet,
     VendorPayoutViewSet,
     WalletTransactionViewSet,
-    WalletViewSet,
     api_info,
 )
+from .compat_api import AccountingBackedWalletViewSet
 
 router = DefaultRouter()
-router.register("wallets", WalletViewSet, basename="finance-wallet")
+router.register("wallets", AccountingBackedWalletViewSet, basename="finance-wallet")
 router.register("wallet-transactions", WalletTransactionViewSet, basename="wallet-transaction")
 router.register("payments", PaymentViewSet, basename="finance-payment")
 router.register("vendor-finance", VendorFinanceViewSet, basename="vendor-finance")
