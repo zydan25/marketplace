@@ -20,11 +20,6 @@ def accounting_kind_for_user(user):
 
 
 def sync_finance_projection(user, currency="YER"):
-    """Synchronize the legacy finance wallet from the accounting ledger.
-
-    Accounting is authoritative; the finance wallet is a compatibility
-    projection only and must never be the source of financial truth.
-    """
     currency = str(currency or "YER").upper()
     kind = accounting_kind_for_user(user)
     accounting_wallet = ensure_accounting_wallet(user, kind, currency)
@@ -42,6 +37,7 @@ def sync_finance_projection(user, currency="YER"):
         changed.append("balance")
     if changed:
         changed.append("updated_at")
+        projection._allow_projection_write = True
         projection.save(update_fields=changed)
     return projection
 
@@ -101,9 +97,7 @@ def adjust_user_wallet(
             {"account": adjustment, "credit": absolute, "description": "تسوية سالبة للرصيد"},
         ]
 
-    key = None
-    if reference:
-        key = f"wallet-adjustment:{user.pk}:{currency}:{reference}"
+    key = f"wallet-adjustment:{user.pk}:{currency}:{reference}" if reference else None
     entry = post_entry(
         note or "تسوية رصيد",
         lines,
@@ -120,9 +114,7 @@ def adjust_user_wallet(
         },
     )
     projection = sync_finance_projection(user, currency)
-    tx = None
-    if reference:
-        tx = projection.transactions.filter(reference=reference).order_by("-id").first()
+    tx = projection.transactions.filter(reference=reference).order_by("-id").first() if reference else None
     if tx is None:
         tx = WalletTransaction.objects.create(
             wallet=projection,
