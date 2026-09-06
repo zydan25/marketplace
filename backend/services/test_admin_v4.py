@@ -1,13 +1,14 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from .admin_v4 import FIELD_LIBRARY, choose_link
 from .models import MainServiceCategory, Service, ServiceCategory
 from .provider_setup import create_or_update_sanaacash_provider
 
 
+@override_settings(SERVICES_CREDENTIALS_KEY="Z0ZxRkV2c2V0dGJ5Qm9uZGZpZ3VyYXRpb25rZXk9")
 class ServiceAdminV4Tests(TestCase):
     def setUp(self):
         User = get_user_model()
