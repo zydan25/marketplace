@@ -1,6 +1,7 @@
 from django.urls import path
 
-from .legacy_views import distribution_v2, provider_setup_v2, service_center
+from .legacy_views import distribution_v2, service_center
+from .provider_setup_v3 import provider_setup
 from .resource_views import resources
 
 urlpatterns = [
@@ -10,6 +11,6 @@ urlpatterns = [
     path("services/", service_center, {"section": "services"}, name="legacy-services-list"),
     path("fields/", service_center, {"section": "fields"}, name="legacy-services-fields"),
     path("resources/", resources, name="legacy-services-resources"),
-    path("providers/", provider_setup_v2, name="legacy-services-providers"),
+    path("providers/", provider_setup, name="legacy-services-providers"),
     path("distribution/", distribution_v2, name="legacy-services-distribution"),
 ]
