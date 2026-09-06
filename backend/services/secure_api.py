@@ -1,4 +1,5 @@
 from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from .api import ServiceRequestAPIView, ServiceTransactionDetailAPIView
@@ -13,6 +14,31 @@ class IdempotencyConflict(APIException):
 
 class ServiceRequestThrottle(ScopedRateThrottle):
     scope = "service_request"
+
+
+_SECRET_KEYS = {
+    "token", "password", "passwd", "pass", "backpass", "userid", "username",
+    "authorization", "api_key", "apikey", "secret", "webhook_secret",
+}
+
+
+def _redact(value):
+    if isinstance(value, dict):
+        result = {}
+        for key, child in value.items():
+            normalized = str(key).strip().lower().replace("-", "_")
+            if normalized in _SECRET_KEYS or "password" in normalized or normalized.endswith("token"):
+                result[key] = "[REDACTED]"
+            else:
+                result[key] = _redact(child)
+        return result
+    if isinstance(value, list):
+        return [_redact(item) for item in value]
+    return value
+
+
+def _safe_result(data):
+    return _redact(data) if isinstance(data, (dict, list)) else data
 
 
 class SecureServiceRequestAPIView(ServiceRequestAPIView):
@@ -47,10 +73,19 @@ class SecureServiceRequestAPIView(ServiceRequestAPIView):
 
         from django.db import IntegrityError
         try:
-            return super().post(request, *args, **kwargs)
+            response = super().post(request, *args, **kwargs)
         except IntegrityError as exc:
             raise IdempotencyConflict() from exc
+        if isinstance(response, Response) and isinstance(response.data, dict) and "result" in response.data:
+            response.data["result"] = _safe_result(response.data["result"])
+        return response
 
 
 class SecureServiceTransactionDetailAPIView(ServiceTransactionDetailAPIView):
     throttle_classes = [ServiceRequestThrottle]
+
+    def get(self, request, pk):
+        response = super().get(request, pk)
+        if isinstance(response, Response) and isinstance(response.data, dict) and "result" in response.data:
+            response.data["result"] = _safe_result(response.data["result"])
+        return response
