@@ -1,6 +1,8 @@
 from pathlib import Path
 import os
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-change-me") if DEBUG else os.environ["DJANGO_SECRET_KEY"]
@@ -43,11 +45,31 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SERVICES_CREDENTIALS_KEY = os.getenv("SERVICES_CREDENTIALS_KEY", "")
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+if not REDIS_URL:
+    # A single-process development server may safely fall back to local memory.
+    # Production installations should provide Redis so throttling is shared by
+    # all web workers and cannot be bypassed by hitting another worker.
+    REDIS_URL = "redis://127.0.0.1:6379/1"
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "TIMEOUT": 300,
+        "OPTIONS": {"db": 1},
+    }
+}
+if not DEBUG and not os.getenv("REDIS_URL", "").strip() and os.getenv("ALLOW_LOCAL_REDIS_FALLBACK", "0") != "1":
+    # Keep the application fail-closed in normal production deployments. Set
+    # ALLOW_LOCAL_REDIS_FALLBACK=1 only for an intentionally single-node setup.
+    raise ImproperlyConfigured("REDIS_URL مطلوب في بيئة الإنتاج لاستخدام throttling موزع بأمان.")
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     CSRF_COOKIE_SECURE = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "1") == "1"
     X_FRAME_OPTIONS = "DENY"
     SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
