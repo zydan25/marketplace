@@ -32,7 +32,7 @@ class ServiceAdminV4Tests(TestCase):
         self.assertTrue(self.client.login(username="admin-v4", password="pass"))
         response = self.client.get("/api/admin/dashboard/services/services/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "تحديد حقول الخدمة")
+        self.assertContains(response, "تحديد الحقول")
 
     def test_provider_setup_is_idempotent(self):
         first = create_or_update_sanaacash_provider(code="idempotent-provider", name="ربطية", userid="2", username="u", password="p", base_url="https://example.invalid/api/yr/")
