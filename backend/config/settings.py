@@ -64,5 +64,6 @@ REST_FRAMEWORK = {
         "auth": "10/min",
         "service_request": "30/min",
         "financial_action": "20/min",
+        "provider_webhook": "120/min",
     },
 }
