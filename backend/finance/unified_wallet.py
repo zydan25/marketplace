@@ -66,11 +66,61 @@ def _adjustment_account():
 
 
 @transaction.atomic
-def adjust_user_wallet(user, amount, currency="YER", *, reference="", note="", transaction_type=WalletTransaction.Types.ADJUSTMENT, created_by=None):
+def adjust_user_wallet(
+    user,
+    amount,
+    currency="YER",
+    *,
+    reference="",
+    note="",
+    transaction_type=WalletTransaction.Types.ADJUSTMENT,
+    created_by=None,
+    idempotency_key=None,
+):
     amount = Decimal(str(amount)).quantize(Decimal("0.01"))
     currency = str(currency or "YER").upper()
     if amount == 0:
         raise ValueError("المبلغ يجب ألا يساوي صفرًا.")
+    if not idempotency_key and not reference:
+        raise ValueError("Idempotency-Key أو مرجع العملية مطلوب للتسوية المالية.")
+
+    key = str(idempotency_key or f"wallet-adjustment:{user.pk}:{currency}:{reference}").strip()
+    from accounting.models import JournalEntry
+    existing = JournalEntry.objects.filter(idempotency_key=key).first()
+    if existing:
+        metadata = existing.metadata or {}
+        expected = {
+            "user_id": user.pk,
+            "currency": currency,
+            "amount": str(amount),
+            "transaction_type": transaction_type,
+        }
+        actual = {
+            "user_id": metadata.get("user_id"),
+            "currency": str(metadata.get("currency", "")).upper(),
+            "amount": str(metadata.get("amount", "")),
+            "transaction_type": metadata.get("transaction_type", transaction_type),
+        }
+        if actual != expected:
+            raise ValueError("Idempotency-Key سبق استخدامه لتسوية مالية مختلفة.")
+        projection = sync_finance_projection(user, currency)
+        tx = projection.transactions.filter(reference=reference).order_by("-id").first() if reference else None
+        if tx is None:
+            tx = WalletTransaction.objects.filter(wallet=projection, metadata__accounting_journal=existing.number).order_by("-id").first()
+        if tx is None:
+            tx = WalletTransaction(
+                wallet=projection,
+                transaction_type=transaction_type,
+                amount=amount,
+                balance_after=projection.balance,
+                reference=reference,
+                note=note,
+                metadata={"accounting_journal": existing.number, "source_type": "wallet_adjustment"},
+            )
+            tx._allow_compat_write = True
+            tx.save()
+        return existing, projection, tx
+
     kind = accounting_kind_for_user(user)
     accounting_wallet = ensure_accounting_wallet(user, kind, currency)
     account = Account.objects.select_for_update().get(pk=accounting_wallet.account_id)
@@ -89,7 +139,6 @@ def adjust_user_wallet(user, amount, currency="YER", *, reference="", note="", t
             {"account": account, "debit": absolute, "description": "خفض محفظة العميل/التاجر"},
             {"account": adjustment, "credit": absolute, "description": "تسوية سالبة للرصيد"},
         ]
-    key = f"wallet-adjustment:{user.pk}:{currency}:{reference}" if reference else None
     entry = post_entry(
         note or "تسوية رصيد",
         lines,
@@ -97,7 +146,14 @@ def adjust_user_wallet(user, amount, currency="YER", *, reference="", note="", t
         source_id=str(user.pk),
         idempotency_key=key,
         created_by=created_by or user,
-        metadata={"user_id": user.pk, "currency": currency, "amount": str(amount), "reference": reference, "wallet_kind": kind},
+        metadata={
+            "user_id": user.pk,
+            "currency": currency,
+            "amount": str(amount),
+            "reference": reference,
+            "wallet_kind": kind,
+            "transaction_type": transaction_type,
+        },
     )
     projection = sync_finance_projection(user, currency)
     tx = projection.transactions.filter(reference=reference).order_by("-id").first() if reference else None
