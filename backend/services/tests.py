@@ -12,7 +12,6 @@ from marketplace.models import User
 from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceDistribution, ServiceTask, ServiceTransaction, TelecomDenomination
 from .provider import ProviderClient
 from .management.commands.provision_sanaacash import create_or_update_sanaacash_provider, LINKS, SERVICES, YEMEN_MOBILE_OFFERS, SABA_OFFERS, YOU_DENOMINATIONS, SABA_DENOMINATIONS
-from .management.commands.provision_sanaacash import provision
 from .security import encrypt_secret
 
 
@@ -88,11 +87,24 @@ class ServiceTests(TestCase):
         params, _ = ProviderClient(self.provider)._params(provider_link, tx)
         self.assertEqual(params["type"], "pubg")
 
-    def test_provision_is_idempotent_and_seeds_catalog(self):
-        first = provision()
-        second = provision()
-        self.assertIsNotNone(first)
-        self.assertIsNotNone(second)
+    def test_provider_provision_is_idempotent_and_seeds_catalog(self):
+        first = create_or_update_sanaacash_provider(
+            code="provider",
+            name="مزود",
+            userid="u",
+            username="user",
+            password="password",
+            base_url="https://example.invalid/api/yr/",
+        )
+        second = create_or_update_sanaacash_provider(
+            code="provider",
+            name="مزود",
+            userid="u",
+            username="user",
+            password="password",
+            base_url="https://example.invalid/api/yr/",
+        )
+        self.assertEqual(first.pk, second.pk)
         self.assertEqual(MainServiceCategory.objects.filter(slug__in=[slug for _, slug, _ in __import__("services.catalog_data", fromlist=["MAIN"]).MAIN.values()]).count(), 3)
         self.assertEqual(Service.objects.filter(code__in=[row[0] for row in SERVICES]).count(), len(SERVICES))
         self.assertEqual(TelecomDenomination.objects.filter(service__code="you-denomination").count(), len(YOU_DENOMINATIONS))
