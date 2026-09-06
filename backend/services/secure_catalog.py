@@ -3,7 +3,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .api import ServiceCatalogAPIView
 from .models import MainServiceCategory, Service
 
 
@@ -18,17 +17,9 @@ _PUBLIC_METADATA_KEYS = {
 }
 
 
-def _public_item(item, item_type, service):
+def _public_metadata(item):
     metadata = getattr(item, "metadata", {}) or {}
-    public_metadata = {key: metadata[key] for key in _PUBLIC_METADATA_KEYS if key in metadata}
-    return {
-        "id": item.id,
-        "type": item_type,
-        "name": item.name,
-        "price": str(ServiceCatalogAPIView._service_data.__func__(service)["price"] if False else getattr(item, "price", 0)),
-        "currency": getattr(item, "currency", service.currency),
-        "metadata": public_metadata,
-    }
+    return {key: metadata[key] for key in _PUBLIC_METADATA_KEYS if key in metadata}
 
 
 class SecureServiceCatalogAPIView(APIView):
@@ -37,48 +28,48 @@ class SecureServiceCatalogAPIView(APIView):
     def get(self, request):
         roots = []
         for main in MainServiceCategory.objects.filter(is_active=True).order_by("sort_order", "id"):
-            categories = []
-            for category in main.categories.filter(is_active=True).prefetch_related("services", "children__services").order_by("sort_order", "id"):
-                categories.append(self._category(category))
-            roots.append({"id": main.id, "name": main.name, "slug": main.slug, "icon": main.icon, "categories": categories})
+            roots.append({
+                "id": main.id,
+                "name": main.name,
+                "slug": main.slug,
+                "icon": main.icon,
+                "categories": [self._category(category) for category in main.categories.filter(is_active=True).order_by("sort_order", "id")],
+            })
         return Response({"categories": roots})
 
     def _category(self, category):
-        children = [self._category(child) for child in category.children.filter(is_active=True).order_by("sort_order", "id")]
-        services = [self._service(service) for service in category.services.filter(is_active=True).order_by("sort_order", "id")]
         return {
             "id": category.id,
             "name": category.name,
             "slug": category.slug,
             "parent_id": category.parent_id,
-            "services": services,
-            "children": children,
+            "services": [self._service(service) for service in category.services.filter(is_active=True).order_by("sort_order", "id")],
+            "children": [self._category(child) for child in category.children.filter(is_active=True).order_by("sort_order", "id")],
         }
 
     @staticmethod
     def _service(service):
         items = []
-        for item_type, relation in (
+        relations = (
             ("service_options", service.options),
             ("telecom_denominations", service.telecom_denominations),
             ("telecom_plans", service.telecom_plans),
             ("game_products", service.game_products),
             ("digital_products", service.digital_products),
-        ):
+        )
+        for item_type, relation in relations:
             for item in relation.filter(is_active=True).order_by("sort_order", "id"):
                 item_data = {
                     "id": item.id,
                     "type": item_type,
                     "name": item.name,
                     "currency": getattr(item, "currency", service.currency),
-                    "metadata": {},
+                    "metadata": _public_metadata(item),
                 }
-                if hasattr(item, "price"):
-                    item_data["price"] = str(item.price)
-                elif item_type == "telecom_denominations":
+                if item_type == "telecom_denominations":
                     item_data["price"] = str(item.sale_price)
-                metadata = getattr(item, "metadata", {}) or {}
-                item_data["metadata"] = {key: metadata[key] for key in _PUBLIC_METADATA_KEYS if key in metadata}
+                elif hasattr(item, "price"):
+                    item_data["price"] = str(item.price)
                 items.append(item_data)
         return {
             "id": service.id,
