@@ -134,6 +134,47 @@ def _prepare_provider_ref(tx, *, force_new=False):
         tx.provider_transaction_id = str(tx.provider_transid)
 
 
+def _handle_ambiguous_result(tx, task, link, result):
+    if not _is_billable(tx):
+        if task.attempts < task.max_attempts:
+            task.status = ServiceTask.Statuses.RETRY
+            task.available_at = timezone.now() + timedelta(seconds=min(120, 10 * task.attempts))
+            task.last_error = result.description or result.code
+            task.started_at = None
+        else:
+            _mark_manual_review(tx, code=result.code, message=result.description)
+            task.status = ServiceTask.Statuses.FAILED
+            task.last_error = result.description or result.code
+            task.finished_at = timezone.now()
+        task.save(update_fields=["status", "available_at", "last_error", "started_at", "finished_at"])
+        return task
+
+    # Ambiguous outcomes (timeouts, 5xx responses, malformed 2xx responses)
+    # must keep the customer's reservation and must never fail over to another
+    # provider because the original provider may already have executed the job.
+    tx.status = ServiceTransaction.Status.PENDING_PROVIDER
+    tx.error_code = result.code
+    tx.error_message = result.description
+    tx.save(update_fields=["status", "error_code", "error_message", "updated_at"])
+    if link.status_path_template and task.attempts < task.max_attempts:
+        delay = min(60, 5 * max(1, task.attempts))
+        task.status = ServiceTask.Statuses.RETRY
+        task.available_at = timezone.now() + timedelta(seconds=delay)
+        task.last_error = result.description or result.code
+        task.started_at = None
+    else:
+        _mark_manual_review(
+            tx,
+            code=result.code or "AMBIGUOUS_PROVIDER_RESULT",
+            message=result.description or "نتيجة العملية لدى المزود غير مؤكدة.",
+        )
+        task.status = ServiceTask.Statuses.FAILED
+        task.last_error = result.description or result.code
+        task.finished_at = timezone.now()
+    task.save(update_fields=["status", "available_at", "last_error", "started_at", "finished_at"])
+    return task
+
+
 def process_task(task_id=None):
     now = timezone.now()
     if task_id is None:
@@ -219,6 +260,10 @@ def process_task(task_id=None):
         task.save(update_fields=["status", "finished_at", "last_error"])
         return task
 
+    if result.ambiguous and _is_billable(tx):
+        tx.save(update_fields=["provider_response", "updated_at"])
+        return _handle_ambiguous_result(tx, task, link, result)
+
     if result.pending:
         tx.status = ServiceTransaction.Status.PENDING_PROVIDER
         tx.save(update_fields=["status", "provider_response", "updated_at"])
@@ -255,25 +300,11 @@ def process_task(task_id=None):
     tx.error_message = result.description
     tx.save(update_fields=["provider_response", "error_code", "error_message", "updated_at"])
 
-    # A network failure is ambiguous: the provider may have accepted the request.
-    # Never fail over or refund automatically while the outcome is unknown.
     if result.code == "NETWORK" and _is_billable(tx):
-        if link.status_path_template and task.attempts < task.max_attempts:
-            tx.status = ServiceTransaction.Status.PENDING_PROVIDER
-            tx.save(update_fields=["status", "updated_at"])
-            delay = min(60, 5 * max(1, task.attempts))
-            task.status = ServiceTask.Statuses.RETRY
-            task.available_at = timezone.now() + timedelta(seconds=delay)
-            task.last_error = result.description or "NETWORK"
-            task.started_at = None
-        else:
-            _mark_manual_review(tx, code="NETWORK", message=result.description or "تعذر تحديد نتيجة العملية لدى المزود.")
-            task.status = ServiceTask.Statuses.FAILED
-            task.last_error = result.description or "NETWORK"
-            task.finished_at = timezone.now()
-        task.save(update_fields=["status", "available_at", "last_error", "finished_at", "started_at"])
-        return task
+        return _handle_ambiguous_result(tx, task, link, result)
 
+    # Definitive provider-side errors may fail over to the next configured
+    # route. Ambiguous outcomes are handled above and never reach this block.
     if task.kind == ServiceTask.Kinds.SUBMIT:
         dist = _next_route(tx.service, after_priority=link.priority, exclude=_used_links(tx))
         if dist:
