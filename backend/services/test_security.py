@@ -10,7 +10,7 @@ from accounting.services_v2 import ensure_legacy_customer_opening, ensure_wallet
 from marketplace.models import User
 
 from .accounting_bridge import reserve_service_funds
-from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceTask, ServiceTransaction
+from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceDistribution, ServiceTask, ServiceTransaction, TelecomDenomination
 from .provider import ProviderClient, ProviderResult
 from .security import encrypt_secret
 from .executor import process_task
@@ -60,7 +60,6 @@ class ServiceSecurityRegressionTests(TestCase):
             success_codes=["0"],
             pending_codes=["-2"],
         )
-        from .models import ServiceDistribution
         ServiceDistribution.objects.create(service=self.service, provider_link=self.link, priority=1)
         self.client = APIClient()
         self.client.force_authenticate(self.user)
@@ -138,6 +137,30 @@ class ServiceSecurityRegressionTests(TestCase):
         self.assertIsNone(tx.refund_journal_id)
 
     @patch("services.executor.ProviderClient.call")
+    def test_http_500_is_ambiguous_and_never_fails_over(self, call):
+        second_link = ProviderLink.objects.create(
+            provider=self.provider,
+            name="اختبار احتياطي",
+            code="secure-test-link-2",
+            operation="test-backup",
+            path_template="test2",
+            status_path_template="info",
+            status_params={"action": "status"},
+            success_codes=["0"],
+            pending_codes=["-2"],
+        )
+        ServiceDistribution.objects.create(service=self.service, provider_link=second_link, priority=2)
+        call.return_value = ProviderResult(code="HTTP_500", description="server error", ambiguous=True, success=False, response={})
+        tx, task, link = self._queued_billable_task(with_status=True)
+        process_task(task.pk)
+        task.refresh_from_db()
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, ServiceTransaction.Status.PENDING_PROVIDER)
+        self.assertEqual(task.provider_link_id, link.pk)
+        self.assertEqual(len(ServiceTransaction.objects.filter(pk=tx.pk, provider_link_id=second_link.pk)), 0)
+        self.assertIsNone(tx.refund_journal_id)
+
+    @patch("services.executor.ProviderClient.call")
     def test_pending_without_status_route_goes_to_manual_review(self, call):
         call.return_value = ProviderResult(code="-2", description="under process", pending=True, success=False, response={"resultCode": "-2"})
         tx, task, _ = self._queued_billable_task(with_status=False)
@@ -145,3 +168,29 @@ class ServiceSecurityRegressionTests(TestCase):
         tx.refresh_from_db()
         self.assertEqual(tx.status, ServiceTransaction.Status.MANUAL_REVIEW)
         self.assertIsNone(tx.refund_journal_id)
+
+    def test_yemen_mobile_denomination_amount_is_server_generated(self):
+        service = Service.objects.create(
+            category=self.category,
+            name="يمن موبايل فئة",
+            slug="yem-denom-test",
+            code="yem-denomination",
+            service_kind=Service.ServiceKinds.PURCHASE,
+            requires_balance=True,
+            pricing_mode=Service.PricingModes.ITEM,
+            currency="YER",
+        )
+        service.fields.create(key="mobile", label="الهاتف", required=True, validation={"min_length": 9, "max_length": 9})
+        item = TelecomDenomination.objects.create(service=service, name="فئة", external_code="X", face_value=500, sale_price=530, metadata={"provider_num": "8"})
+        payload = {"mobile": self.user.phone}
+        with patch("services.api.reserve_service_funds") as reserve:
+            reserve.return_value = type("JournalStub", (), {"pk": 1})()
+            response = self.client.post(
+                "/api/v2/services/requests/",
+                {"service_id": service.pk, "item_type": "telecom_denominations", "item_id": item.pk, "payload": payload},
+                format="json",
+                HTTP_IDEMPOTENCY_KEY="generated-amount-1",
+            )
+        self.assertEqual(response.status_code, 202)
+        tx = ServiceTransaction.objects.get(pk=response.data["id"])
+        self.assertEqual(tx.payload["amount"], "500")
