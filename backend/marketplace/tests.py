@@ -4,6 +4,9 @@ from django.test import TestCase
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
+from accounting.models import Wallet as AccountingWallet
+from accounting.services_v2 import ensure_legacy_customer_opening, ensure_wallet
+
 from .models import Category, DesignTheme, Order, Product, User, VendorProfile, Wallet
 
 
@@ -11,7 +14,9 @@ class MarketplaceApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.customer = User.objects.create_user(phone="700000001", username="700000001", password="SafePass123!", role="customer")
-        Wallet.objects.create(user=self.customer, balance=Decimal("1000.00"), currency="YER")
+        Wallet.objects.create(user=self.customer, balance=Decimal("0.00"), currency="YER")
+        ensure_wallet(self.customer, AccountingWallet.Kinds.CUSTOMER, "YER")
+        ensure_legacy_customer_opening(self.customer, Decimal("1000.00"), "YER")
         self.vendor_user = User.objects.create_user(phone="700000002", username="700000002", password="SafePass123!", role="vendor")
         self.vendor = VendorProfile.objects.create(owner=self.vendor_user, store_name="متجر الاختبار", slug="test-store", status="active")
         self.category = Category.objects.create(name="فساتين", slug="dresses")
