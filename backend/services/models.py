@@ -89,9 +89,13 @@ class ServiceField(models.Model):
         TEXT = "text", "نص"
         NUMBER = "number", "رقم"
         DECIMAL = "decimal", "رقم عشري"
+        DATE = "date", "تاريخ"
+        PHONE = "phone", "هاتف"
         SELECT = "select", "اختيار"
         BOOLEAN = "boolean", "نعم/لا"
         EMAIL = "email", "بريد إلكتروني"
+        IMAGE = "image", "صورة"
+        AUDIO = "audio", "صوت"
         JSON = "json", "بيانات JSON"
 
     service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name="fields")
@@ -205,7 +209,7 @@ class ServiceDistribution(models.Model):
 
 
 class ServiceOption(models.Model):
-    """Generic provider catalog row for services whose PDF table supplies arbitrary codes/numbers."""
+    """Generic provider catalog row for services whose provider table has arbitrary codes/numbers."""
     service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="options")
     name = models.CharField(max_length=180)
     external_code = models.CharField(max_length=120, blank=True)
