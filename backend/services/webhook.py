@@ -51,6 +51,14 @@ class SanaacashWebhookAPIView(APIView):
             "webhook": {"action": action, "message": message, "transid": transid},
         }
         billable = bool(tx.service.requires_balance and tx.customer_amount > 0)
+        if billable and not tx.reserved_journal_id:
+            tx.status = ServiceTransaction.Status.MANUAL_REVIEW
+            tx.error_code = "WEBHOOK_WITHOUT_RESERVATION"
+            tx.error_message = "وصل Webhook لعملية مدفوعة بدون حجز محاسبي مسجل؛ تم منع أي تسوية أو استرداد آلي."
+            tx.completed_at = timezone.now()
+            tx.save(update_fields=["status", "error_code", "error_message", "provider_response", "webhook_received_at", "completed_at", "updated_at"])
+            return JsonResponse({"resultCode": "14", "message": "transaction requires manual review"}, status=409)
+
         if action == "done":
             journal = settle_service(tx) if billable else None
             tx.status = ServiceTransaction.Status.SUCCESS
