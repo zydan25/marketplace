@@ -1,0 +1,25 @@
+[Unit]
+Description=Marketplace Services Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/home/root/projects/marketplace/backend
+EnvironmentFile=/home/root/projects/marketplace/backend/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/root/projects/marketplace/backend/venv/bin/python manage.py process_service_tasks --loop --limit 10 --sleep 1 --error-sleep 3
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/home/root/projects/marketplace/backend
+
+[Install]
+WantedBy=multi-user.target
