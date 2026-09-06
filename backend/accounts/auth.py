@@ -32,14 +32,11 @@ class SecureLoginView(APIView):
         user = User.objects.filter(Q(username__iexact=identifier) | Q(phone=identifier)).first()
         if not user or not user.check_password(password) or not user.is_active:
             return Response({"detail": "اسم المستخدم/رقم الهاتف أو كلمة المرور غير صحيحة"}, status=status.HTTP_400_BAD_REQUEST)
-        with transaction.atomic():
-            token, _ = Token.objects.get_or_create(user=user)
-            ensure_wallet(user, AccountingWallet.Kinds.CUSTOMER, "YER")
-            if getattr(user, "role", None) == "vendor":
-                ensure_wallet(user, AccountingWallet.Kinds.VENDOR_PENDING, "YER")
-                ensure_wallet(user, AccountingWallet.Kinds.VENDOR_AVAILABLE, "YER")
-                ensure_wallet(user, AccountingWallet.Kinds.WITHDRAWAL_HOLD, "YER")
-            sync_finance_projection(user, "YER")
+
+        # Authentication must not depend on accounting/projection provisioning.
+        # Those operations can legitimately fail for a partially migrated production
+        # account, but a valid username/password must still receive a token.
+        token, _ = Token.objects.get_or_create(user=user)
         display_name = user.get_full_name() or user.phone or user.username or "العميل"
         return Response({
             "token": token.key,
