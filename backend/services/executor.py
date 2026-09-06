@@ -57,7 +57,6 @@ def _remember_transid(tx, transid):
     if int(transid) not in history:
         history.append(int(transid))
     data["provider_transids"] = history
-    tx.metadata = data
 
 
 def _is_billable(tx):
@@ -67,9 +66,14 @@ def _is_billable(tx):
 def _complete_success(tx):
     with transaction.atomic():
         tx = ServiceTransaction.objects.select_for_update().get(pk=tx.pk)
-        if tx.status == ServiceTransaction.Status.SUCCESS:
+        if tx.status in {ServiceTransaction.Status.SUCCESS, ServiceTransaction.Status.REFUNDED}:
             return tx
-        if tx.status == ServiceTransaction.Status.REFUNDED:
+        if _is_billable(tx) and not tx.reserved_journal_id:
+            tx.status = ServiceTransaction.Status.MANUAL_REVIEW
+            tx.error_code = "SUCCESS_WITHOUT_RESERVATION"
+            tx.error_message = "أعاد المزود نجاحًا لعملية مدفوعة بدون حجز محاسبي؛ تم منع أي تسوية آلية."
+            tx.completed_at = timezone.now()
+            tx.save(update_fields=["status", "error_code", "error_message", "completed_at", "updated_at"])
             return tx
         journal = settle_service(tx) if _is_billable(tx) else None
         tx.status = ServiceTransaction.Status.SUCCESS
@@ -83,6 +87,13 @@ def _complete_failure(tx, *, code="", message="", refund=True):
     with transaction.atomic():
         tx = ServiceTransaction.objects.select_for_update().get(pk=tx.pk)
         if tx.status in {ServiceTransaction.Status.REFUNDED, ServiceTransaction.Status.SUCCESS}:
+            return tx
+        if refund and _is_billable(tx) and not tx.reserved_journal_id:
+            tx.status = ServiceTransaction.Status.MANUAL_REVIEW
+            tx.error_code = "FAILURE_WITHOUT_RESERVATION"
+            tx.error_message = "فشل مزود العملية لكن لا يوجد حجز محاسبي يمكن رده بأمان؛ تم تعليقها للمراجعة."
+            tx.completed_at = timezone.now()
+            tx.save(update_fields=["status", "error_code", "error_message", "completed_at", "updated_at"])
             return tx
         do_refund = bool(refund and _is_billable(tx))
         journal = refund_service(tx) if do_refund else None
@@ -149,9 +160,6 @@ def _handle_ambiguous_result(tx, task, link, result):
         task.save(update_fields=["status", "available_at", "last_error", "started_at", "finished_at"])
         return task
 
-    # Ambiguous outcomes (timeouts, 5xx responses, malformed 2xx responses)
-    # must keep the customer's reservation and must never fail over to another
-    # provider because the original provider may already have executed the job.
     tx.status = ServiceTransaction.Status.PENDING_PROVIDER
     tx.error_code = result.code
     tx.error_message = result.description
@@ -303,8 +311,6 @@ def process_task(task_id=None):
     if result.code == "NETWORK" and _is_billable(tx):
         return _handle_ambiguous_result(tx, task, link, result)
 
-    # Definitive provider-side errors may fail over to the next configured
-    # route. Ambiguous outcomes are handled above and never reach this block.
     if task.kind == ServiceTask.Kinds.SUBMIT:
         dist = _next_route(tx.service, after_priority=link.priority, exclude=_used_links(tx))
         if dist:
