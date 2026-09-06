@@ -10,16 +10,13 @@ from accounting.services_v2 import ensure_legacy_customer_opening, ensure_wallet
 from marketplace.models import User
 
 from .accounting_bridge import reserve_service_funds
-from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceDistribution, ServiceTask, ServiceTransaction, TelecomDenomination
+from .models import MainServiceCategory, ProviderConnection, ProviderLink, Service, ServiceCategory, ServiceTask, ServiceTransaction, TelecomDenomination
 from .provider import ProviderClient, ProviderResult
 from .security import encrypt_secret
 from .executor import process_task
 
 
-@override_settings(
-    SERVICES_CREDENTIALS_KEY=Fernet.generate_key().decode(),
-    SERVICES_WEBHOOK_BASE_URL="https://shopik.alattab.site",
-)
+@override_settings(SERVICES_CREDENTIALS_KEY=Fernet.generate_key().decode(), SERVICES_WEBHOOK_BASE_URL="https://shopik.alattab.site")
 class ServiceSecurityRegressionTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="safe-user", password="Test-pass-123", phone="777700001", role="customer")
@@ -60,6 +57,7 @@ class ServiceSecurityRegressionTests(TestCase):
             success_codes=["0"],
             pending_codes=["-2"],
         )
+        from .models import ServiceDistribution
         ServiceDistribution.objects.create(service=self.service, provider_link=self.link, priority=1)
         self.client = APIClient()
         self.client.force_authenticate(self.user)
@@ -93,10 +91,12 @@ class ServiceSecurityRegressionTests(TestCase):
             status=ServiceTransaction.Status.PENDING_PROVIDER,
             webhook_secret_encrypted=encrypt_secret("back-secret"),
         )
+        original_balance = wallet_balance(ensure_wallet(self.user, AccountingWallet.Kinds.CUSTOMER, "YER"))
         journal = reserve_service_funds(tx)
         tx.reserved_journal_id = journal.pk
         tx.save(update_fields=["reserved_journal_id", "updated_at"])
-        before = wallet_balance(ensure_wallet(self.user, AccountingWallet.Kinds.CUSTOMER, "YER"))
+        reserved_balance = wallet_balance(ensure_wallet(self.user, AccountingWallet.Kinds.CUSTOMER, "YER"))
+        self.assertEqual(reserved_balance, original_balance - Decimal("100"))
         anonymous = APIClient()
         first = anonymous.get("/api/v2/services/webhook/sanaacash/", {"action": "ban", "backpass": "back-secret", "transid": "12345", "message": "رفض"})
         second = anonymous.get("/api/v2/services/webhook/sanaacash/", {"action": "ban", "backpass": "back-secret", "transid": "12345", "message": "رفض"})
@@ -104,7 +104,7 @@ class ServiceSecurityRegressionTests(TestCase):
         self.assertEqual(second.status_code, 200)
         tx.refresh_from_db()
         self.assertEqual(tx.status, ServiceTransaction.Status.REFUNDED)
-        self.assertEqual(wallet_balance(ensure_wallet(self.user, AccountingWallet.Kinds.CUSTOMER, "YER")), before)
+        self.assertEqual(wallet_balance(ensure_wallet(self.user, AccountingWallet.Kinds.CUSTOMER, "YER")), original_balance)
         self.assertTrue(tx.refund_journal_id)
 
     def _queued_billable_task(self, *, with_status=True):
