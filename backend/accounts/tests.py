@@ -32,6 +32,24 @@ class AccountsStageOneTests(TestCase):
         self.assertTrue(Token.objects.filter(user=user).exists())
         self.assertTrue(Wallet.objects.filter(user=user).exists())
 
+    def test_login_uses_existing_auth_contract_and_returns_token(self):
+        user = User.objects.create_user(
+            phone="711000005",
+            username="711000005",
+            password="SafePass789!",
+            role="customer",
+            is_active=True,
+        )
+        response = self.client.post(
+            "/api/auth/login/",
+            {"phone": "711000005", "password": "SafePass789!"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["token"])
+        self.assertEqual(response.data["user"]["phone"], "711000005")
+        self.assertEqual(response.data["message"], "مرحبًا 711000005، تم تسجيل الدخول بنجاح.")
+
     def test_me_keeps_existing_auth_contract(self):
         user = User.objects.create_user(phone="711000003", username="711000003", password="SafePass789!", role="customer")
         token, _ = Token.objects.get_or_create(user=user)
