@@ -4,16 +4,14 @@ from django.db import transaction
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from accounting.models import JournalEntry
 from accounting.services_v2 import wallet_summary
 from accounting.transfer_service import transfer_between_users
-from finance.unified_wallet import record_projection_transaction, sync_finance_projection
+from .models import User
 from .models_extra import Address, Loan, GiftTransfer
 from .serializers_extra import AddressSerializer, LoanSerializer, GiftTransferSerializer
-from .models import User
 
 
 class AddressViewSet(viewsets.ModelViewSet):
@@ -127,24 +125,6 @@ class GiftTransferViewSet(viewsets.ModelViewSet):
         except ValueError as exc:
             raise ValidationError({"gift": str(exc)})
 
-        # Keep old wallet screens/receipts synchronized without making the
-        # legacy finance wallet authoritative.
-        sync_finance_projection(gift.sender, "YER")
-        sync_finance_projection(gift.receiver, "YER")
-        record_projection_transaction(
-            gift.sender, -gift.amount, "YER",
-            transaction_type="payment",
-            reference=entry.number,
-            note=f"هدية إلى {gift.receiver.phone}",
-            metadata={"gift_id": gift.pk, "accounting_journal": entry.number},
-        )
-        record_projection_transaction(
-            gift.receiver, gift.amount, "YER",
-            transaction_type="reward",
-            reference=f"{entry.number}:receiver",
-            note=f"هدية من {request.user.phone}",
-            metadata={"gift_id": gift.pk, "accounting_journal": entry.number},
-        )
         gift.status = GiftTransfer.Status.COMPLETED
         gift.save(update_fields=["status", "updated_at"])
         return Response({
