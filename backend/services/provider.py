@@ -2,9 +2,10 @@ import hashlib
 import json
 import os
 import secrets
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
+from django.conf import settings
 from django.db import IntegrityError, transaction as db_transaction
 
 from .security import decrypt_secret
@@ -27,8 +28,13 @@ class ProviderClient:
         self.connection = connection
 
     def _url(self, path):
-        base = (self.connection.base_url or "").rstrip("/") + "/"
-        return urljoin(base, (path or "").lstrip("/"))
+        base = (self.connection.base_url or "").strip()
+        parsed = urlparse(base)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("رابط المزود غير صالح.")
+        if not settings.DEBUG and parsed.scheme != "https":
+            raise ValueError("ربط المزود يجب أن يستخدم HTTPS في بيئة الإنتاج.")
+        return urljoin(base.rstrip("/") + "/", (path or "").lstrip("/"))
 
     @staticmethod
     def sanaacash_token(password, transid, username, mobile):
@@ -37,9 +43,7 @@ class ProviderClient:
 
     @staticmethod
     def new_numeric_transid(provider, *, request_kind="service", service_transaction=None):
-        """Allocate a random 5-9 digit provider id that has never appeared in the system."""
         from services.models import ServiceRequestReference, ServiceTransaction
-
         for _ in range(256):
             value = secrets.randbelow(990_000_000) + 10_000
             if ServiceRequestReference.objects.filter(transid=value).exists():
@@ -51,10 +55,7 @@ class ProviderClient:
             try:
                 with db_transaction.atomic():
                     ref = ServiceRequestReference.objects.create(
-                        transid=value,
-                        provider=provider,
-                        transaction=service_transaction,
-                        request_kind=request_kind,
+                        transid=value, provider=provider, transaction=service_transaction, request_kind=request_kind
                     )
                     return ref.transid
             except IntegrityError:
@@ -83,13 +84,9 @@ class ProviderClient:
         transid = str(provider_transid or legacy_id or "")
         context = dict(transaction.payload or {})
         context.update({
-            "transaction.id": str(transaction.id),
-            "transid": transid,
-            "provider_transid": transid,
-            "service.code": transaction.service.code,
-            "service_id": transaction.service_id,
-            "mobile": transaction.mobile,
-            "transaction.mobile": transaction.mobile,
+            "transaction.id": str(transaction.id), "transid": transid, "provider_transid": transid,
+            "service.code": transaction.service.code, "service_id": transaction.service_id,
+            "mobile": transaction.mobile, "transaction.mobile": transaction.mobile,
         })
         params = {k: self._render(v, context) for k, v in (link.fixed_params or {}).items()}
         for target, source in (link.field_map or {}).items():
@@ -99,10 +96,11 @@ class ProviderClient:
                 params[target] = context.get(source, source)
             else:
                 params[target] = source
-
         if self.connection.connection_type == "sanaacash":
-            if not transid or not transid.isdigit() or int(transid) < 10000:
-                raise ValueError("transid يجب أن يكون رقمًا صحيحًا من 5 أرقام على الأقل للمزود.")
+            if not transid.isdigit() or not 10000 <= int(transid) <= 999_999_999:
+                raise ValueError("transid يجب أن يكون رقمًا صحيحًا من 5 إلى 9 أرقام للمزود.")
+            if not self.connection.userid or not self.connection.username or not self.connection.get_password():
+                raise RuntimeError("بيانات اعتماد المزود غير مكتملة؛ أوقف التنفيذ بدل إرسال طلب ناقص.")
             params.setdefault("userid", self.connection.userid)
             params.setdefault("mobile", transaction.mobile or "0")
             params.setdefault("transid", transid)
@@ -136,55 +134,58 @@ class ProviderClient:
             data = response.json()
         except (ValueError, json.JSONDecodeError):
             data = {"http_status": response.status_code, "raw": raw_text}
-        code = data.get("resultCode", response.status_code)
-        desc = data.get("resultDesc", data.get("message", ""))
-        return data, raw_text, code, desc
+        code = data.get("resultCode", response.status_code) if isinstance(data, dict) else response.status_code
+        desc = data.get("resultDesc", data.get("message", "")) if isinstance(data, dict) else ""
+        return data if isinstance(data, dict) else {"raw": data}, raw_text, code, desc
 
     def check_balance(self):
-        """Query Sanaacash agent balance without creating a customer transaction."""
         if self.connection.connection_type != "sanaacash":
             return ProviderResult(code="UNSUPPORTED", description="فحص رصيد المزود غير مهيأ لهذا النوع من الربط.")
         transid = self.new_numeric_transid(self.connection, request_kind="balance")
         mobile = "0"
-        params = {
-            "userid": self.connection.userid,
-            "mobile": mobile,
-            "transid": str(transid),
-            "token": self.sanaacash_token(self.connection.get_password(), transid, self.connection.username, mobile),
-            "action": "balance",
-        }
-        headers = dict(self.connection.headers or {})
-        timeout = max(1, int(self.connection.timeout_seconds or 20))
         try:
+            if not self.connection.userid or not self.connection.username or not self.connection.get_password():
+                return ProviderResult(code="CONFIG", description="بيانات اعتماد المزود غير مكتملة.")
+            params = {
+                "userid": self.connection.userid, "mobile": mobile, "transid": str(transid),
+                "token": self.sanaacash_token(self.connection.get_password(), transid, self.connection.username, mobile),
+                "action": "balance",
+            }
+            headers = dict(self.connection.headers or {})
+            timeout = max(1, int(self.connection.timeout_seconds or 20))
             response = requests.get(self._url("info"), params=params, headers=headers, timeout=timeout)
             data, raw_text, code, desc = self._decode(response)
+            if not 200 <= response.status_code < 300:
+                return ProviderResult(code=f"HTTP_{response.status_code}", description=desc or "فشل رد المزود HTTP.", response=data, raw_text=raw_text)
             success = str(code) == "0" and "balance" in data
             return ProviderResult(code=code, description=desc or ("تم جلب رصيد المزود بنجاح." if success else ""), success=success, response=data, raw_text=raw_text)
-        except requests.RequestException as exc:
-            return ProviderResult(code="NETWORK", description=str(exc), success=False, response={"error": str(exc)})
+        except (requests.RequestException, ValueError, RuntimeError) as exc:
+            return ProviderResult(code="NETWORK" if isinstance(exc, requests.RequestException) else "CONFIG", description=str(exc), success=False, response={"error": str(exc)})
 
     def call(self, link, transaction, *, status_check=False):
-        path = link.status_path_template if status_check and link.status_path_template else link.path_template
-        params, context = self._params(link, transaction)
-        if status_check and link.status_params:
-            for target, value in link.status_params.items():
-                params[target] = self._render(value, context)
-        headers = dict(self.connection.headers or {})
-        headers.update(link.headers or {})
-        timeout = max(1, int(self.connection.timeout_seconds or 20))
         try:
+            path = link.status_path_template if status_check and link.status_path_template else link.path_template
+            params, context = self._params(link, transaction)
+            if status_check and link.status_params:
+                for target, value in link.status_params.items():
+                    params[target] = self._render(value, context)
+            headers = dict(self.connection.headers or {})
+            headers.update(link.headers or {})
+            timeout = max(1, int(self.connection.timeout_seconds or 20))
             response = self._request(link, self._url(path), params, headers, timeout)
             data, raw_text, code, desc = self._decode(response)
+            if not 200 <= response.status_code < 300:
+                return ProviderResult(code=f"HTTP_{response.status_code}", description=desc or "فشل رد المزود HTTP.", response=data, raw_text=raw_text)
             success_codes = {str(x) for x in (link.success_codes or ["0"])}
             pending_codes = {str(x) for x in (link.pending_codes or ["-2"])}
             pending = str(code) in pending_codes or "under process" in str(desc).lower() or "under proccess" in str(desc).lower()
             success = str(code) in success_codes
             if status_check and str(data.get("isDone")) == "1":
-                success = True
-                pending = False
+                success = True; pending = False
             if status_check and str(data.get("isBan")) == "1" and str(data.get("isDone")) != "1":
-                success = False
-                pending = False
+                success = False; pending = False
             return ProviderResult(code=code, description=desc, pending=pending, success=success, response=data, raw_text=raw_text)
         except requests.RequestException as exc:
             return ProviderResult(code="NETWORK", description=str(exc), success=False, pending=False, response={"error": str(exc)})
+        except (ValueError, RuntimeError) as exc:
+            return ProviderResult(code="CONFIG", description=str(exc), success=False, pending=False, response={"error": str(exc)})
