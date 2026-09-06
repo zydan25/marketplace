@@ -46,23 +46,24 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SERVICES_CREDENTIALS_KEY = os.getenv("SERVICES_CREDENTIALS_KEY", "")
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
-if not REDIS_URL:
-    # A single-process development server may safely fall back to local memory.
-    # Production installations should provide Redis so throttling is shared by
-    # all web workers and cannot be bypassed by hitting another worker.
-    REDIS_URL = "redis://127.0.0.1:6379/1"
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": REDIS_URL,
-        "TIMEOUT": 300,
-        "OPTIONS": {"db": 1},
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+            "TIMEOUT": 300,
+        }
     }
-}
-if not DEBUG and not os.getenv("REDIS_URL", "").strip() and os.getenv("ALLOW_LOCAL_REDIS_FALLBACK", "0") != "1":
-    # Keep the application fail-closed in normal production deployments. Set
-    # ALLOW_LOCAL_REDIS_FALLBACK=1 only for an intentionally single-node setup.
-    raise ImproperlyConfigured("REDIS_URL مطلوب في بيئة الإنتاج لاستخدام throttling موزع بأمان.")
+else:
+    if not DEBUG and os.getenv("ALLOW_LOCAL_REDIS_FALLBACK", "0") != "1":
+        raise ImproperlyConfigured("REDIS_URL مطلوب في بيئة الإنتاج لاستخدام throttling موزع بأمان.")
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "marketplace-local-throttle",
+            "TIMEOUT": 300,
+        }
+    }
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
