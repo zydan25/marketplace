@@ -115,11 +115,28 @@ def _entry_number():
     return f"JE-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:10].upper()}"
 
 
+def _assert_idempotent_match(existing, description, source_type, source_id, metadata):
+    if description and existing.description != description:
+        raise ValueError("Idempotency-Key سبق استخدامه لوصف قيد مختلف.")
+    if source_type and existing.source_type != source_type:
+        raise ValueError("Idempotency-Key سبق استخدامه لنوع عملية مختلف.")
+    expected_source_id = str(source_id or "")
+    if expected_source_id and existing.source_id and existing.source_id != expected_source_id:
+        raise ValueError("Idempotency-Key سبق استخدامه لمصدر عملية مختلف.")
+    expected_metadata = metadata or {}
+    actual_metadata = existing.metadata or {}
+    for key in ("amount", "order_total", "currency", "user_id", "sender_id", "recipient_id", "service_transaction", "wallet_kind"):
+        if key in expected_metadata and key in actual_metadata and str(expected_metadata[key]) != str(actual_metadata[key]):
+            raise ValueError("Idempotency-Key سبق استخدامه لمعلمات مالية مختلفة.")
+
+
 @transaction.atomic
 def post_entry(description, lines, *, source_type="", source_id="", idempotency_key=None, created_by=None, entry_date=None, metadata=None):
+    metadata = metadata or {}
     if idempotency_key:
-        existing = JournalEntry.objects.filter(idempotency_key=idempotency_key).first()
+        existing = JournalEntry.objects.select_for_update().filter(idempotency_key=idempotency_key).first()
         if existing:
+            _assert_idempotent_match(existing, description, source_type, source_id, metadata)
             return existing
     normalized, debit_total, credit_total = [], Decimal("0.00"), Decimal("0.00")
     for row in lines:
@@ -138,7 +155,7 @@ def post_entry(description, lines, *, source_type="", source_id="", idempotency_
     entry = JournalEntry.objects.create(
         number=_entry_number(), entry_date=entry_date or date.today(), description=description,
         source_type=source_type, source_id=str(source_id or ""), idempotency_key=idempotency_key,
-        created_by=created_by, metadata=metadata or {}, status=JournalEntry.Status.POSTED,
+        created_by=created_by, metadata=metadata, status=JournalEntry.Status.POSTED,
     )
     JournalLine.objects.bulk_create([
         JournalLine(entry=entry, account=account, debit=debit, credit=credit, description=desc)
@@ -199,11 +216,22 @@ def fund_order(order, *, created_by=None):
         lines.append({"account": ensure_chart()["commission_income"], "credit": commission, "description": f"عمولة طلب {order.order_number}"})
     if allocated + commission != order_total:
         raise ValueError(f"لا يمكن ترحيل الطلب محاسبيًا: صافي التاجر {allocated} + العمولة {commission} != إجمالي الطلب {order_total}.")
-    return post_entry(
+    entry = post_entry(
         f"تمويل وحجز الطلب {order.order_number}", lines,
         source_type="order", source_id=order.pk, idempotency_key=f"order:fund:{order.pk}", created_by=created_by,
-        metadata={"order_total": str(order_total), "currency": order.currency},
+        metadata={"order_total": str(order_total), "amount": str(order_total), "currency": order.currency},
     )
+    from finance.unified_wallet import record_projection_transaction
+    record_projection_transaction(
+        order.customer,
+        -order_total,
+        order.currency,
+        transaction_type="payment",
+        reference=entry.number,
+        note=f"حجز طلب {order.order_number}",
+        metadata={"accounting_journal": entry.number, "source_type": "order", "order_id": order.pk},
+    )
+    return entry
 
 
 def release_vendor_pending(vendor_user, amount, currency, *, vendor_order_id, created_by=None):
@@ -217,6 +245,7 @@ def release_vendor_pending(vendor_user, amount, currency, *, vendor_order_id, cr
         [{"account": pending.account, "debit": amount}, {"account": available.account, "credit": amount}],
         source_type="vendor_order_release", source_id=vendor_order_id,
         idempotency_key=f"vendor-order:release:{vendor_order_id}", created_by=created_by,
+        metadata={"amount": str(amount), "currency": currency},
     )
 
 
@@ -224,14 +253,28 @@ def hold_withdrawal(user, amount, currency, *, withdrawal_id, created_by=None):
     amount = Decimal(amount).quantize(Decimal("0.01"))
     available = ensure_wallet(user, Wallet.Kinds.VENDOR_AVAILABLE, currency)
     locked_available = Account.objects.select_for_update().get(pk=available.account_id)
-    if account_balance(locked_available) < amount:
-        raise ValueError(f"الرصيد المتاح للتاجر غير كافٍ: المتاح {account_balance(locked_available)} {currency} والمطلوب {amount}.")
+    current = account_balance(locked_available)
+    if current < amount:
+        raise ValueError(f"الرصيد المتاح للتاجر غير كافٍ: المتاح {current} {currency} والمطلوب {amount}.")
     hold = ensure_wallet(user, Wallet.Kinds.WITHDRAWAL_HOLD, currency)
-    return post_entry(
+    entry = post_entry(
         f"حجز طلب السحب {withdrawal_id}",
         [{"account": locked_available, "debit": amount}, {"account": hold.account, "credit": amount}],
-        source_type="withdrawal_hold", source_id=withdrawal_id, idempotency_key=f"withdrawal:hold:{withdrawal_id}", created_by=created_by,
+        source_type="withdrawal_hold", source_id=withdrawal_id,
+        idempotency_key=f"withdrawal:hold:{withdrawal_id}", created_by=created_by,
+        metadata={"amount": str(amount), "currency": currency},
     )
+    from finance.unified_wallet import record_projection_transaction
+    record_projection_transaction(
+        user,
+        -amount,
+        currency,
+        transaction_type="withdrawal",
+        reference=entry.number,
+        note=f"حجز طلب السحب {withdrawal_id}",
+        metadata={"accounting_journal": entry.number, "source_type": "withdrawal_hold", "withdrawal_id": withdrawal_id},
+    )
+    return entry
 
 
 def settle_withdrawal(user, amount, currency, *, withdrawal_id, created_by=None):
@@ -241,7 +284,9 @@ def settle_withdrawal(user, amount, currency, *, withdrawal_id, created_by=None)
     return post_entry(
         f"صرف طلب السحب {withdrawal_id}",
         [{"account": hold.account, "debit": amount}, {"account": cash, "credit": amount}],
-        source_type="withdrawal_paid", source_id=withdrawal_id, idempotency_key=f"withdrawal:paid:{withdrawal_id}", created_by=created_by,
+        source_type="withdrawal_paid", source_id=withdrawal_id,
+        idempotency_key=f"withdrawal:paid:{withdrawal_id}", created_by=created_by,
+        metadata={"amount": str(amount), "currency": currency},
     )
 
 
@@ -249,15 +294,28 @@ def reject_withdrawal(user, amount, currency, *, withdrawal_id, created_by=None)
     amount = Decimal(amount).quantize(Decimal("0.01"))
     hold = ensure_wallet(user, Wallet.Kinds.WITHDRAWAL_HOLD, currency)
     available = ensure_wallet(user, Wallet.Kinds.VENDOR_AVAILABLE, currency)
-    return post_entry(
+    entry = post_entry(
         f"إلغاء حجز طلب السحب {withdrawal_id}",
         [{"account": hold.account, "debit": amount}, {"account": available.account, "credit": amount}],
-        source_type="withdrawal_rejected", source_id=withdrawal_id, idempotency_key=f"withdrawal:reject:{withdrawal_id}", created_by=created_by,
+        source_type="withdrawal_rejected", source_id=withdrawal_id,
+        idempotency_key=f"withdrawal:reject:{withdrawal_id}", created_by=created_by,
+        metadata={"amount": str(amount), "currency": currency},
     )
+    from finance.unified_wallet import record_projection_transaction
+    record_projection_transaction(
+        user,
+        amount,
+        currency,
+        transaction_type="refund",
+        reference=entry.number,
+        note=f"إلغاء حجز طلب السحب {withdrawal_id}",
+        metadata={"accounting_journal": entry.number, "source_type": "withdrawal_rejected", "withdrawal_id": withdrawal_id},
+    )
+    return entry
 
 
 def statement_for_user(user, currency="YER", wallet_kinds=None):
-    kinds = wallet_kinds or [Wallet.Kinds.CUSTOMER]
+    kinds = list(wallet_kinds or [Wallet.Kinds.CUSTOMER])
     if getattr(user, "role", None) == "vendor" and wallet_kinds is None:
         kinds += [Wallet.Kinds.VENDOR_PENDING, Wallet.Kinds.VENDOR_AVAILABLE, Wallet.Kinds.WITHDRAWAL_HOLD]
     wallets = [ensure_wallet(user, kind, currency) for kind in kinds]
