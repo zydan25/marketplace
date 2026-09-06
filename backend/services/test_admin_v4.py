@@ -15,29 +15,12 @@ class ServiceAdminV4Tests(TestCase):
         User.objects.create_user(username="admin-v4", password="pass", is_staff=True, role="admin")
         main = MainServiceCategory.objects.create(name="اختبار الخدمات", slug="test-main")
         category = ServiceCategory.objects.create(main_category=main, name="اتصالات", slug="telecom")
-        self.service = Service.objects.create(
-            category=category,
-            name="فئات يمن موبايل",
-            slug="yem-denom-test",
-            code="yem-denomination",
-            pricing_mode="item",
-            price=Decimal("0"),
-        )
-        self.provider = create_or_update_sanaacash_provider(
-            code="test-admin-provider",
-            name="مزود الإدارة الاختباري",
-            base_url="https://example.invalid/api/yr/",
-            userid="1",
-            username="login",
-            password="secret",
-        )
+        self.service = Service.objects.create(category=category, name="فئات يمن موبايل", slug="yem-denom-test", code="yem-denomination", pricing_mode="item", price=Decimal("0"))
+        self.provider = create_or_update_sanaacash_provider(code="test-admin-provider", name="مزود الإدارة الاختباري", base_url="https://example.invalid/api/yr/", userid="1", username="login", password="secret")
 
     def test_service_field_library_contains_api_keys(self):
         keys = {key for key, _, _ in FIELD_LIBRARY}
-        for key in {
-            "mobile", "num", "type", "offerid", "offerkey", "method", "solfa",
-            "customer_id", "placeid", "playerid", "playername", "zoneid", "uniqcode",
-        }:
+        for key in {"mobile", "num", "type", "offerid", "offerkey", "method", "solfa", "customer_id", "placeid", "playerid", "playername", "zoneid", "uniqcode"}:
             self.assertIn(key, keys)
 
     def test_distribution_resolves_canonical_link_not_first_bill_link(self):
@@ -52,12 +35,8 @@ class ServiceAdminV4Tests(TestCase):
         self.assertContains(response, "تحديد حقول الخدمة")
 
     def test_provider_setup_is_idempotent(self):
-        first = create_or_update_sanaacash_provider(
-            code="idempotent-provider", name="ربطية", userid="2", username="u", password="p", base_url="https://example.invalid/api/yr/"
-        )
-        second = create_or_update_sanaacash_provider(
-            code="idempotent-provider", name="ربطية معدلة", userid="3", username="u2", password="", base_url="https://example.invalid/api/yr/"
-        )
+        first = create_or_update_sanaacash_provider(code="idempotent-provider", name="ربطية", userid="2", username="u", password="p", base_url="https://example.invalid/api/yr/")
+        second = create_or_update_sanaacash_provider(code="idempotent-provider", name="ربطية معدلة", userid="3", username="u2", password="", base_url="https://example.invalid/api/yr/")
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(second.name, "ربطية معدلة")
         self.assertEqual(second.get_password(), "p")
