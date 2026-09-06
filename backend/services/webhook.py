@@ -1,7 +1,10 @@
+import hmac
+
 from django.db import transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from .accounting_bridge import refund_service, settle_service
@@ -9,9 +12,14 @@ from .models import ServiceTransaction
 from .security import decrypt_secret
 
 
+class SanaacashWebhookThrottle(ScopedRateThrottle):
+    scope = "provider_webhook"
+
+
 class SanaacashWebhookAPIView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [SanaacashWebhookThrottle]
 
     @transaction.atomic
     def get(self, request):
@@ -19,8 +27,9 @@ class SanaacashWebhookAPIView(APIView):
         backpass = str(request.query_params.get("backpass") or "")
         action = str(request.query_params.get("action") or "").strip().lower()
         message = str(request.query_params.get("message") or "")[:1000]
-        if not transid or not transid.isdigit() or int(transid) < 10000 or not backpass or action not in {"done", "ban"}:
+        if not transid or not transid.isdigit() or int(transid) < 10000 or len(transid) > 9 or not backpass or len(backpass) > 512 or action not in {"done", "ban"}:
             return JsonResponse({"resultCode": "10", "message": "invalid webhook payload"}, status=400)
+
         tx = ServiceTransaction.objects.select_for_update().filter(provider_transid=int(transid)).first()
         if tx is None:
             tx = ServiceTransaction.objects.select_for_update().filter(provider_transaction_id=transid).order_by("-created_at").first()
@@ -32,10 +41,15 @@ class SanaacashWebhookAPIView(APIView):
             return JsonResponse({"resultCode": "12", "message": "webhook secret unavailable"}, status=500)
         if not expected or not secrets_equal(expected, backpass):
             return JsonResponse({"resultCode": "13", "message": "invalid backpass"}, status=403)
+
         if tx.status in {ServiceTransaction.Status.SUCCESS, ServiceTransaction.Status.REFUNDED}:
             return JsonResponse({"resultCode": "0", "message": "already finalized"})
+
         tx.webhook_received_at = timezone.now()
-        tx.provider_response = {**(tx.provider_response or {}), "webhook": {"action": action, "message": message, "transid": transid}}
+        tx.provider_response = {
+            **(tx.provider_response or {}),
+            "webhook": {"action": action, "message": message, "transid": transid},
+        }
         billable = bool(tx.service.requires_balance and tx.customer_amount > 0)
         if action == "done":
             journal = settle_service(tx) if billable else None
@@ -54,5 +68,4 @@ class SanaacashWebhookAPIView(APIView):
 
 
 def secrets_equal(left, right):
-    import hmac
     return hmac.compare_digest(left.encode("utf-8"), right.encode("utf-8"))
