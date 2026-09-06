@@ -116,7 +116,7 @@ def _set_service_request_schema(service, code, kind):
     metadata = dict(service.metadata or {})
     metadata["no_wallet_charge"] = kind in {"query", "catalog"}
     service.metadata = metadata
-    service.save(update_fields=["request_schema", "response_schema", "metadata", "updated_at"])
+    service.save(update_fields=["request_schema", "response_schema", "metadata"])
 
 
 def provision():
@@ -190,27 +190,14 @@ def provision_links(connection, services):
 def _upsert_plan(service, *, external_code, name, price, provider_num="", payment_type="", line_type="", metadata=None):
     TelecomPlan.objects.update_or_create(
         service=service, external_code=external_code,
-        defaults={
-            "name": name,
-            "price": Decimal(str(price)),
-            "payment_type": payment_type,
-            "line_type": line_type,
-            "metadata": {"provider_num": str(provider_num), **(metadata or {})},
-            "is_active": True,
-        },
+        defaults={"name": name, "price": Decimal(str(price)), "payment_type": payment_type, "line_type": line_type, "metadata": {"provider_num": str(provider_num), **(metadata or {})}, "is_active": True},
     )
 
 
 def _upsert_denom(service, *, external_code, name, face_value, sale_price, metadata=None):
     TelecomDenomination.objects.update_or_create(
         service=service, external_code=str(external_code),
-        defaults={
-            "name": name,
-            "face_value": Decimal(str(face_value)),
-            "sale_price": Decimal(str(sale_price)),
-            "metadata": {"provider_num": str(external_code), **(metadata or {})},
-            "is_active": True,
-        },
+        defaults={"name": name, "face_value": Decimal(str(face_value)), "sale_price": Decimal(str(sale_price)), "metadata": {"provider_num": str(external_code), **(metadata or {})}, "is_active": True},
     )
 
 
@@ -229,12 +216,12 @@ def seed_catalog(services):
         metadata = {"provider_offer_code": code, "catalog_source": "api 1 (59).pdf"}
         _upsert_plan(bill_offer, external_code=code, name=name, price=price, payment_type=payment_type, line_type=line_type, metadata=metadata)
         _upsert_plan(combined_offer, external_code=code, name=name, price=price, payment_type=payment_type, line_type=line_type, metadata=metadata)
-        _upsert_plan(catalog_offer, external_code=code, name=name, price=0, payment_type=payment_type, line_type=line_type, metadata={**metadata, "catalog_only": True, "requires_balance": False})
+        _upsert_plan(catalog_offer, external_code=code, name=name, price=0, payment_type=payment_type, line_type=line_type, metadata={**metadata, "catalog_only": True, "requires_balance": False, "purchaseable": False})
 
     for number, face, sale in YOU_DENOMINATIONS:
         _upsert_denom(services["you-denomination"], external_code=number, name=f"فئة يو {number}", face_value=face, sale_price=sale)
     for num, name, price, code, free_item, pay_type in YOU_OFFERS:
-        _upsert_plan(services["you-offer"], external_code=code or num, name=name, price=price, provider_num=num, payment_type=pay_type, metadata={"requires_balance": not free_item, "catalog_number": num})
+        _upsert_plan(services["you-offer"], external_code=code or num, name=name, price=price, provider_num=num, payment_type=pay_type, metadata={"requires_balance": not free_item, "catalog_number": num, "purchaseable": True if free_item or Decimal(str(price)) > 0 else False})
 
     for number, face, sale in SABA_DENOMINATIONS:
         _upsert_denom(services["saba-denomination"], external_code=number, name=f"فئة سبأفون {number}", face_value=face, sale_price=sale)
@@ -280,18 +267,18 @@ class Command(BaseCommand):
         parser.add_argument("--domain-name", default="")
         parser.add_argument("--username", default="")
         parser.add_argument("--password", default="")
-        parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--note", default="")
 
     @transaction.atomic
     def handle(self, *args, **options):
-        if options["dry_run"]:
-            self.stdout.write(self.style.WARNING(f"Dry run: {len(MAIN)} فئات رئيسية، {len(CATEGORIES)} فئات، {len(SERVICES)} خدمة، {len(LINKS)} مسار API."))
-            return
         provider = create_or_update_sanaacash_provider(
-            code=options["provider_code"], name=options["provider_name"], userid=options["userid"],
-            domain_name=options["domain_name"], username=options["username"], password=options["password"],
+            code=options["provider_code"],
+            name=options["provider_name"],
+            userid=options["userid"],
+            domain_name=options["domain_name"],
+            username=options["username"],
+            password=options["password"],
+            note=options["note"],
             base_url=options["base_url"],
         )
-        count_plans = TelecomPlan.objects.count()
-        count_denoms = TelecomDenomination.objects.count()
-        self.stdout.write(self.style.SUCCESS(f"تمت تهيئة {provider.name}: {len(SERVICES)} خدمة و{len(LINKS)} مسار، مع {count_plans} باقة و{count_denoms} فئة في الكتالوج."))
+        self.stdout.write(self.style.SUCCESS(f"تمت تهيئة المزود {provider.name} وربط الخدمات والكتالوجات."))
