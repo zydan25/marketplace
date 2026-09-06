@@ -68,6 +68,10 @@ def _assert_item_ready_for_purchase(service, item_type, item_id):
     if metadata.get("purchaseable", True) is False:
         reason = metadata.get("purchase_disabled_reason") or "العنصر معروض في الكتالوج لكنه غير مفعّل للتنفيذ لدى المزود."
         raise ValidationError({"item_id": reason})
+    # Some documented catalog rows are free to the customer. The base service
+    # resolver already handles these with metadata.requires_balance=false.
+    if metadata.get("requires_balance", True) is False:
+        return
     try:
         price = Decimal(str(item.sale_price if isinstance(item, TelecomDenomination) else item.price))
     except Exception:
