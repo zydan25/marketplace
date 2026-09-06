@@ -38,7 +38,12 @@ def _amount(value):
 
 
 def _key(request):
-    return str(request.headers.get("Idempotency-Key") or request.data.get("idempotency_key") or "").strip() or None
+    value = str(request.headers.get("Idempotency-Key") or request.data.get("idempotency_key") or "").strip()
+    if not value:
+        raise ValidationError({"idempotency_key": "Idempotency-Key مطلوب لكل عملية مالية لمنع التكرار."})
+    if len(value) > 180:
+        raise ValidationError({"idempotency_key": "Idempotency-Key طويل جدًا."})
+    return value
 
 
 @api_view(["POST"])
@@ -58,7 +63,7 @@ def transfer(request):
             amount,
             currency,
             source_type="transfer",
-            source_id=f"transfer:{key}" if key else "",
+            source_id=f"transfer:{key}",
             note=str(request.data.get("note", "")).strip(),
             idempotency_key=key,
             created_by=request.user,
@@ -87,7 +92,7 @@ def gift(request):
     amount = _amount(request.data.get("amount"))
     currency = str(request.data.get("currency", "YER")).upper()
     key = _key(request)
-    message = str(request.data.get("message", "")).strip()
+    message = str(request.data.get("message", "")).strip()[:2000]
     try:
         entry = transfer_between_users(
             request.user,
@@ -95,7 +100,7 @@ def gift(request):
             amount,
             currency,
             source_type="gift",
-            source_id=f"gift:{key}" if key else "",
+            source_id=f"gift:{key}",
             note=message or "هدية مالية",
             idempotency_key=key,
             created_by=request.user,
