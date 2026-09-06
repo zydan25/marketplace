@@ -19,6 +19,24 @@ def ensure_service_accounts():
     return {"pending": pending, "revenue": revenue}
 
 
+def _project_customer_movement(service_transaction, amount, transaction_type, entry, note):
+    from finance.unified_wallet import record_projection_transaction
+
+    record_projection_transaction(
+        service_transaction.customer,
+        amount,
+        service_transaction.currency,
+        transaction_type=transaction_type,
+        reference=entry.number,
+        note=note,
+        metadata={
+            "service_transaction": str(service_transaction.id),
+            "accounting_journal": entry.number,
+            "source": "services.accounting_bridge",
+        },
+    )
+
+
 @transaction.atomic
 def reserve_service_funds(service_transaction):
     amount = Decimal(service_transaction.customer_amount).quantize(Decimal("0.01"))
@@ -32,13 +50,28 @@ def reserve_service_funds(service_transaction):
     key = f"service:reserve:{service_transaction.id}"
     existing = JournalEntry.objects.filter(idempotency_key=key).first()
     if existing:
+        _project_customer_movement(
+            service_transaction,
+            -amount,
+            "payment",
+            existing,
+            f"حجز خدمة {service_transaction.service.code}",
+        )
         return existing
-    return post_entry(
+    entry = post_entry(
         f"حجز مبلغ خدمة {service_transaction.service.code}",
         [{"account": customer_wallet.account, "debit": amount}, {"account": accounts["pending"], "credit": amount}],
         source_type="service_reservation", source_id=service_transaction.id, idempotency_key=key,
         created_by=service_transaction.customer, metadata={"service_transaction": str(service_transaction.id), "currency": service_transaction.currency},
     )
+    _project_customer_movement(
+        service_transaction,
+        -amount,
+        "payment",
+        entry,
+        f"حجز خدمة {service_transaction.service.code}",
+    )
+    return entry
 
 
 @transaction.atomic
@@ -69,11 +102,26 @@ def refund_service(service_transaction):
     key = f"service:refund:{service_transaction.id}"
     existing = JournalEntry.objects.filter(idempotency_key=key).first()
     if existing:
+        _project_customer_movement(
+            service_transaction,
+            amount,
+            "refund",
+            existing,
+            f"استرداد خدمة {service_transaction.service.code}",
+        )
         return existing
-    return post_entry(
+    entry = post_entry(
         f"إعادة مبلغ خدمة فاشلة {service_transaction.service.code}",
         [{"account": accounts["pending"], "debit": amount}, {"account": customer_wallet.account, "credit": amount}],
         source_type="service_refund", source_id=service_transaction.id,
         metadata={"service_transaction": str(service_transaction.id), "currency": service_transaction.currency},
         idempotency_key=key,
     )
+    _project_customer_movement(
+        service_transaction,
+        amount,
+        "refund",
+        entry,
+        f"استرداد خدمة {service_transaction.service.code}",
+    )
+    return entry
