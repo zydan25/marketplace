@@ -33,6 +33,7 @@ class ServiceTests(TestCase):
             pricing_mode=Service.PricingModes.FIXED,
             price=Decimal("0"),
         )
+        self.service.fields.create(key="mobile", label="الهاتف", required=True, validation={"min_length": 9, "max_length": 9})
         self.provider = ProviderConnection.objects.create(
             code="provider",
             name="مزود",
@@ -44,9 +45,9 @@ class ServiceTests(TestCase):
         self.provider.set_password("password")
         self.provider.save()
         self.client = APIClient()
+        self.client.force_authenticate(self.customer)
 
     def test_query_does_not_charge_wallet(self):
-        self.service.fields.create(key="mobile", label="الهاتف", required=True, validation={"min_length": 9, "max_length": 9})
         with patch("services.api.reserve_service_funds") as reserve:
             response = self.client.post(
                 "/api/v2/services/requests/",
@@ -90,6 +91,8 @@ class ServiceTests(TestCase):
     def test_provision_is_idempotent_and_seeds_catalog(self):
         first = provision()
         second = provision()
+        self.assertIsNotNone(first)
+        self.assertIsNotNone(second)
         self.assertEqual(MainServiceCategory.objects.filter(slug__in=[slug for _, slug, _ in __import__("services.catalog_data", fromlist=["MAIN"]).MAIN.values()]).count(), 3)
         self.assertEqual(Service.objects.filter(code__in=[row[0] for row in SERVICES]).count(), len(SERVICES))
         self.assertEqual(TelecomDenomination.objects.filter(service__code="you-denomination").count(), len(YOU_DENOMINATIONS))
@@ -105,7 +108,29 @@ class ServiceTests(TestCase):
         self.assertEqual(provider.get_password(), "secret2")
 
     def test_webhook_done_works_for_numeric_transid(self):
-        tx = ServiceTransaction.objects.create(customer=self.customer, service=self.service, customer_amount=Decimal("100"), mobile="777777777", provider_transid=12347, provider_transaction_id="12347", status=ServiceTransaction.Status.PENDING_PROVIDER, webhook_secret_encrypted=encrypt_secret("correct"), reserved_journal_id=44)
+        paid_service = Service.objects.create(
+            category=self.service.category,
+            name="خدمة مدفوعة للـWebhook",
+            slug="webhook-paid-test",
+            code="WEBHOOK_PAID_TEST",
+            service_kind=Service.ServiceKinds.PURCHASE,
+            requires_balance=True,
+            pricing_mode=Service.PricingModes.FIXED,
+            price=Decimal("100"),
+            currency="YER",
+        )
+        paid_service.fields.create(key="mobile", label="الهاتف", required=True)
+        tx = ServiceTransaction.objects.create(
+            customer=self.customer,
+            service=paid_service,
+            customer_amount=Decimal("100"),
+            mobile="777777777",
+            provider_transid=12347,
+            provider_transaction_id="12347",
+            status=ServiceTransaction.Status.PENDING_PROVIDER,
+            webhook_secret_encrypted=encrypt_secret("correct"),
+            reserved_journal_id=44,
+        )
         with patch("services.webhook.settle_service") as settle:
             settle.return_value = type("JournalStub", (), {"pk": 44})()
             response = self.client.get("/api/v2/services/webhook/sanaacash/", {"action": "done", "backpass": "correct", "transid": "12347", "message": "ok"})
