@@ -14,12 +14,36 @@ _PUBLIC_METADATA_KEYS = {
     "line_type",
     "catalog_only",
     "description",
+    "country",
+    "region",
+    "currency_name",
 }
 
 
 def _public_metadata(item):
     metadata = getattr(item, "metadata", {}) or {}
     return {key: metadata[key] for key in _PUBLIC_METADATA_KEYS if key in metadata}
+
+
+def _availability(item, service):
+    metadata = getattr(item, "metadata", {}) or {}
+    purchaseable = metadata.get("purchaseable", True)
+    if purchaseable is False:
+        return {"available": False, "reason": "غير متاح حاليًا"}
+    quantity = metadata.get("provider_quantity")
+    if quantity not in (None, ""):
+        try:
+            return {"available": float(quantity) > 0, "quantity": str(quantity)}
+        except (ValueError, TypeError):
+            pass
+    price = getattr(item, "sale_price", getattr(item, "price", 0))
+    if service.service_kind == Service.ServiceKinds.PURCHASE and service.requires_balance:
+        try:
+            if float(price) <= 0:
+                return {"available": False, "reason": "السعر غير مهيأ"}
+        except (TypeError, ValueError):
+            return {"available": False, "reason": "السعر غير صالح"}
+    return {"available": bool(getattr(item, "is_active", True))}
 
 
 class SecureServiceCatalogAPIView(APIView):
@@ -35,7 +59,7 @@ class SecureServiceCatalogAPIView(APIView):
                 "icon": main.icon,
                 "categories": [self._category(category) for category in main.categories.filter(is_active=True).order_by("sort_order", "id")],
             })
-        return Response({"categories": roots})
+        return Response({"version": "2", "categories": roots})
 
     def _category(self, category):
         return {
@@ -65,6 +89,7 @@ class SecureServiceCatalogAPIView(APIView):
                     "name": item.name,
                     "currency": getattr(item, "currency", service.currency),
                     "metadata": _public_metadata(item),
+                    "availability": _availability(item, service),
                 }
                 if item_type == "telecom_denominations":
                     item_data["price"] = str(item.sale_price)
