@@ -1,1 +1,71 @@
-<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>الباقات والمنتجات</title><style>body{margin:0;background:#f4f7fb;color:#172b4d;font-family:system-ui}.wrap{max-width:1100px;margin:auto;padding:16px}.card{background:#fff;border:1px solid #dfe7ef;border-radius:16px;padding:16px;margin-bottom:13px}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tab{padding:8px 11px;background:#edf2f7;border-radius:8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{font-size:12px;font-weight:800;display:block;margin-bottom:4px}input,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccd7e2;border-radius:9px}.btn{background:#087f8c;color:#fff;border:0;border-radius:9px;padding:10px 15px;font-weight:900}.table{width:100%;border-collapse:collapse;min-width:700px}.table td,.table th{padding:8px;border-bottom:1px solid #edf1f5;text-align:right}.scroll{overflow:auto}.muted{font-size:11px;color:#738092}@media(max-width:650px){.grid{grid-template-columns:1fr}}</style><div class="wrap"><div class="card"><h1>الباقات والمنتجات الموسعة</h1><p>حفظ الأكواد والأرقام والأسعار والكمية والصلاحية ونوع الدفع بشكل منظم.</p><div class="tabs"><span class="tab">باقات الاتصالات</span><span class="tab">الفئات والشرائح</span><span class="tab">الألعاب</span><span class="tab">المنتجات الرقمية</span></div></div>{% for message in messages %}<div class="card">{{message}}</div>{% endfor %}<div class="card"><h2>إضافة باقة اتصالات</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="plan"><div class="grid"><div><label>الخدمة</label><select name="service">{% for s in services %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}</select></div><div><label>اسم الباقة</label><input name="name" required></div><div><label>الكود الخارجي</label><input name="external_code" required></div><div><label>رقم الباقة</label><input name="package_number"></div><div><label>رقم المزود</label><input name="provider_num"></div><div><label>السعر</label><input type="number" step="0.01" name="price"></div><div><label>الكمية/الحصة</label><input type="number" step="0.001" name="quota"></div><div><label>وحدة الحصة</label><input name="quota_unit" placeholder="MB / GB / دقيقة"></div><div><label>الصلاحية بالأيام</label><input type="number" name="validity_days"></div><div><label>نوع الدفع</label><input name="payment_type"></div><div><label>نوع الشريحة</label><input name="line_type"></div></div><button class="btn">حفظ الباقة</button></form></div><div class="card"><h2>إضافة فئة/شريحة</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="denom"><div class="grid"><div><label>الخدمة</label><select name="service">{% for s in services %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}</select></div><div><label>الاسم</label><input name="name" required></div><div><label>الكود الخارجي</label><input name="external_code" required></div><div><label>رقم المزود</label><input name="provider_num"></div><div><label>القيمة الاسمية</label><input type="number" step="0.01" name="face_value"></div><div><label>سعر البيع</label><input type="number" step="0.01" name="sale_price"></div><div><label>نوع الدفع</label><input name="payment_type"></div><div><label>نوع الشريحة</label><input name="line_type"></div></div><button class="btn">حفظ الفئة</button></form></div><div class="card"><h2>العناصر الموجودة</h2><div class="scroll"><table class="table"><tr><th>الخدمة</th><th>الاسم</th><th>الكود</th><th>السعر</th></tr>{% for x in plans %}<tr><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.price}}</td></tr>{% endfor %}{% for x in denoms %}<tr><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.sale_price}}</td></tr>{% endfor %}{% for x in games %}<tr><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.price}}</td></tr>{% endfor %}{% for x in digital %}<tr><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.price}}</td></tr>{% endfor %}</table></div></div><a href="/admin/dashboard/services/">← مركز الخدمات</a></div>
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>إدارة الباقات والخدمات</title>
+<style>
+body{margin:0;background:#f3f6fa;color:#17324d;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:1200px;margin:auto;padding:18px}.card{background:#fff;border:1px solid #dce6ef;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 6px 20px #17324d10}.head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.full{grid-column:1/-1}label{display:block;font-weight:800;font-size:13px;margin-bottom:5px}input,select,textarea{width:100%;box-sizing:border-box;border:1px solid #cbd7e2;border-radius:10px;padding:10px;background:#fff}textarea{min-height:76px}.btn{display:inline-block;border:0;border-radius:10px;padding:9px 13px;background:#117a8b;color:#fff;font-weight:800;cursor:pointer}.btn.alt{background:#e8f0f5;color:#17324d}.btn.danger{background:#b42318}.msg{padding:11px;border-radius:10px;background:#edf8fa;margin:8px 0}.muted{color:#718096;font-size:12px}.scroll{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:860px}.table th,.table td{padding:9px;border-bottom:1px solid #edf1f5;text-align:right;vertical-align:top}.pill{display:inline-block;background:#eef4f8;padding:4px 8px;border-radius:999px;font-size:11px}.actions{display:flex;gap:6px;flex-wrap:wrap}.section-nav{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}.section-nav a{padding:8px 11px;border-radius:9px;background:#eaf0f5;color:#30465c;text-decoration:none;font-weight:700}.section-nav a.active{background:#d7f0f4;color:#086b79}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="section-nav">
+<a href="/admin/dashboard/services/services/">الخدمات</a>
+<a class="active" href="/admin/dashboard/services/resources/">الباقات والموارد</a>
+<a href="/admin/dashboard/services/fields/">حقول الخدمة</a>
+<a href="/admin/dashboard/services/providers/">الربطيات</a>
+<a href="/admin/dashboard/services/distribution/">التوزيع</a>
+</div>
+<div class="card head"><div><h1 style="margin:0 0 5px">الباقات والمنتجات</h1><div class="muted">النموذج يحتفظ بالأكواد والأرقام والأسعار والصلاحية ونوع الدفع، ويمنع حذف العناصر المرتبطة بتاريخ العمليات.</div></div></div>
+{% for message in messages %}<div class="msg">{{ message }}</div>{% endfor %}
+
+<div class="card">
+<h2>باقة اتصالات</h2>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="plan">
+<div class="grid">
+<div><label>الخدمة</label><select name="service" required>{% for s in services %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}</select></div>
+<div><label>اسم الباقة</label><input name="name" required></div>
+<div><label>الكود الخارجي</label><input name="external_code" required></div>
+<div><label>رقم الباقة</label><input name="package_number"></div>
+<div><label>رقم المزود</label><input name="provider_num"></div>
+<div><label>السعر</label><input type="number" step="0.01" min="0" name="price"></div>
+<div><label>السعر بالدولار</label><input name="price_usd"></div>
+<div><label>السعر بالريال السعودي</label><input name="price_sar"></div>
+<div><label>سعر الموظف</label><input name="employee_price"></div>
+<div><label>الكمية / الحصة</label><input type="number" step="0.001" min="0" name="quota"></div>
+<div><label>وحدة الحصة</label><input name="quota_unit" placeholder="MB / GB / دقيقة"></div>
+<div><label>الصلاحية بالأيام</label><input type="number" min="0" name="validity_days"></div>
+<div><label>نوع الدفع</label><input name="payment_type"></div>
+<div><label>نوع الشريحة</label><input name="line_type"></div>
+<div><label>الترتيب</label><input type="number" min="0" name="sort_order" value="0"></div>
+</div><button class="btn">حفظ الباقة</button></form></div>
+
+<div class="card">
+<h2>فئة / شريحة اتصالات</h2>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="denom">
+<div class="grid">
+<div><label>الخدمة</label><select name="service" required>{% for s in services %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}</select></div>
+<div><label>الاسم</label><input name="name" required></div>
+<div><label>الكود الخارجي</label><input name="external_code" required></div>
+<div><label>رقم المزود</label><input name="provider_num"></div>
+<div><label>القيمة الاسمية</label><input type="number" step="0.01" min="0" name="face_value"></div>
+<div><label>سعر البيع</label><input type="number" step="0.01" min="0" name="sale_price"></div>
+<div><label>السعر بالدولار</label><input name="price_usd"></div>
+<div><label>السعر بالريال السعودي</label><input name="price_sar"></div>
+<div><label>سعر الموظف</label><input name="employee_price"></div>
+<div><label>نوع الدفع</label><input name="payment_type"></div>
+<div><label>نوع الشريحة</label><input name="line_type"></div>
+<div><label>الترتيب</label><input type="number" min="0" name="sort_order" value="0"></div>
+</div><button class="btn">حفظ الفئة</button></form></div>
+
+<div class="card">
+<h2>العناصر الحالية</h2><div class="scroll"><table class="table"><tr><th>النوع</th><th>الخدمة</th><th>الاسم</th><th>الكود</th><th>السعر</th><th>الحالة</th><th>الإجراء</th></tr>
+{% for x in plans %}<tr><td><span class="pill">باقة</span></td><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.price}}</td><td>{% if x.is_active %}فعالة{% else %}متوقفة{% endif %}</td><td><div class="actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="plan"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn alt">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="plan"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn danger">حذف</button></form></div></td></tr>{% endfor %}
+{% for x in denoms %}<tr><td><span class="pill">فئة</span></td><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.sale_price}}</td><td>{% if x.is_active %}فعالة{% else %}متوقفة{% endif %}</td><td><div class="actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="denom"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn alt">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="denom"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn danger">حذف</button></form></div></td></tr>{% endfor %}
+{% for x in games %}<tr><td><span class="pill">لعبة</span></td><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.price}} {{x.currency}}</td><td>{% if x.is_active %}فعالة{% else %}متوقفة{% endif %}</td><td><div class="actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="game"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn alt">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="game"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn danger">حذف</button></form></div></td></tr>{% endfor %}
+{% for x in digital %}<tr><td><span class="pill">رقمي</span></td><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.price}} {{x.currency}}</td><td>{% if x.is_active %}فعالة{% else %}متوقفة{% endif %}</td><td><div class="actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="digital"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn alt">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="digital"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn danger">حذف</button></form></div></td></tr>{% endfor %}
+</table></div></div>
+</div>
+</body></html>
