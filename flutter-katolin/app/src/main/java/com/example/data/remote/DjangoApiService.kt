@@ -48,7 +48,7 @@ interface DjangoApiService {
         @Header("Authorization") token: String,
         @Header("Idempotency-Key") idempotencyKey: String,
         @Body request: ServiceRequestPayload
-    ): Response<Map<String, Any>>
+    ): Response<ServiceTransactionDto>
 
     @GET("wifi-networks/")
     suspend fun getWifiNetworks(): Response<List<Map<String, Any>>>
