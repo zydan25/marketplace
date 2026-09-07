@@ -33,6 +33,8 @@ interface DjangoApiService {
     suspend fun getServiceCatalog(@Header("Authorization") token: String): Response<ServiceCatalogResponse>
     @POST("v2/services/requests/")
     suspend fun submitServiceRequest(@Header("Authorization") token: String, @Header("Idempotency-Key") idempotencyKey: String, @Body request: ServiceRequestPayload): Response<ServiceTransactionDto>
+    @GET("v2/services/requests/{id}/")
+    suspend fun getServiceTransaction(@Header("Authorization") token: String, @retrofit2.http.Path("id") id: String): Response<ServiceTransactionDto>
 
     @POST("gifts/lookup/")
     suspend fun lookupRecipient(@Header("Authorization") token: String, @Body request: Map<String, Any?>): Response<Map<String, Any>>
