@@ -67,6 +67,15 @@ def _service_kind(service):
     return "other"
 
 
+def _short_service_name(name):
+    value = str(name or "").strip()
+    for prefix in ("باقات ", "فئات ", "شرائح "):
+        if value.lower().startswith(prefix.lower()):
+            value = value[len(prefix):].strip()
+            break
+    return value or str(name or "")
+
+
 def _services_with_counts():
     return (
         Service.objects.select_related("category__main_category")
@@ -87,13 +96,20 @@ def _sidebar(services):
     entertainment = []
     other = []
     for service in services:
+        item = {
+            "id": service.id,
+            "name": _short_service_name(service.name),
+            "full_name": service.name,
+            "plan_count": getattr(service, "plan_count", 0),
+            "denom_count": getattr(service, "denom_count", 0),
+        }
         bucket = _service_kind(service)
         if bucket == "telecom":
-            telecom.append(service)
+            telecom.append(item)
         elif bucket == "entertainment":
-            entertainment.append(service)
+            entertainment.append(item)
         else:
-            other.append(service)
+            other.append(item)
     return telecom, entertainment, other
 
 
