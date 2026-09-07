@@ -14,8 +14,8 @@ class ServicesConfig(AppConfig):
     def ready(self):
         from . import admin_v4
 
-        # Provider fields remain available to the service editor. Runtime API
-        # validation no longer depends on monkeypatches performed here.
+        # Keep the legacy service editor's field library available without
+        # querying the database during Django application initialization.
         extra_fields = [
             ("external_code", "الكود الخارجي", "text"),
             ("num", "رقم/فئة المزود", "text"),
@@ -33,14 +33,6 @@ class ServicesConfig(AppConfig):
                 existing_keys.add(row[0])
         admin_v4.FIELD_MAP = {key: (label, typ) for key, label, typ in admin_v4.FIELD_LIBRARY}
 
-        # Idempotent catalog bootstrap. It is deliberately guarded by a
-        # table-existence check so migrations/tests are not blocked before the
-        # services tables exist. Set SERVICE_CATALOG_BOOTSTRAP=0 to disable.
-        if getattr(self, "_catalog_bootstrap_started", False):
-            return
-        self._catalog_bootstrap_started = True
-        try:
-            from .catalog_bootstrap import bootstrap_service_catalog
-            bootstrap_service_catalog()
-        except Exception:  # pragma: no cover - defensive startup guard
-            logger.exception("Unable to initialize service catalog bootstrap")
+        # Catalog initialization is intentionally explicit via:
+        #   python manage.py sync_api_catalog
+        # This keeps migrations, tests and worker startup free of database I/O.
