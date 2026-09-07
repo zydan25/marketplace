@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .admin_v4 import center, distribution
+from .dashboard_resource_catalog import dashboard_resources
 from .provider_setup_v3 import provider_setup
 from .views import section_view
 
@@ -13,8 +14,8 @@ urlpatterns = [
     path("catalog/services/", center, {"section": "services"}, name="admin-services-catalog-services-alias"),
     path("fields/", center, {"section": "fields"}, name="admin-services-fields"),
     path("catalog/fields/", center, {"section": "fields"}, name="admin-services-catalog-fields-alias"),
-    path("resources/", center, {"section": "resources"}, name="admin-services-resources"),
-    path("catalog/resources/", center, {"section": "resources"}, name="admin-services-catalog-resources-alias"),
+    path("resources/", dashboard_resources, name="admin-services-resources"),
+    path("catalog/resources/", dashboard_resources, name="admin-services-catalog-resources-alias"),
     path("providers/", provider_setup, name="admin-services-provider-setup"),
     path("links/", section_view, {"section": "links"}, name="admin-services-links"),
     path("distribution/", distribution, name="admin-services-distribution"),
