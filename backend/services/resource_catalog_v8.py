@@ -60,8 +60,6 @@ def _service_kind(service):
         return "entertainment"
     if any(k in text for k in TELECOM_KEYWORDS):
         return "telecom"
-    # Existing catalog rows are a stronger signal than the name when a
-    # service was created without a descriptive category label.
     if getattr(service, "plan_count", 0) or getattr(service, "denom_count", 0):
         return "telecom"
     if getattr(service, "game_count", 0) or getattr(service, "digital_count", 0) or getattr(service, "option_count", 0):
@@ -166,20 +164,34 @@ def _save_resource(request, kind, service):
     return obj
 
 
+def _toggle_resource(kind, pk):
+    model = RESOURCE_META[kind][0]
+    obj = get_object_or_404(model, pk=pk)
+    obj.is_active = not obj.is_active
+    obj.save(update_fields=["is_active"])
+    return obj
+
+
 @user_passes_test(staff_only, login_url="/admin/dashboard/login/")
-def catalog_resources(request):
-    mode = (request.GET.get("type") or request.POST.get("type") or "plan").strip().lower()
+def catalog_resources(request, type=None):
+    mode = (type or request.GET.get("type") or request.POST.get("type") or "plan").strip().lower()
     if mode not in {"plan", "denom", "entertainment"}:
         mode = "plan"
 
     services = _services_with_counts()
     telecom_services, entertainment_services, other_services = _sidebar(services)
-    selected_service_id = request.GET.get("service") or request.POST.get("service") or ""
+    selected_service_id = request.GET.get("service") or request.POST.get("service") or request.GET.get("game") or ""
     selected_service = Service.objects.filter(pk=selected_service_id, is_active=True).select_related("category__main_category").first() if selected_service_id else None
 
     if request.method == "POST":
         try:
-            if mode == "entertainment":
+            if request.POST.get("action") == "toggle":
+                kind = request.POST.get("subtype") or mode
+                if kind not in RESOURCE_META:
+                    raise ValueError("نوع العنصر غير صالح.")
+                obj = _toggle_resource(kind, request.POST.get("pk"))
+                messages.success(request, f"تم تغيير حالة: {obj.name}.")
+            elif mode == "entertainment":
                 kind = (request.POST.get("subtype") or "game").strip().lower()
                 if kind not in {"game", "digital", "option"}:
                     raise ValueError("نوع الفئة غير صالح.")
@@ -196,19 +208,19 @@ def catalog_resources(request):
             messages.error(request, str(exc))
         except Exception as exc:
             messages.error(request, f"تعذر الحفظ: {exc}")
-        return redirect(f"{request.path}?type={mode}&service={selected_service_id}")
+        redirect_type = "entertainment" if mode == "entertainment" else mode
+        return redirect(f"{request.path}?type={redirect_type}&service={selected_service_id}")
 
     fields = ServiceField.objects.filter(service_id=selected_service_id, is_active=True).order_by("sort_order", "id") if selected_service_id else ServiceField.objects.none()
     edit_obj = None
-    edit_kind = mode
+    edit_resource_kind = "game" if mode == "entertainment" else mode
     edit_pk = request.GET.get("edit") or ""
     if edit_pk:
-        lookup = [(k, RESOURCE_META[k][0]) for k in ("plan", "denom", "game", "digital", "option")]
-        for kind, model in lookup:
+        for kind, model in ((k, RESOURCE_META[k][0]) for k in ("plan", "denom", "game", "digital", "option")):
             candidate = model.objects.filter(pk=edit_pk).select_related("service").first()
             if candidate:
                 edit_obj = candidate
-                edit_kind = "entertainment" if kind in {"game", "digital", "option"} else kind
+                edit_resource_kind = kind
                 selected_service = candidate.service
                 selected_service_id = str(candidate.service_id)
                 fields = ServiceField.objects.filter(service=candidate.service, is_active=True).order_by("sort_order", "id")
@@ -241,8 +253,8 @@ def catalog_resources(request):
     game_services = Service.objects.filter(is_active=True, game_products__isnull=False).distinct().order_by("name")
     context = {
         "mode": mode,
-        "edit_mode": edit_kind,
         "edit_obj": edit_obj,
+        "edit_resource_kind": edit_resource_kind,
         "services": services,
         "telecom_services": telecom_services,
         "entertainment_services": entertainment_services,
