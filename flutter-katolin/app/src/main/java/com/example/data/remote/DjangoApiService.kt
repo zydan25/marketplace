@@ -50,6 +50,27 @@ interface DjangoApiService {
         @Body request: ServiceRequestPayload
     ): Response<ServiceTransactionDto>
 
+    @POST("gifts/lookup/")
+    suspend fun lookupRecipient(
+        @Header("Authorization") token: String,
+        @Body request: Map<String, Any?>
+    ): Response<Map<String, Any>>
+
+    @GET("v2/services/wifi/networks/")
+    suspend fun getWifiNetworksV2(): Response<Map<String, Any>>
+
+    @POST("v2/services/wifi/purchase/")
+    suspend fun purchaseWifiCardV2(
+        @Header("Authorization") token: String,
+        @Body request: Map<String, Any?>
+    ): Response<Map<String, Any>>
+
+    @GET("v2/services/wifi/my-cards/")
+    suspend fun getMyWifiCardsV2(
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
+    // Legacy WiFi endpoints retained for backward compatibility.
     @GET("wifi-networks/")
     suspend fun getWifiNetworks(): Response<List<Map<String, Any>>>
 
