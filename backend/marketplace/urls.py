@@ -16,6 +16,7 @@ from marketplace.vendor_finance_api import VendorFinanceViewSet
 from marketplace.vendor_shipping_api import VendorCityShippingViewSet
 from marketplace.views import AdminDashboardView
 from marketplace.views_extra import AddressViewSet, GiftTransferViewSet, LoanViewSet
+from marketplace.customer_transfer_api import RecipientLookupAPIView
 from orders.launch_order_api import LaunchOrderViewSet
 from marketplace.order_chat_api import OrderChatViewSet
 from marketplace.serializers import CouponSerializer
@@ -79,6 +80,7 @@ urlpatterns = [
     path("admin/support/<int:conversation_id>/close/", AdminSupportCloseView.as_view(), name="admin-support-close"),
     path("admin-dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
     path("wallets/<int:pk>/admin_adjust/", AdminWalletAdjustAPIView.as_view(), name="wallet-admin-adjust-canonical"),
+    path("gifts/lookup/", RecipientLookupAPIView.as_view(), name="gift-recipient-lookup"),
     path("", include("catalog.urls")),
     path("", include("vendors.urls")),
     path("", include(router.urls)),
