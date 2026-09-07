@@ -78,6 +78,8 @@ jobs:
         run: python manage.py migrate --noinput
       - name: Verify services catalog definition
         run: python manage.py check_sanaacash_catalog
+      - name: Verify expected API catalog rows
+        run: python manage.py verify_service_catalog --fail
       - name: Audit service catalog integrity
         run: python manage.py audit_service_catalog --fail
       - name: Audit production provider routing contract
