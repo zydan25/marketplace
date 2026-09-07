@@ -1,11 +1,8 @@
 package com.example.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -28,116 +25,114 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.ContactPhone
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SimCard
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.TelecomPackage
 import com.example.data.model.WalletAccount
+import com.example.data.remote.NetworkClient
+import com.example.data.remote.ServiceCategoryDto
+import com.example.data.remote.ServiceDto
+import com.example.data.remote.ServiceFieldDto
+import com.example.data.remote.ServiceItemDto
+import com.example.data.remote.ServiceMainCategoryDto
+import com.example.data.remote.ServiceRequestPayload
+import com.example.data.remote.ServiceTransactionDto
+import com.example.data.repository.StoreRepository
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.util.UUID
 
-enum class YemenOperator(
-    val code: String,
-    val arabicName: String,
-    val primaryColor: Color,
-    val darkColor: Color,
-    val lightColor: Color,
-    val shortBadge: String,
-    val supportedTabs: List<String>
-) {
-    YEMEN_MOBILE(
-        code = "yemen_mobile",
-        arabicName = "يمن موبايل",
-        primaryColor = Color(0xFFC62828), // Red
-        darkColor = Color(0xFF880E4F),
-        lightColor = Color(0xFFFFEBEE),
-        shortBadge = "يمن موبايل",
-        supportedTabs = listOf("رصيد", "فوري", "باقات", "جملة", "ريال")
-    ),
-    SABAFON(
-        code = "sabafon",
-        arabicName = "سبأفون",
-        primaryColor = Color(0xFF0288D1), // Cyan/Blue
-        darkColor = Color(0xFF01579B),
-        lightColor = Color(0xFFE1F5FE),
-        shortBadge = "سبأفون",
-        supportedTabs = listOf("رصيد", "فوري", "باقات", "جملة")
-    ),
-    YOU(
-        code = "you",
-        arabicName = "يو YOU (إم تي إن سابقاً)",
-        primaryColor = Color(0xFFF9A825), // Golden Yellow
-        darkColor = Color(0xFFE65100),
-        lightColor = Color(0xFFFFFDE7),
-        shortBadge = "YOU",
-        supportedTabs = listOf("رصيد", "فوري", "باقات", "جملة")
-    ),
-    Y_TELECOM(
-        code = "y",
-        arabicName = "واي Y",
-        primaryColor = Color(0xFF7B1FA2), // Purple
-        darkColor = Color(0xFF4A148C),
-        lightColor = Color(0xFFF3E5F5),
-        shortBadge = "واي",
-        supportedTabs = listOf("رصيد", "فوري", "باقات")
-    ),
-    FIXED_YEMEN_NET(
-        code = "fixed",
-        arabicName = "الهاتف الثابت ويمن نت",
-        primaryColor = Color(0xFF0D47A1), // Navy
-        darkColor = Color(0xFF002171),
-        lightColor = Color(0xFFE8EAF6),
-        shortBadge = "يمن نت",
-        supportedTabs = listOf("رصيد", "باقات")
-    )
+private fun flattenServices(categories: List<ServiceCategoryDto>): List<ServiceDto> = buildList {
+    categories.forEach { category ->
+        addAll(category.services)
+        addAll(flattenServices(category.children))
+    }
 }
 
-/**
- * شاشة شبكة السداد للاتصالات اليمنية
- * مطابقة تماماً للصور المرفقة
- */
+private fun providerColor(slug: String, name: String): Color {
+    val key = "$slug $name".lowercase()
+    return when {
+        "yemen-mobile" in key || "يمن موبايل" in key -> Color(0xFFC62828)
+        "sabafon" in key || "سبأفون" in key -> Color(0xFF0288D1)
+        "you" in key || "يو" in key -> Color(0xFFF9A825)
+        "why" in key || "واي" in key -> Color(0xFF7B1FA2)
+        "yemen-net" in key || "يمن نت" in key -> Color(0xFF0D47A1)
+        "adenet" in key || "عدن نت" in key -> Color(0xFF00838F)
+        "electric" in key || "كهرب" in key -> Color(0xFFFF8F00)
+        "water" in key || "ماء" in key -> Color(0xFF0277BD)
+        else -> Color(0xFF1565C0)
+    }
+}
+
+private fun serviceTabLabel(service: ServiceDto): String {
+    val text = service.name.lowercase()
+    return when {
+        "استعلام" in text || service.serviceKind == "query" -> "استعلام"
+        "جملة" in text -> "جملة"
+        "فوري" in text || "فئات" in text -> "فوري"
+        "باقة" in text || "باقات" in text -> "باقات"
+        "ريال" in text -> "ريال"
+        "رصيد" in text -> "رصيد"
+        else -> service.name.take(14)
+    }
+}
+
+private fun prettifyResultKey(key: String): String = when (key.lowercase()) {
+    "balance" -> "الرصيد"
+    "availablecredit" -> "الرصيد المتاح"
+    "remaamount", "remainamount" -> "المبلغ المتبقي"
+    "mobiltype", "mobiletype" -> "نوع الخط"
+    "mobile" -> "رقم الهاتف"
+    "resultdesc" -> "الرسالة"
+    "resultcode" -> "رمز النتيجة"
+    "sequenceid" -> "رقم العملية لدى المزود"
+    "offername" -> "اسم الباقة"
+    "offerid" -> "معرف الباقة"
+    "offerstartdate" -> "بداية الباقة"
+    "offerenddate" -> "نهاية الباقة"
+    "reason" -> "السبب"
+    else -> key.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
 @Composable
 fun PaymentNetworkScreen(
     wallet: WalletAccount,
@@ -148,734 +143,269 @@ fun PaymentNetworkScreen(
     onRechargeSubmit: (phone: String, operatorName: String, category: String, packageName: String, amount: Double) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var phoneNumber by remember { mutableStateOf("") }
-    var isBalanceVisible by remember { mutableStateOf(false) }
-    var isFavorite by remember { mutableStateOf(false) }
-    var rotationAngle by remember { mutableStateOf(0f) }
-    var customAmount by remember { mutableStateOf("1000") }
+    val repository = remember { StoreRepository.instance }
+    val configuredBaseUrl by repository.djangoBaseUrl.collectAsState()
+    val baseUrl = configuredBaseUrl.trimEnd('/') + "/v2/"
+    val session by repository.userSession.collectAsState()
+    val scope = rememberCoroutineScope()
 
-    // Detect operator dynamically from phone input
-    val detectedOperator by remember(phoneNumber) {
-        derivedStateOf {
-            val clean = phoneNumber.trim()
-            when {
-                clean.startsWith("77") || clean.startsWith("78") -> YemenOperator.YEMEN_MOBILE
-                clean.startsWith("71") -> YemenOperator.SABAFON
-                clean.startsWith("73") -> YemenOperator.YOU
-                clean.startsWith("70") -> YemenOperator.Y_TELECOM
-                clean.startsWith("01") || clean.startsWith("04") || clean.startsWith("104") ||
-                        clean.startsWith("02") || clean.startsWith("03") || clean.startsWith("07") -> YemenOperator.FIXED_YEMEN_NET
-                else -> YemenOperator.YEMEN_MOBILE // Default
-            }
+    var catalog by remember { mutableStateOf<List<ServiceMainCategoryDto>>(emptyList()) }
+    var selectedProvider by remember { mutableStateOf<ServiceCategoryDto?>(null) }
+    var selectedService by remember { mutableStateOf<ServiceDto?>(null) }
+    var selectedItem by remember { mutableStateOf<ServiceItemDto?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var result by remember { mutableStateOf<ServiceTransactionDto?>(null) }
+    var isBalanceVisible by remember { mutableStateOf(true) }
+    var phone by remember(session.phone) { mutableStateOf(session.phone) }
+    val fieldValues = remember { mutableStateMapOf<String, String>() }
+
+    fun loadCatalog() {
+        val token = session.token
+        if (token.isNullOrBlank()) {
+            loading = false
+            error = "سجل الدخول أولاً لاستخدام خدمات التسديد."
+            return
         }
-    }
-
-    // Active tab based on detected operator
-    val tabs = detectedOperator.supportedTabs
-    var selectedTabIndex by remember(detectedOperator) { mutableStateOf(0) }
-    val activeTabName = tabs.getOrElse(selectedTabIndex) { tabs.firstOrNull() ?: "رصيد" }
-
-    // Filter packages matching current operator and tab
-    val currentPackages = packages.filter {
-        it.operator == detectedOperator.code && (it.category == activeTabName || activeTabName == "فوري")
-    }
-
-    // Animated header color
-    val animatedHeaderColor by animateColorAsState(
-        targetValue = detectedOperator.primaryColor,
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-        label = "header_color"
-    )
-
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFFF7F9FC)),
-        contentPadding = PaddingValues(bottom = 32.dp)
-    ) {
-        // 1. Top Dynamic Operator Header (Matching Photo 1, 2, 3)
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(animatedHeaderColor)
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Row with Sync Button, "رصيدي", and Settings Gear
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // Left: Circular Sync/Refresh Button
-                        Surface(
-                            shape = CircleShape,
-                            color = Color.White,
-                            shadowElevation = 3.dp,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clickable {
-                                    rotationAngle += 360f
-                                    onSyncBalance()
-                                }
-                        ) {
-                            val animatedRotation by animateFloatAsState(
-                                targetValue = rotationAngle,
-                                animationSpec = tween(durationMillis = 600),
-                                label = "sync_rotation"
-                            )
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "مزامنة الرصيد",
-                                    tint = animatedHeaderColor,
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .rotate(animatedRotation)
-                                )
-                            }
-                        }
-
-                        // Center: "رصيدي" with eye icon and masked/actual balance
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.clickable { isBalanceVisible = !isBalanceVisible }
-                        ) {
-                            Text(
-                                text = "رصيدي",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            )
-                            Icon(
-                                imageVector = if (isBalanceVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = "إظهار/إخفاء الرصيد",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = if (isBalanceVisible) "${formatMoney(wallet.balanceYer)} ر.ي" else "*****",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            )
-                        }
-
-                        // Right: Settings Gear button + Back arrow
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Surface(
-                                shape = CircleShape,
-                                color = Color.White,
-                                shadowElevation = 3.dp,
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clickable { onBackClick() }
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "رجوع",
-                                        tint = animatedHeaderColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Title: "تسديد شبكات الاتصالات اليمنية"
-                    Text(
-                        text = "تسديد شبكات الاتصالات اليمنية",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Operators circular badges row (Matching Photo 3)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        listOf(
-                            Triple("يمن موبايل", "77", Color(0xFFC62828)),
-                            Triple("سبأفون", "71", Color(0xFF0288D1)),
-                            Triple("YOU", "73", Color(0xFFF9A825)),
-                            Triple("واي Y", "70", Color(0xFF7B1FA2)),
-                            Triple("يمن نت", "01", Color(0xFF0D47A1)),
-                            Triple("عدن نت", "02", Color(0xFF00838F)),
-                            Triple("الهاتف الثابت", "04", Color(0xFF1565C0)),
-                            Triple("4G موبايل", "78", Color(0xFFB71C1C))
-                        ).forEach { (name, prefix, badgeColor) ->
-                            val isCurrent = detectedOperator.arabicName.contains(name) ||
-                                    (detectedOperator == YemenOperator.YEMEN_MOBILE && (name.contains("موبايل") || prefix == "77"))
-                            Surface(
-                                shape = RoundedCornerShape(20.dp),
-                                color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.22f),
-                                modifier = Modifier.clickable {
-                                    phoneNumber = prefix
-                                }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .background(badgeColor)
-                                    )
-                                    Text(
-                                        text = name,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = if (isCurrent) badgeColor else Color.White,
-                                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
+        scope.launch {
+            loading = true
+            error = null
+            try {
+                val response = NetworkClient.getApiService(baseUrl).getServiceCatalog("Token $token")
+                if (!response.isSuccessful || response.body() == null) {
+                    error = "تعذر تحميل خدمات التسديد (HTTP ${response.code()})."
+                    return@launch
                 }
+                catalog = response.body()!!.categories
+                val payments = catalog.firstOrNull { it.slug == "payments" }
+                    ?: catalog.firstOrNull { it.name.contains("تسديد") }
+                    ?: catalog.firstOrNull()
+                selectedProvider = payments?.categories?.firstOrNull()
+                selectedService = selectedProvider?.let { flattenServices(listOf(it)).firstOrNull() }
+                selectedItem = null
+            } catch (e: Exception) {
+                error = e.localizedMessage ?: "تعذر الاتصال بخادم الخدمات."
+            } finally {
+                loading = false
             }
         }
+    }
 
-        // 2. Phone Input Card (Matching Photos 1, 2, 3)
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Text(
-                    text = "ادخل رقم الهاتف :",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    modifier = Modifier.padding(bottom = 8.dp)
+    LaunchedEffect(session.token, configuredBaseUrl) { loadCatalog() }
+
+    val paymentsRoot = catalog.firstOrNull { it.slug == "payments" }
+        ?: catalog.firstOrNull { it.name.contains("تسديد") }
+    val providers = paymentsRoot?.categories.orEmpty()
+    val providerServices = selectedProvider?.let { flattenServices(listOf(it)) }.orEmpty().distinctBy { it.id }
+    val accent by animateColorAsState(providerColor(selectedProvider?.slug.orEmpty(), selectedProvider?.name.orEmpty()), animationSpec = tween(300), label = "payment_accent")
+    val tabs = providerServices.map { serviceTabLabel(it) }.distinct()
+
+    fun chooseService(service: ServiceDto) {
+        selectedService = service
+        selectedItem = null
+        result = null
+        fieldValues.clear()
+        service.fields.forEach { field ->
+            if (field.key == "mobile" && phone.isNotBlank()) fieldValues[field.key] = phone
+            if (field.type == "select" && field.choices.isNotEmpty()) fieldValues[field.key] = field.choices.first()
+        }
+    }
+
+    fun submitService() {
+        val service = selectedService ?: return
+        if (submitting) return
+        val token = session.token ?: return
+        val missing = service.fields.firstOrNull { it.required && fieldValues[it.key].isNullOrBlank() }
+        if (missing != null) {
+            error = "الحقل المطلوب: ${missing.label}"
+            return
+        }
+        if (service.pricingMode == "item" && service.items.isNotEmpty() && selectedItem == null) {
+            error = "اختر الفئة أو الباقة أولاً."
+            return
+        }
+        scope.launch {
+            submitting = true
+            error = null
+            result = null
+            try {
+                val key = UUID.randomUUID().toString()
+                val body = ServiceRequestPayload(
+                    serviceId = service.id,
+                    itemType = selectedItem?.type,
+                    itemId = selectedItem?.id,
+                    payload = fieldValues.mapValues { it.value.ifBlank { null } },
+                    idempotencyKey = key
                 )
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("phone_recharge_card"),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            // Left: Contact book icon and clear button
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = detectedOperator.primaryColor.copy(alpha = 0.12f),
-                                    modifier = Modifier
-                                        .size(42.dp)
-                                        .clickable {
-                                            phoneNumber = "770123456"
-                                        }
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.ContactPhone,
-                                            contentDescription = "دليل الهاتف",
-                                            tint = detectedOperator.primaryColor,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                }
-
-                                if (phoneNumber.isNotEmpty()) {
-                                    IconButton(
-                                        onClick = { phoneNumber = "" },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Clear,
-                                            contentDescription = "مسح الرقم",
-                                            tint = Color.Gray,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-
-                                // Country code +967
-                                Text(
-                                    text = "+967",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF37474F)
-                                    )
-                                )
-                            }
-
-                            // Center & Right: Phone Number Input + Operator Badge + Favorite Heart
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                // Number Length Indicator
-                                if (phoneNumber.isNotEmpty()) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = detectedOperator.lightColor
-                                    ) {
-                                        Text(
-                                            text = "${phoneNumber.length}",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = detectedOperator.primaryColor,
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-
-                                // Phone number text field
-                                OutlinedTextField(
-                                    value = phoneNumber,
-                                    onValueChange = { input ->
-                                        // digits only, max 9
-                                        val filtered = input.filter { it.isDigit() }
-                                        if (filtered.length <= 9) {
-                                            phoneNumber = filtered
-                                        }
-                                    },
-                                    placeholder = { Text("777777777", color = Color.LightGray) },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    textStyle = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.Start,
-                                        color = Color(0xFF263238),
-                                        letterSpacing = 1.sp
-                                    ),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = detectedOperator.primaryColor,
-                                        unfocusedBorderColor = Color.Transparent,
-                                        focusedContainerColor = Color.Transparent,
-                                        unfocusedContainerColor = Color.Transparent
-                                    ),
-                                    modifier = Modifier.width(135.dp)
-                                )
-
-                                // Dynamic Operator Badge (Matching Sabafon/YemenMobile circular badge in Photos)
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = detectedOperator.lightColor,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, detectedOperator.primaryColor.copy(alpha = 0.4f)),
-                                    modifier = Modifier.padding(2.dp)
-                                ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = detectedOperator.shortBadge,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = detectedOperator.primaryColor,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 11.sp
-                                            ),
-                                            maxLines = 1
-                                        )
-                                    }
-                                }
-
-                                // Favorite Heart
-                                IconButton(
-                                    onClick = { isFavorite = !isFavorite },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = "حفظ في المفضلة",
-                                        tint = if (isFavorite) Color.Red else Color.LightGray
-                                    )
-                                }
-                            }
-                        }
-                    }
+                val response = NetworkClient.getApiService(baseUrl).submitServiceRequest("Token $token", key, body)
+                if (!response.isSuccessful || response.body() == null) {
+                    error = "تعذر إرسال العملية (HTTP ${response.code()})."
+                    return@launch
                 }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // 3. Tab Row underneath the card: [ رصيد | فوري | باقات | جملة | ريال ] (Matching Photos 1 & 2)
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = detectedOperator.lightColor
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    TabRow(
-                        selectedTabIndex = selectedTabIndex.coerceIn(0, (tabs.size - 1).coerceAtLeast(0)),
-                        containerColor = Color.Transparent,
-                        contentColor = detectedOperator.primaryColor,
-                        indicator = { tabPositions ->
-                            if (selectedTabIndex in tabPositions.indices) {
-                                TabRowDefaults.SecondaryIndicator(
-                                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                                    color = detectedOperator.primaryColor,
-                                    height = 3.dp
-                                )
-                            }
-                        },
-                        divider = {}
-                    ) {
-                        tabs.forEachIndexed { index, tabTitle ->
-                            val isSelected = selectedTabIndex == index
-                            Tab(
-                                selected = isSelected,
-                                onClick = { selectedTabIndex = index },
-                                text = {
-                                    Text(
-                                        text = tabTitle,
-                                        style = MaterialTheme.typography.titleSmall.copy(
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) detectedOperator.primaryColor else Color(0xFF546E7A)
-                                        )
-                                    )
-                                }
-                            )
-                        }
-                    }
+                var latest = response.body()!!
+                repeat(20) {
+                    result = latest
+                    val status = latest.status.orEmpty().lowercase()
+                    val done = status in setOf("success", "failed", "refunded") || (service.serviceKind == "query" && !latest.result.isNullOrEmpty())
+                    if (done) return@repeat
+                    delay(900)
+                    val next = NetworkClient.getApiService(baseUrl).getServiceTransaction("Token $token", latest.id)
+                    if (next.isSuccessful && next.body() != null) latest = next.body()!!
                 }
+                result = latest
+                onSyncBalance()
+            } catch (e: Exception) {
+                error = e.localizedMessage ?: "حدث خطأ أثناء تنفيذ العملية."
+            } finally {
+                submitting = false
             }
         }
+    }
 
-        // 4. Tab Content (Packages List or Amount Selection)
-        if (activeTabName == "باقات") {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text("تسديد الخدمات", fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBackClick) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
+                actions = { IconButton(onClick = { loadCatalog(); onSyncBalance() }) { Icon(Icons.Default.Refresh, "تحديث") } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = accent, titleContentColor = Color.White, navigationIconContentColor = Color.White, actionIconContentColor = Color.White)
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding).background(Color(0xFFF5F7FA)),
+            contentPadding = PaddingValues(bottom = 30.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             item {
-                Text(
-                    text = "باقات ${detectedOperator.arabicName} المتاحة للتفعيل الفوري :",
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF37474F)
-                    ),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                )
-            }
-
-            if (currentPackages.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "جاري تحديث قائمة باقات ${detectedOperator.arabicName}...",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
-                        )
+                Column(Modifier.fillMaxWidth().background(accent).padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                        Surface(shape = CircleShape, color = Color.White.copy(alpha = .18f), modifier = Modifier.clickable { isBalanceVisible = !isBalanceVisible }) {
+                            Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(if (isBalanceVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Text(if (isBalanceVisible) "${formatMoney(wallet.balanceYer)} ر.ي" else "•••••", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("رصيدي", color = Color.White.copy(alpha = .9f), fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("تسديد شبكات الاتصالات والخدمات", modifier = Modifier.fillMaxWidth(), color = Color.White, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontSize = 16.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        providers.forEach { provider ->
+                            val selected = selectedProvider?.id == provider.id
+                            FilterChip(selected = selected, onClick = { selectedProvider = provider; selectedService = flattenServices(listOf(provider)).firstOrNull(); selectedItem = null; result = null }, label = { Text(provider.name) }, leadingIcon = { Icon(Icons.Default.Call, null, modifier = Modifier.size(16.dp)) })
+                        }
                     }
                 }
+            }
+
+            item {
+                Card(Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(3.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("رقم المستفيد", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedTextField(value = phone, onValueChange = { phone = it; fieldValues["mobile"] = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("ادخل رقم الهاتف / الاشتراك") }, leadingIcon = { Icon(Icons.Default.Call, null, tint = accent) }, trailingIcon = { if (phone.isNotEmpty()) IconButton(onClick = { phone = ""; fieldValues.remove("mobile") }) { Icon(Icons.Default.Clear, "مسح") } }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), shape = RoundedCornerShape(12.dp))
+                        Text("+967  ${phone.ifBlank { "—" }}", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = accent, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            if (loading) {
+                item { Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) { CircularProgressIndicator(color = accent); Spacer(Modifier.height(8.dp)); Text("جارٍ تحميل الخدمات والباقات من الخادم…") } }
+            } else if (error != null) {
+                item { Card(Modifier.fillMaxWidth().padding(horizontal = 14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) { Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Default.ErrorOutline, null); Text(error!!, textAlign = TextAlign.Center); TextButton(onClick = { error = null; loadCatalog() }) { Text("إعادة المحاولة") } } } }
             } else {
-                items(currentPackages) { pkg ->
-                    TelecomPackageCard(
-                        pkg = pkg,
-                        operator = detectedOperator,
-                        formatMoney = formatMoney,
-                        onRechargeClick = {
-                            val targetNumber = phoneNumber.ifBlank { "770123456" }
-                            onRechargeSubmit(targetNumber, detectedOperator.arabicName, activeTabName, pkg.name, pkg.priceYer)
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                    )
-                }
-            }
-        } else {
-            // "رصيد" or "فوري" or "ريال" or "جملة"
-            item {
-                AmountSelectorSection(
-                    activeTabName = activeTabName,
-                    operator = detectedOperator,
-                    phoneNumber = phoneNumber,
-                    customAmount = customAmount,
-                    onCustomAmountChange = { customAmount = it },
-                    formatMoney = formatMoney,
-                    onPay = { amount ->
-                        val targetNumber = phoneNumber.ifBlank { "770123456" }
-                        onRechargeSubmit(
-                            targetNumber,
-                            detectedOperator.arabicName,
-                            activeTabName,
-                            "شحن $activeTabName فئة ${formatMoney(amount)} ر.ي",
-                            amount
-                        )
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun TelecomPackageCard(
-    pkg: TelecomPackage,
-    operator: YemenOperator,
-    formatMoney: (Double) -> String,
-    onRechargeClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = pkg.name,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF263238)
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = operator.lightColor
-                ) {
-                    Text(
-                        text = "${formatMoney(pkg.priceYer)} ر.ي",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = operator.primaryColor
-                        ),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = pkg.description,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF546E7A),
-                    lineHeight = 18.sp
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = Color(0xFF2E7D32),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "تفعيل فوري مباشر",
-                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF2E7D32))
-                    )
+                if (tabs.isNotEmpty()) {
+                    item { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { tabs.forEach { tab -> val active = selectedService?.let { serviceTabLabel(it) } == tab; FilterChip(selected = active, onClick = { selectedService = providerServices.firstOrNull { serviceTabLabel(it) == tab } }, label = { Text(tab) }) } } }
                 }
 
-                Button(
-                    onClick = onRechargeClick,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = operator.primaryColor),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "تسديد فوري",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun AmountSelectorSection(
-    activeTabName: String,
-    operator: YemenOperator,
-    phoneNumber: String,
-    customAmount: String,
-    onCustomAmountChange: (String) -> Unit,
-    formatMoney: (Double) -> String,
-    onPay: (Double) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val quickAmounts = when (activeTabName) {
-        "جملة" -> listOf(5000.0, 10000.0, 20000.0, 50000.0)
-        "ريال" -> listOf(200.0, 500.0, 1000.0, 2000.0, 3000.0)
-        else -> listOf(500.0, 1000.0, 2000.0, 3000.0, 5000.0, 10000.0)
-    }
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "اختر مبلغ السداد لخدمة ($activeTabName) :",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Quick Amount Chips Grid
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                quickAmounts.forEach { amt ->
-                    val isSelected = customAmount == amt.toInt().toString()
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) operator.primaryColor else operator.lightColor,
-                        modifier = Modifier.clickable {
-                            onCustomAmountChange(amt.toInt().toString())
+                items(providerServices) { service ->
+                    Card(onClick = { chooseService(service) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (selectedService?.id == service.id) accent.copy(alpha = .10f) else Color.White)) {
+                        Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = CircleShape, color = accent.copy(alpha = .12f), modifier = Modifier.size(40.dp)) { Box(contentAlignment = Alignment.Center) { Icon(if (service.serviceKind == "query") Icons.Default.Search else Icons.Default.AccountBalanceWallet, null, tint = accent, modifier = Modifier.size(19.dp)) } }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(service.name, fontWeight = FontWeight.Bold, maxLines = 2)
+                                Text(if (service.items.isNotEmpty()) "${service.items.size} فئة/باقة" else if (service.serviceKind == "query") "استعلام بدون خصم" else "خدمة حسب المبلغ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(if (service.serviceKind == "query") "استعلام" else serviceTabLabel(service), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
-                    ) {
-                        Text(
-                            text = "${formatMoney(amt)} ر.ي",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Color.White else operator.primaryColor
-                            ),
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                        )
+                    }
+                }
+
+                selectedService?.let { service ->
+                    item {
+                        Card(Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(4.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) { Text(service.name, fontWeight = FontWeight.Bold, fontSize = 18.sp); Text(service.description.ifBlank { service.code }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                    Surface(shape = CircleShape, color = accent.copy(alpha = .12f), modifier = Modifier.size(40.dp)) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.AccountBalanceWallet, null, tint = accent) } }
+                                }
+                                if (service.items.isNotEmpty()) {
+                                    Text("اختر الفئة / الباقة", fontWeight = FontWeight.Bold)
+                                    service.items.chunked(2).forEach { rowItems ->
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            rowItems.forEach { item ->
+                                                Card(onClick = { selectedItem = item }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(13.dp), colors = CardDefaults.cardColors(containerColor = if (selectedItem?.id == item.id) accent.copy(alpha = .14f) else Color(0xFFF7F8FB))) {
+                                                    Column(Modifier.padding(11.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(item.name, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 2); Text(item.price?.let { "${formatMoney(it.toDoubleOrNull() ?: 0.0)} ${item.currency}" } ?: "حسب الخدمة", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold) }
+                                                }
+                                            }
+                                            if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                                service.fields.forEach { field -> PaymentField(field, fieldValues[field.key].orEmpty()) { value -> fieldValues[field.key] = value; if (field.key == "mobile") phone = value } }
+                                if (service.serviceKind == "query") Text("لا يتم خصم أي مبلغ من الاستعلام.", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                else if (service.pricingMode == "amount") Text("المبلغ يحدد داخل حدود الخدمة التي أرسلها الخادم.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                                Button(onClick = { submitService() }, enabled = !submitting, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(13.dp)) { if (submitting) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp) else Text(if (service.serviceKind == "query") "استعلام" else "تأكيد وخصم الرصيد", fontWeight = FontWeight.Bold) }
+                                result?.let { ResultCard(it, formatMoney, accent) }
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(16.dp))
+@Composable
+private fun PaymentField(field: ServiceFieldDto, value: String, onValueChange: (String) -> Unit) {
+    if (field.key == "mobile") return
+    if (field.type == "select" && field.choices.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(field.label, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { field.choices.forEach { choice -> FilterChip(selected = value == choice, onClick = { onValueChange(choice) }, label = { Text(choice) }) } }
+        }
+        return
+    }
+    val keyboard = when (field.type) { "number", "decimal" -> KeyboardType.Number; "phone" -> KeyboardType.Phone; "email" -> KeyboardType.Email; else -> KeyboardType.Text }
+    OutlinedTextField(value = value, onValueChange = onValueChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(field.label + if (field.required) " *" else "") }, keyboardOptions = KeyboardOptions(keyboardType = keyboard), shape = RoundedCornerShape(11.dp))
+}
 
-            // Custom Amount input
-            OutlinedTextField(
-                value = customAmount,
-                onValueChange = { input ->
-                    onCustomAmountChange(input.filter { it.isDigit() })
-                },
-                label = { Text("أو أدخل مبلغاً مخصصاً (بالريال اليمني)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = operator.primaryColor
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Summary row
-            val finalAmount = customAmount.toDoubleOrNull() ?: 0.0
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFF1F5F9),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "الإجمالي المطلوب خصمه:",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-                        )
-                        Text(
-                            text = "${formatMoney(finalAmount)} ر.ي",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = operator.primaryColor
-                            )
-                        )
-                    }
-
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = "رسوم الخدمة:",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-                        )
-                        Text(
-                            text = "مجاناً (0 ر.ي)",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2E7D32)
-                            )
-                        )
-                    }
+@Composable
+private fun ResultCard(transaction: ServiceTransactionDto, formatMoney: (Double) -> String, accent: Color) {
+    val status = transaction.status.orEmpty().lowercase()
+    val resultMap = transaction.result.orEmpty()
+    val success = status == "success" || resultMap["resultCode"]?.toString() == "0"
+    val pending = status in setOf("queued", "processing", "pending_provider", "accepted")
+    val cardColor = if (success) Color(0xFFE8F5E9) else if (pending) Color(0xFFFFF8E1) else MaterialTheme.colorScheme.errorContainer
+    Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(15.dp)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (success) Icons.Default.CheckCircle else if (pending) Icons.Default.Refresh else Icons.Default.ErrorOutline, null, tint = accent, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(7.dp))
+                Text(if (success) "تمت العملية بنجاح" else if (pending) "العملية قيد المعالجة" else "تعذر إتمام العملية", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(transaction.amount?.toDoubleOrNull()?.let { formatMoney(it) + " " + (transaction.currency ?: "ر.ي") } ?: "", color = accent, fontWeight = FontWeight.Bold)
+            }
+            resultMap.entries.forEach { (key, value) ->
+                if (value != null && value.toString().isNotBlank()) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(prettifyResultKey(key), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value.toString(), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End) }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Big Pay Button
-            Button(
-                onClick = {
-                    if (finalAmount > 0) {
-                        onPay(finalAmount)
-                    }
-                },
-                enabled = finalAmount > 0,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = operator.primaryColor),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            ) {
-                Text(
-                    text = "تسديد الآن خصماً من الرصيد",
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                )
-            }
+            Text("رقم العملية: ${transaction.id}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            transaction.errorMessage?.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
         }
     }
 }
