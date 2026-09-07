@@ -229,9 +229,16 @@ def catalog_resources(request, type=None):
 
     fields = ServiceField.objects.filter(service_id=selected_service_id, is_active=True).order_by("sort_order", "id") if selected_service_id else ServiceField.objects.none()
     edit_obj = None
-    edit_resource_kind = "game" if mode == "entertainment" else mode
+    edit_resource_kind = (request.GET.get("edit_kind") or "").strip().lower()
     edit_pk = request.GET.get("edit") or ""
-    if edit_pk:
+    if edit_pk and edit_resource_kind in RESOURCE_META:
+        candidate = RESOURCE_META[edit_resource_kind][0].objects.filter(pk=edit_pk).select_related("service").first()
+        if candidate:
+            edit_obj = candidate
+            selected_service = candidate.service
+            selected_service_id = str(candidate.service_id)
+            fields = ServiceField.objects.filter(service=candidate.service, is_active=True).order_by("sort_order", "id")
+    elif edit_pk:
         for kind, model in ((k, RESOURCE_META[k][0]) for k in ("plan", "denom", "game", "digital", "option")):
             candidate = model.objects.filter(pk=edit_pk).select_related("service").first()
             if candidate:
@@ -284,4 +291,4 @@ def catalog_resources(request, type=None):
         "query": request.GET.get("q", ""),
         "selected_game": str(game_service_id),
     }
-    return render(request, "services/resources_v8.html", context)
+    return render(request, "services/resources_v9.html", context)
