@@ -1,5 +1,6 @@
 package com.example.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,10 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -49,7 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +61,7 @@ import com.example.data.remote.ServiceDto
 import com.example.data.remote.ServiceFieldDto
 import com.example.data.remote.ServiceItemDto
 import com.example.data.remote.ServiceMainCategoryDto
+import com.example.data.remote.ServiceRequestPayload
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -110,8 +112,7 @@ fun DynamicServicesScreen(
                     return@launch
                 }
                 catalog = response.body()!!.categories
-                selectedMain = selectedMain?.let { old -> catalog.firstOrNull { it.id == old.id } }
-                    ?: catalog.firstOrNull()
+                selectedMain = selectedMain?.let { old -> catalog.firstOrNull { it.id == old.id } } ?: catalog.firstOrNull()
                 selectedCategory = null
                 selectedService = null
                 selectedItem = null
@@ -125,13 +126,16 @@ fun DynamicServicesScreen(
 
     LaunchedEffect(userSession.token, djangoBaseUrl) {
         if (userSession.isLoggedIn) loadCatalog()
+        else {
+            loading = false
+            error = "سجل الدخول أولاً لاستخدام خدمات التسديد والشحن."
+        }
     }
 
     val activeMain = selectedMain ?: catalog.firstOrNull()
     val rootCategories = activeMain?.categories.orEmpty()
     val filteredCategories = if (search.isBlank()) rootCategories else rootCategories.filter { category ->
-        category.name.contains(search, true) ||
-            category.services.any { it.name.contains(search, true) }
+        category.name.contains(search, true) || category.services.any { it.name.contains(search, true) }
     }
     val nestedChildren = selectedCategory?.children.orEmpty()
     val visibleServices = if (selectedCategory == null) filteredCategories.flatMap { it.services } else selectedCategory?.services.orEmpty() + nestedChildren.flatMap { it.services }
@@ -165,18 +169,17 @@ fun DynamicServicesScreen(
             try {
                 val token = userSession.token ?: return@launch
                 val idempotency = UUID.randomUUID().toString()
-                val payload = values.mapValues { it.value.ifBlank { null } }
-                val body = com.example.data.remote.ServiceRequestPayload(
+                val body = ServiceRequestPayload(
                     serviceId = service.id,
                     itemType = selectedItem?.type,
                     itemId = selectedItem?.id,
-                    payload = payload,
+                    payload = values.mapValues { it.value.ifBlank { null } },
                     idempotencyKey = idempotency
                 )
                 val response = NetworkClient.getApiService(serviceApiBaseUrl(djangoBaseUrl))
                     .submitServiceRequest("Token $token", idempotency, body)
                 resultMessage = if (response.isSuccessful) {
-                    "تم استلام طلب ${service.name} بنجاح. حالة العملية تظهر من الخادم."
+                    "تم استلام الطلب بنجاح. يمكنك متابعة حالته من الطلبات."
                 } else {
                     "تعذر تنفيذ العملية (HTTP ${response.code()})."
                 }
@@ -206,20 +209,15 @@ fun DynamicServicesScreen(
         ) {
             item {
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Icon(Icons.Default.AccountBalanceWallet, null)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("الخدمات مرتبطة مباشرة بكتالوج الخادم", fontWeight = FontWeight.Bold)
-                            Text("الباقات والفئات والحقول تُجلب ديناميكيًا ولا توجد بيانات حساسة للمزود داخل التطبيق.", fontSize = 11.sp)
+                        Column(Modifier.weight(1f)) {
+                            Text("الخدمات مرتبطة بكتالوج الخادم", fontWeight = FontWeight.Bold)
+                            Text("الباقات والفئات والحقول تُجلب ديناميكيًا ولا تُحفظ بيانات المزود الحساسة في التطبيق.", fontSize = 11.sp)
                         }
                     }
                 }
             }
-
             item {
                 OutlinedTextField(
                     value = search,
@@ -231,10 +229,9 @@ fun DynamicServicesScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
             }
-
             if (loading) {
                 item {
-                    Column(modifier = Modifier.fillMaxWidth().padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.fillMaxWidth().padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
                         Spacer(Modifier.height(10.dp))
                         Text("جارٍ تحميل الخدمات…")
@@ -252,52 +249,30 @@ fun DynamicServicesScreen(
                 }
             } else {
                 item {
-                    LazyColumn(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            Text("الأقسام الرئيسية", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
-                        items(catalog) { main ->
-                            FilterChip(
-                                selected = activeMain?.id == main.id,
-                                onClick = { selectedMain = main; selectedCategory = null; selectedService = null; selectedItem = null },
-                                label = { Text(main.name) }
-                            )
+                    Text("الأقسام الرئيسية", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        catalog.forEach { main ->
+                            FilterChip(selected = activeMain?.id == main.id, onClick = { selectedMain = main; selectedCategory = null; selectedService = null; selectedItem = null }, label = { Text(main.name) })
                         }
                     }
                 }
-
                 item {
                     Text("فئات الخدمات", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(Modifier.height(6.dp))
-                }
-
-                items(filteredCategories) { category ->
-                    Card(
-                        onClick = { selectedCategory = category; selectedService = null; selectedItem = null },
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(category.name, fontWeight = FontWeight.Bold)
-                                Text("${category.services.size} خدمة", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Icon(Icons.Default.ChevronLeft, null)
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        filteredCategories.forEach { category ->
+                            FilterChip(selected = selectedCategory?.id == category.id, onClick = { selectedCategory = category; selectedService = null; selectedItem = null }, label = { Text(category.name) })
                         }
                     }
                 }
-
                 if (selectedCategory != null || visibleServices.isNotEmpty()) {
                     item {
+                        Text("الخدمات", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Spacer(Modifier.height(4.dp))
-                        Text("الخدمات المتاحة", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                     items(visibleServices.distinctBy { it.id }) { service ->
-                        Card(
-                            onClick = { chooseService(service) },
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (selectedService?.id == service.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
+                        Card(onClick = { chooseService(service) }, colors = CardDefaults.cardColors(containerColor = if (selectedService?.id == service.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant)) {
                             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text(service.name, fontWeight = FontWeight.Bold)
@@ -305,7 +280,7 @@ fun DynamicServicesScreen(
                                     Text(
                                         when (service.pricingMode) {
                                             "amount" -> "المبلغ يحدده العميل"
-                                            "item" -> "يختار من الفئات والباقات"
+                                            "item" -> "اختيار من الباقات والفئات"
                                             else -> "سعر ثابت"
                                         },
                                         fontSize = 10.sp,
@@ -317,20 +292,17 @@ fun DynamicServicesScreen(
                         }
                     }
                 }
-
                 selectedService?.let { service ->
                     item {
                         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(service.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                 if (service.items.isNotEmpty()) {
-                                    Text("اختر الفئة أو الباقة", fontWeight = FontWeight.Bold)
+                                    Text("اختر الباقة أو الفئة", fontWeight = FontWeight.Bold)
                                     service.items.forEach { item ->
                                         Card(
                                             onClick = { selectedItem = item },
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = if (selectedItem?.id == item.id) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                                            )
+                                            colors = CardDefaults.cardColors(containerColor = if (selectedItem?.id == item.id) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
                                         ) {
                                             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                                 Column(Modifier.weight(1f)) {
@@ -349,8 +321,7 @@ fun DynamicServicesScreen(
                                     Text(msg, color = if (msg.contains("بنجاح")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error, textAlign = TextAlign.Right)
                                 }
                                 Button(onClick = { submit() }, enabled = !submitting, modifier = Modifier.fillMaxWidth()) {
-                                    if (submitting) CircularProgressIndicator(modifier = Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp)
-                                    else Text("تنفيذ ${service.name}")
+                                    if (submitting) CircularProgressIndicator(modifier = Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp) else Text("تنفيذ ${service.name}")
                                 }
                             }
                         }
@@ -366,8 +337,8 @@ private fun ServiceInputField(field: ServiceFieldDto, value: String, onValueChan
     if (field.type == "select" && field.choices.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(field.label, fontWeight = FontWeight.Medium, fontSize = 12.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                field.choices.take(6).forEach { choice ->
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                field.choices.take(12).forEach { choice ->
                     FilterChip(selected = value == choice, onClick = { onValueChange(choice) }, label = { Text(choice) })
                 }
             }
