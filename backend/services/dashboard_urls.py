@@ -4,6 +4,7 @@ from .admin_v4 import center, distribution
 from .dashboard_resource_catalog import dashboard_resources
 from .provider_setup_v3 import provider_setup
 from .views import section_view
+from .wifi_dashboard import wifi_management
 
 urlpatterns = [
     path("", center, {"section": "overview"}, name="admin-dashboard-services"),
@@ -20,4 +21,5 @@ urlpatterns = [
     path("links/", section_view, {"section": "links"}, name="admin-services-links"),
     path("distribution/", distribution, name="admin-services-distribution"),
     path("transactions/", section_view, {"section": "transactions"}, name="admin-services-transactions"),
+    path("wifi/", wifi_management, name="admin-services-wifi-management"),
 ]
