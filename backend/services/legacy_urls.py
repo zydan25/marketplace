@@ -13,6 +13,8 @@ urlpatterns = [
     path("fields/", center, {"section": "fields"}, name="legacy-services-fields"),
     path("resources/", catalog_resources, name="legacy-services-resources"),
     path("resources/games-cards/", catalog_resources, {"type": "entertainment"}, name="legacy-services-games-cards"),
+    path("catalog/resources/", catalog_resources, name="legacy-services-catalog-resources"),
+    path("catalog/games-cards/", catalog_resources, {"type": "entertainment"}, name="legacy-services-catalog-games-cards"),
     path("providers/", provider_setup, name="legacy-services-providers"),
     path("distribution/", distribution, name="legacy-services-distribution"),
 ]
