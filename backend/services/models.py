@@ -35,8 +35,6 @@ class ServiceCategory(models.Model):
 
     class Meta:
         ordering = ["sort_order", "id"]
-        verbose_name = "فئة الخدمة"
-        verbose_name_plural = "فئات الخدمات"
         constraints = [models.UniqueConstraint(fields=["main_category", "parent", "slug"], name="uniq_service_category_tree_slug")]
 
     def __str__(self):
@@ -59,6 +57,8 @@ class Service(models.Model):
     slug = models.SlugField(max_length=180)
     code = models.CharField(max_length=80, unique=True)
     description = models.TextField(blank=True)
+    service_kind = models.CharField(max_length=12, choices=ServiceKinds.choices, default=ServiceKinds.PURCHASE)
+    requires_balance = models.BooleanField(default=True)
     pricing_mode = models.CharField(max_length=12, choices=PricingModes.choices, default=PricingModes.FIXED)
     price = models.DecimalField(max_digits=18, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     min_amount = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
@@ -70,13 +70,9 @@ class Service(models.Model):
     icon = models.CharField(max_length=80, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
-    service_kind = models.CharField(max_length=12, choices=ServiceKinds.choices, default=ServiceKinds.PURCHASE)
-    requires_balance = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["sort_order", "id"]
-        verbose_name = "الخدمة"
-        verbose_name_plural = "الخدمات"
         constraints = [models.UniqueConstraint(fields=["category", "slug"], name="uniq_service_category_slug")]
         indexes = [models.Index(fields=["category", "is_active"], name="svc_category_active_idx")]
 
@@ -136,9 +132,6 @@ class ProviderConnection(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ["name"]
 
     def set_password(self, raw_password):
         from .security import encrypt_secret
@@ -377,9 +370,6 @@ class ServiceRequestLog(models.Model):
     request_payload = models.JSONField(default=dict, blank=True)
     response_payload = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at", "-id"]
 
 
 from .wifi_networks import WifiNetwork
