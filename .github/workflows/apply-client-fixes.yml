@@ -1,0 +1,287 @@
+name: apply customer app fixes
+on: push
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Patch customer app
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+
+          p = root / 'flutter-katolin/app/src/main/java/com/example/data/remote/DjangoApiService.kt'
+          s = p.read_text()
+          if 'suspend fun lookupRecipient(' not in s:
+              s = s.replace('    @GET("gifts/")', '''    @POST("gifts/lookup/")
+    suspend fun lookupRecipient(@Header("Authorization") token: String, @Body request: Map<String, Any?>): Response<Map<String, Any>>
+
+    @GET("v2/services/wifi/networks/")
+    suspend fun getWifiNetworksV2(): Response<Map<String, Any>>
+
+    @POST("v2/services/wifi/purchase/")
+    suspend fun purchaseWifiCardV2(@Header("Authorization") token: String, @Body request: Map<String, Any?>): Response<Map<String, Any>>
+
+    @GET("v2/services/wifi/my-cards/")
+    suspend fun getMyWifiCardsV2(@Header("Authorization") token: String): Response<Map<String, Any>>
+
+    @GET("gifts/")''', 1)
+          p.write_text(s)
+
+          p = root / 'flutter-katolin/app/src/main/java/com/example/data/repository/StoreRepository.kt'
+          s = p.read_text()
+
+          if 'fun restoreSession(session: UserSession)' not in s:
+              marker = '    suspend fun loginWithPhoneAndPassword(phone: String, pass: String): Pair<Boolean, String?> {'
+              block = '''    fun restoreSession(session: UserSession) {
+        _userSession.value = session
+        coroutineScope.launch {
+            syncUserProfile()
+            syncWalletFromServer()
+            fetchOrdersFromApi(session.token.orEmpty())
+            fetchNotificationsFromApi(session.token.orEmpty())
+            fetchAddressesFromApi(session.token.orEmpty())
+            fetchPurchasedWifiCardsFromApi(session.token.orEmpty())
+            fetchWifiNetworksFromApi()
+        }
+    }
+
+''' + marker
+              s = s.replace(marker, block, 1)
+
+          # Server-authoritative recipient lookup. Never synthesize a recipient name.
+          s, n = re.subn(
+              r'    suspend fun checkTransferEligibility\(.*?\n    suspend fun confirmTransfer',
+              '''    suspend fun checkTransferEligibility(recipientPhone: String, amount: Double, message: String = ""): TransferCheckResult {
+        val phone = recipientPhone.trim()
+        val token = _userSession.value.token
+        if (phone.isBlank() || amount <= 0 || token.isNullOrBlank()) {
+            return TransferCheckResult(false, recipientPhone = phone, amount = amount, message = "أدخل رقم المشترك والمبلغ وسجل الدخول أولاً")
+        }
+        return withContext(Dispatchers.IO) {
+            try {
+                val resp = NetworkClient.getApiService(_djangoBaseUrl.value).lookupRecipient("Token $token", mapOf("receiver_phone" to phone))
+                if (!resp.isSuccessful || resp.body() == null) {
+                    return@withContext TransferCheckResult(false, recipientPhone = phone, amount = amount, message = "المشترك غير موجود")
+                }
+                val body = resp.body()!!
+                val available = body["available_balance"]?.toString()?.toDoubleOrNull()
+                if (available != null && available < amount) {
+                    return@withContext TransferCheckResult(false, recipientPhone = phone, amount = amount, message = "رصيدك المحاسبي غير كافٍ")
+                }
+                TransferCheckResult(true, body["receiver_name"]?.toString(), phone, amount, 0.0, null, "تم التحقق من المشترك. راجع البيانات ثم أكد التحويل.")
+            } catch (e: Exception) {
+                TransferCheckResult(false, recipientPhone = phone, amount = amount, message = "تعذر التحقق من المشترك: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    suspend fun confirmTransfer''', s, flags=re.S, count=1)[0:2]
+
+          # Python above returns tuple differently on replacement when used with a single result; normalize if needed.
+          if isinstance(s, tuple):
+              s = s[0]
+
+          s, n2 = re.subn(
+              r'    suspend fun confirmTransfer\(.*?\n    suspend fun cancelTransfer',
+              '''    suspend fun confirmTransfer(giftId: Int?, recipientPhone: String, recipientName: String, amount: Double): Pair<Boolean, WalletTransaction?> {
+        val token = _userSession.value.token ?: return Pair(false, null)
+        return withContext(Dispatchers.IO) {
+            try {
+                val api = NetworkClient.getApiService(_djangoBaseUrl.value)
+                val id = giftId ?: run {
+                    val created = api.createGift("Token $token", mapOf("receiver_phone" to recipientPhone.trim(), "amount" to amount, "message" to "تحويل مالي إلى مشترك"))
+                    if (!created.isSuccessful || created.body() == null) return@withContext Pair(false, null)
+                    created.body()!!["id"]?.toString()?.toIntOrNull() ?: return@withContext Pair(false, null)
+                }
+                val confirmed = api.confirmGift("Token $token", id)
+                if (!confirmed.isSuccessful) return@withContext Pair(false, null)
+                syncWalletFromServer()
+                val reference = confirmed.body()?.get("journal")?.toString() ?: "GIFT-$id"
+                val tx = WalletTransaction(reference, "تحويل مالي إلى $recipientName", "TRANSFER", amount, "ر.ي", "الآن", false, recipientName, recipientPhone, reference, "ناجحة ومكتملة ✅", 0.0, "تم تأكيد التحويل من الخادم محاسبياً")
+                _transactions.value = listOf(tx) + _transactions.value
+                Pair(true, tx)
+            } catch (_: Exception) {
+                Pair(false, null)
+            }
+        }
+    }
+
+    suspend fun cancelTransfer''', s, flags=re.S, count=1)
+
+          old = '''    suspend fun executeTransfer(
+        recipientPhone: String,
+        recipientName: String,
+        amount: Double
+    ): Pair<Boolean, WalletTransaction?> {
+        return confirmTransfer(null, recipientPhone, recipientName, amount)
+    }
+'''
+          new = '''    suspend fun executeTransfer(recipientPhone: String, recipientName: String, amount: Double): Pair<Boolean, WalletTransaction?> {
+        val check = checkTransferEligibility(recipientPhone, amount)
+        if (!check.isAllowed) return Pair(false, null)
+        return confirmTransfer(check.giftId, recipientPhone, recipientName, amount)
+    }
+'''
+          s = s.replace(old, new, 1)
+
+          # Replace local WiFi purchase with backend purchase, and add API list loaders.
+          wifi_pat = r'    fun purchaseWifiCard\(.*?\n    fun markNotificationAsRead'
+          wifi_block = '''    suspend fun fetchWifiNetworksFromApi() {
+        withContext(Dispatchers.IO) {
+            try {
+                val response = NetworkClient.getApiService(_djangoBaseUrl.value).getWifiNetworksV2()
+                if (!response.isSuccessful || response.body() == null) return@withContext
+                val rows = response.body()!!["networks"] as? List<*> ?: return@withContext
+                val mapped = rows.mapNotNull { raw ->
+                    val n = raw as? Map<*, *> ?: return@mapNotNull null
+                    val denoms = (n["denominations"] as? List<*>)?.mapNotNull { rawD ->
+                        val d = rawD as? Map<*, *> ?: return@mapNotNull null
+                        WifiCardDenomination(d["id"]?.toString().orEmpty(), d["name"]?.toString().orEmpty(), d["duration"]?.toString().orEmpty(), d["data_quota"]?.toString().orEmpty(), d["sale_price"]?.toString()?.toDoubleOrNull() ?: 0.0)
+                    }.orEmpty()
+                    WifiNetwork(n["id"]?.toString().orEmpty(), n["name"]?.toString().orEmpty(), n["owner_name"]?.toString().orEmpty(), n["owner_phone"]?.toString().orEmpty(), n["location"]?.toString().orEmpty(), "", isOnline = true, description = n["description"]?.toString().orEmpty(), denominations = denoms)
+                }
+                if (mapped.isNotEmpty()) _wifiNetworks.value = mapped
+            } catch (_: Exception) {}
+        }
+    }
+
+    suspend fun fetchPurchasedWifiCardsFromApi(token: String = _userSession.value.token ?: "") {
+        if (token.isBlank()) return
+        withContext(Dispatchers.IO) {
+            try {
+                val response = NetworkClient.getApiService(_djangoBaseUrl.value).getMyWifiCardsV2("Token $token")
+                if (!response.isSuccessful || response.body() == null) return@withContext
+                val rows = response.body()!!["cards"] as? List<*> ?: return@withContext
+                _purchasedWifiCards.value = rows.mapNotNull { raw ->
+                    val c = raw as? Map<*, *> ?: return@mapNotNull null
+                    PurchasedWifiCard(c["id"]?.toString().orEmpty(), c["network_name"]?.toString().orEmpty(), c["denomination_title"]?.toString().orEmpty(), c["price"]?.toString()?.toDoubleOrNull() ?: 0.0, c["pin_code"]?.toString().orEmpty(), c["serial_number"]?.toString().orEmpty(), _userSession.value.phone, c["purchase_date"]?.toString().orEmpty(), c["duration"]?.toString().orEmpty(), c["data_quota"]?.toString().orEmpty(), c["owner_phone"]?.toString().orEmpty())
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    suspend fun purchaseWifiCard(network: WifiNetwork, denomination: WifiCardDenomination, userPhone: String): PurchasedWifiCard? {
+        val token = _userSession.value.token ?: return null
+        val denominationId = denomination.id.toIntOrNull() ?: return null
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = NetworkClient.getApiService(_djangoBaseUrl.value).purchaseWifiCardV2("Token $token", mapOf("denomination_id" to denominationId, "amount" to denomination.priceYer, "phone" to userPhone.trim()))
+                if (!response.isSuccessful || response.body() == null) return@withContext null
+                val c = response.body()!!
+                val card = PurchasedWifiCard(c["id"]?.toString().orEmpty(), c["network_name"]?.toString() ?: network.name, c["denomination"]?.toString() ?: denomination.title, c["price"]?.toString()?.toDoubleOrNull() ?: denomination.priceYer, c["pin"]?.toString().orEmpty(), c["card_number"]?.toString().orEmpty(), userPhone.trim(), c["sold_at"]?.toString().orEmpty(), denomination.duration, denomination.dataQuota, network.ownerPhone)
+                _purchasedWifiCards.value = listOf(card) + _purchasedWifiCards.value
+                syncWalletFromServer()
+                card
+            } catch (_: Exception) { null }
+        }
+    }
+
+    fun markNotificationAsRead'''
+          s, n3 = re.subn(wifi_pat, wifi_block, s, flags=re.S, count=1)
+          if n3 != 1:
+              raise SystemExit('WiFi purchase method could not be patched')
+          p.write_text(s)
+
+          p = root / 'flutter-katolin/app/src/main/java/com/example/ui/MainViewModel.kt'
+          s = p.read_text()
+          if 'fun restoreSession(session: UserSession)' not in s:
+              marker = '    fun logout() {\n'
+              s = s.replace(marker, '    fun restoreSession(session: UserSession) = repository.restoreSession(session)\n\n' + marker, 1)
+          old = '''    fun purchaseWifiCard(
+        network: WifiNetwork,
+        denomination: WifiCardDenomination,
+        userPhone: String
+    ): PurchasedWifiCard {
+        val card = repository.purchaseWifiCard(network, denomination, userPhone)
+        showOrderSuccessDialog.value = "تم شراء كرت وايفاي بنجاح! كود الكرت: ${card.pinCode}"
+        return card
+    }
+'''
+          new = '''    suspend fun purchaseWifiCard(
+        network: WifiNetwork,
+        denomination: WifiCardDenomination,
+        userPhone: String
+    ): PurchasedWifiCard? {
+        val card = repository.purchaseWifiCard(network, denomination, userPhone)
+        if (card != null) showOrderSuccessDialog.value = "تم شراء كرت وايفاي بنجاح! كود الكرت: ${card.pinCode}"
+        return card
+    }
+'''
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          p = root / 'flutter-katolin/app/src/main/java/com/example/ui/NetworkCardsScreen.kt'
+          s = p.read_text()
+          if 'import androidx.compose.runtime.rememberCoroutineScope' not in s:
+              s = s.replace('import androidx.compose.runtime.mutableStateOf\n', 'import androidx.compose.runtime.mutableStateOf\nimport androidx.compose.runtime.rememberCoroutineScope\n', 1)
+          s = s.replace('onPurchaseWifiCard: (WifiNetwork, WifiCardDenomination, String) -> PurchasedWifiCard,', 'onPurchaseWifiCard: suspend (WifiNetwork, WifiCardDenomination, String) -> PurchasedWifiCard?,', 1)
+          if 'val purchaseScope = rememberCoroutineScope()' not in s:
+              s = s.replace('    val clipboardManager = LocalClipboardManager.current\n', '    val clipboardManager = LocalClipboardManager.current\n    val purchaseScope = rememberCoroutineScope()\n', 1)
+          oldclick = '''                        isPurchasing = true
+                        val card = onPurchaseWifiCard(network, denom, phone)
+                        lastPurchasedCard = card
+                        isPurchasing = false
+                        selectedNetworkForPurchase = null
+                        selectedDenominationForPurchase = null
+                        showSuccessDialog = true
+'''
+          newclick = '''                        isPurchasing = true
+                        purchaseScope.launch {
+                            try {
+                                val card = onPurchaseWifiCard(network, denom, phone)
+                                if (card != null) {
+                                    lastPurchasedCard = card
+                                    selectedNetworkForPurchase = null
+                                    selectedDenominationForPurchase = null
+                                    showSuccessDialog = true
+                                } else {
+                                    copySnackbarMessage = "تعذر شراء الكرت؛ لم يتم خصم أي مبلغ."
+                                }
+                            } finally {
+                                isPurchasing = false
+                            }
+                        }
+'''
+          s = s.replace(oldclick, newclick, 1)
+          p.write_text(s)
+
+          p = root / 'flutter-katolin/app/src/main/java/com/example/MainActivity.kt'
+          s = p.read_text()
+          if 'import androidx.compose.runtime.LaunchedEffect' not in s:
+              s = s.replace('import androidx.compose.runtime.getValue\n', 'import androidx.compose.runtime.getValue\nimport androidx.compose.runtime.LaunchedEffect\n', 1)
+          if 'import androidx.compose.ui.platform.LocalContext' not in s:
+              s = s.replace('import androidx.compose.ui.platform.LocalLayoutDirection\n', 'import androidx.compose.ui.platform.LocalContext\nimport androidx.compose.ui.platform.LocalLayoutDirection\n', 1)
+          if 'import com.example.SessionStore' not in s:
+              s = s.replace('import com.example.ui.AddressesScreen\n', 'import com.example.SessionStore\nimport com.example.ui.AddressesScreen\n', 1)
+          if 'val sessionContext = LocalContext.current' not in s:
+              s = s.replace('fun MainAppScreen(\n    viewModel: MainViewModel = viewModel()\n) {\n', 'fun MainAppScreen(\n    viewModel: MainViewModel = viewModel()\n) {\n    val sessionContext = LocalContext.current\n    LaunchedEffect(Unit) {\n        SessionStore.load(sessionContext)?.let { viewModel.restoreSession(it) }\n    }\n', 1)
+          s = s.replace('onLogoutClick = { viewModel.logout() }', 'onLogoutClick = { SessionStore.clear(sessionContext); viewModel.logout() }', 1)
+          s = s.replace('''onLoginSubmit = { phone, password ->
+                            viewModel.login(phone, password)
+                        }''', '''onLoginSubmit = { phone, password ->
+                            val result = viewModel.login(phone, password)
+                            if (result.first) SessionStore.save(sessionContext, viewModel.userSession.value)
+                        }''', 1)
+          s = s.replace('''onRegisterSubmit = { phone, pass, firstName, lastName, governorate ->
+                            viewModel.register(phone, pass, firstName, lastName, governorate)
+                        }''', '''onRegisterSubmit = { phone, pass, firstName, lastName, governorate ->
+                            val result = viewModel.register(phone, pass, firstName, lastName, governorate)
+                            if (result.first) SessionStore.save(sessionContext, viewModel.userSession.value)
+                        }''', 1)
+          p.write_text(s)
+          PY
+      - name: Commit and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add flutter-katolin
+          git commit -m "fix: harden customer service and wallet flow [client-flow-patched]" || true
+          git push
