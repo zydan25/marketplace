@@ -16,36 +16,11 @@ from .models import (
 
 
 RESOURCE_TYPES = {
-    "plan": {
-        "model": TelecomPlan,
-        "title": "الباقات",
-        "singular": "باقة",
-        "label": "اسم الباقة",
-    },
-    "denom": {
-        "model": TelecomDenomination,
-        "title": "الفئات والشرائح",
-        "singular": "فئة / شريحة",
-        "label": "اسم الفئة",
-    },
-    "game": {
-        "model": GameProduct,
-        "title": "فئات الألعاب",
-        "singular": "فئة لعبة",
-        "label": "اسم الفئة",
-    },
-    "digital": {
-        "model": DigitalProduct,
-        "title": "البرامج والمنتجات الرقمية",
-        "singular": "منتج رقمي",
-        "label": "اسم المنتج / البرنامج",
-    },
-    "option": {
-        "model": ServiceOption,
-        "title": "فئات وخيارات الخدمة",
-        "singular": "خيار / فئة",
-        "label": "اسم الفئة / الخيار",
-    },
+    "plan": {"model": TelecomPlan, "title": "الباقات", "singular": "باقة", "label": "اسم الباقة"},
+    "denom": {"model": TelecomDenomination, "title": "الفئات والشرائح", "singular": "فئة / شريحة", "label": "اسم الفئة"},
+    "game": {"model": GameProduct, "title": "فئات الألعاب", "singular": "فئة لعبة", "label": "اسم الفئة"},
+    "digital": {"model": DigitalProduct, "title": "البرامج والمنتجات الرقمية", "singular": "منتج رقمي", "label": "اسم المنتج / البرنامج"},
+    "option": {"model": ServiceOption, "title": "فئات وخيارات الخدمة", "singular": "خيار / فئة", "label": "اسم الفئة / الخيار"},
 }
 
 
@@ -90,17 +65,15 @@ def resources(request):
             obj.name = (request.POST.get("name") or "").strip()
             if not obj.name:
                 raise ValueError(f"{spec['label']} مطلوب.")
-
             obj.external_code = (request.POST.get("external_code") or "").strip()
             if kind in {"plan", "denom", "game"} and not obj.external_code:
                 raise ValueError("الكود الخارجي / كود الربط مطلوب.")
-
             obj.sort_order = int(request.POST.get("sort_order", 0) or 0)
             obj.is_active = True
 
             if kind == "plan":
                 obj.price = decimal_value(request.POST.get("price"))
-                obj.quota = decimal_value(request.POST.get("quota"), default="") if request.POST.get("quota") else None
+                obj.quota = decimal_value(request.POST.get("quota"), default="0") if request.POST.get("quota") else None
                 obj.quota_unit = (request.POST.get("quota_unit") or "").strip()
                 obj.validity_days = int(request.POST["validity_days"]) if request.POST.get("validity_days") else None
                 obj.payment_type = (request.POST.get("payment_type") or "").strip()
@@ -122,10 +95,7 @@ def resources(request):
                 obj.price = decimal_value(request.POST.get("price"))
                 obj.currency = (request.POST.get("currency") or "YER").strip().upper()
                 meta = dict(obj.metadata or {})
-                if request.POST.get("validity_days"):
-                    meta["validity_days"] = int(request.POST["validity_days"])
-                else:
-                    meta.pop("validity_days", None)
+                meta["validity_days"] = int(request.POST["validity_days"]) if request.POST.get("validity_days") else None
                 meta["details"] = (request.POST.get("details") or "").strip()
                 meta["employee_price"] = (request.POST.get("employee_price") or "").strip()
                 obj.metadata = meta
@@ -145,7 +115,6 @@ def resources(request):
                 meta["details"] = (request.POST.get("details") or "").strip()
                 meta["employee_price"] = (request.POST.get("employee_price") or "").strip()
                 obj.metadata = meta
-
             obj.save()
             messages.success(request, f"تم حفظ {spec['singular']} ضمن الخدمة: {service.name}.")
         except (ValueError, InvalidOperation) as exc:
@@ -165,7 +134,7 @@ def resources(request):
     queryset = model.objects.select_related("service").filter(service_id=selected_service_id).order_by("sort_order", "id") if selected_service_id else model.objects.none()
     fields = ServiceField.objects.filter(service_id=selected_service_id, is_active=True).order_by("sort_order", "id") if selected_service_id else ServiceField.objects.none()
 
-    context = {
+    return render(request, "services/resources_v7.html", {
         "kind": kind,
         "spec": spec,
         "resource_types": RESOURCE_TYPES,
@@ -175,10 +144,4 @@ def resources(request):
         "edit_obj": edit_obj,
         "items": queryset,
         "service_fields": fields,
-        "plan_count": TelecomPlan.objects.filter(service_id=selected_service_id).count() if selected_service_id else 0,
-        "denom_count": TelecomDenomination.objects.filter(service_id=selected_service_id).count() if selected_service_id else 0,
-        "game_count": GameProduct.objects.filter(service_id=selected_service_id).count() if selected_service_id else 0,
-        "digital_count": DigitalProduct.objects.filter(service_id=selected_service_id).count() if selected_service_id else 0,
-        "option_count": ServiceOption.objects.filter(service_id=selected_service_id).count() if selected_service_id else 0,
-    }
-    return render(request, "services/resources_v6.html", context)
+    })
