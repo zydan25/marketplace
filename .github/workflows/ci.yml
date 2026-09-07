@@ -76,6 +76,8 @@ jobs:
         run: python manage.py migrate --plan
       - name: Apply migrations
         run: python manage.py migrate --noinput
+      - name: Initialize canonical API service catalog
+        run: python manage.py sync_api_catalog
       - name: Verify services catalog definition
         run: python manage.py check_sanaacash_catalog
       - name: Verify expected API catalog rows
