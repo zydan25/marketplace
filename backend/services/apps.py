@@ -1,4 +1,9 @@
+import logging
+
 from django.apps import AppConfig
+
+
+logger = logging.getLogger(__name__)
 
 
 class ServicesConfig(AppConfig):
@@ -27,3 +32,15 @@ class ServicesConfig(AppConfig):
                 admin_v4.FIELD_LIBRARY.append(row)
                 existing_keys.add(row[0])
         admin_v4.FIELD_MAP = {key: (label, typ) for key, label, typ in admin_v4.FIELD_LIBRARY}
+
+        # Idempotent catalog bootstrap. It is deliberately guarded by a
+        # table-existence check so migrations/tests are not blocked before the
+        # services tables exist. Set SERVICE_CATALOG_BOOTSTRAP=0 to disable.
+        if getattr(self, "_catalog_bootstrap_started", False):
+            return
+        self._catalog_bootstrap_started = True
+        try:
+            from .catalog_bootstrap import bootstrap_service_catalog
+            bootstrap_service_catalog()
+        except Exception:  # pragma: no cover - defensive startup guard
+            logger.exception("Unable to initialize service catalog bootstrap")
