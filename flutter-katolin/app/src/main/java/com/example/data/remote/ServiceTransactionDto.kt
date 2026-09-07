@@ -12,5 +12,7 @@ data class ServiceTransactionDto(
     @Json(name = "provider_transaction_id") val providerTransactionId: String? = null,
     @Json(name = "error_code") val errorCode: String? = null,
     @Json(name = "error_message") val errorMessage: String? = null,
-    @Json(name = "created_at") val createdAt: String? = null
+    @Json(name = "created_at") val createdAt: String? = null,
+    @Json(name = "completed_at") val completedAt: String? = null,
+    @Json(name = "result") val result: Map<String, Any?>? = null
 )
