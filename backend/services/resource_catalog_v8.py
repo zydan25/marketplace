@@ -15,23 +15,9 @@ from .models import (
     TelecomPlan,
 )
 
-
-TELECOM_KEYWORDS = (
-    "اتصالات", "الاتصالات", "telecom", "mobile", "شبكات", "شريحة",
-    "يمن", "سبأفون", "سبأ", "you", "يو", "واي", "yemen mobile",
-)
-ENTERTAINMENT_KEYWORDS = (
-    "ألعاب", "العاب", "game", "games", "بطاقات", "بطائق", "بطاقة",
-    "برامج", "رقمية", "digital", "software", "فري فاير", "free fire",
-)
-
-RESOURCE_META = {
-    "plan": (TelecomPlan, "باقة", "باقات"),
-    "denom": (TelecomDenomination, "فئة / شريحة", "فئات"),
-    "game": (GameProduct, "فئة لعبة", "لعبة"),
-    "digital": (DigitalProduct, "منتج رقمي", "برنامج / بطاقة"),
-    "option": (ServiceOption, "فئة / بطاقة", "بطاقة / فئة"),
-}
+TELECOM_KEYWORDS = ("اتصالات", "الاتصالات", "telecom", "mobile", "شبكات", "شريحة", "يمن", "سبأفون", "سبأ", "you", "يو", "واي", "yemen mobile")
+ENTERTAINMENT_KEYWORDS = ("ألعاب", "العاب", "game", "games", "بطاقات", "بطائق", "بطاقة", "برامج", "رقمية", "digital", "software", "فري فاير", "free fire")
+RESOURCE_META = {"plan": (TelecomPlan, "باقة", "باقات"), "denom": (TelecomDenomination, "فئة / شريحة", "فئات"), "game": (GameProduct, "فئة لعبة", "لعبة"), "digital": (DigitalProduct, "منتج رقمي", "برنامج / بطاقة"), "option": (ServiceOption, "فئة / بطاقة", "بطاقة / فئة")}
 
 
 def staff_only(user):
@@ -47,15 +33,7 @@ def dec(value, default="0"):
 
 
 def _service_kind(service):
-    text = " ".join(
-        str(x or "")
-        for x in (
-            service.name,
-            service.code,
-            getattr(service.category, "name", ""),
-            getattr(service.category.main_category, "name", "") if service.category_id else "",
-        )
-    ).lower()
+    text = " ".join(str(x or "") for x in (service.name, service.code, getattr(service.category, "name", ""), getattr(service.category.main_category, "name", "") if service.category_id else "")).lower()
     if any(k in text for k in ENTERTAINMENT_KEYWORDS):
         return "entertainment"
     if any(k in text for k in TELECOM_KEYWORDS):
@@ -77,39 +55,23 @@ def _short_service_name(name):
 
 
 def _services_with_counts():
-    return (
-        Service.objects.select_related("category__main_category")
-        .annotate(
-            plan_count=Count("telecom_plans", distinct=True),
-            denom_count=Count("telecom_denominations", distinct=True),
-            game_count=Count("game_products", distinct=True),
-            digital_count=Count("digital_products", distinct=True),
-            option_count=Count("options", distinct=True),
-        )
-        .filter(is_active=True)
-        .order_by("category__main_category__sort_order", "category__sort_order", "sort_order", "id")
-    )
+    return (Service.objects.select_related("category__main_category").annotate(
+        plan_count=Count("telecom_plans", distinct=True),
+        denom_count=Count("telecom_denominations", distinct=True),
+        game_count=Count("game_products", distinct=True),
+        digital_count=Count("digital_products", distinct=True),
+        option_count=Count("options", distinct=True),
+    ).filter(is_active=True).order_by("category__main_category__sort_order", "category__sort_order", "sort_order", "id"))
 
 
 def _sidebar(services):
-    telecom = []
-    entertainment = []
-    other = []
+    telecom, entertainment, other = [], [], []
     for service in services:
-        item = {
-            "id": service.id,
-            "name": _short_service_name(service.name),
-            "full_name": service.name,
-            "plan_count": getattr(service, "plan_count", 0),
-            "denom_count": getattr(service, "denom_count", 0),
-        }
+        item = {"id": service.id, "name": _short_service_name(service.name), "full_name": service.name, "plan_count": getattr(service, "plan_count", 0), "denom_count": getattr(service, "denom_count", 0)}
         bucket = _service_kind(service)
-        if bucket == "telecom":
-            telecom.append(item)
-        elif bucket == "entertainment":
-            entertainment.append(item)
-        else:
-            other.append(item)
+        if bucket == "telecom": telecom.append(item)
+        elif bucket == "entertainment": entertainment.append(item)
+        else: other.append(item)
     return telecom, entertainment, other
 
 
@@ -121,7 +83,6 @@ def _save_resource(request, kind, service):
         raise ValueError("العنصر المطلوب تعديله غير تابع للخدمة المحددة.")
     if obj is None:
         obj = model(service=service)
-
     obj.service = service
     obj.name = (request.POST.get("name") or "").strip()
     if not obj.name:
@@ -130,8 +91,7 @@ def _save_resource(request, kind, service):
     if kind in {"plan", "denom", "game"} and not obj.external_code:
         raise ValueError("الكود الخارجي / كود الربط مطلوب.")
     obj.sort_order = int(request.POST.get("sort_order", 0) or 0)
-    obj.is_active = request.POST.get("is_active", "1") == "1"
-
+    obj.is_active = True if request.POST.get("is_active", "1") == "1" else False
     if kind == "plan":
         obj.price = dec(request.POST.get("price"))
         obj.quota = dec(request.POST.get("quota")) if request.POST.get("quota") else None
@@ -181,8 +141,7 @@ def _save_resource(request, kind, service):
 
 
 def _toggle_resource(kind, pk):
-    model = RESOURCE_META[kind][0]
-    obj = get_object_or_404(model, pk=pk)
+    obj = get_object_or_404(RESOURCE_META[kind][0], pk=pk)
     obj.is_active = not obj.is_active
     obj.save(update_fields=["is_active"])
     return obj
@@ -191,9 +150,7 @@ def _toggle_resource(kind, pk):
 @user_passes_test(staff_only, login_url="/admin/dashboard/login/")
 def catalog_resources(request, type=None):
     mode = (type or request.GET.get("type") or request.POST.get("type") or "plan").strip().lower()
-    if mode not in {"plan", "denom", "entertainment"}:
-        mode = "plan"
-
+    if mode not in {"plan", "denom", "entertainment"}: mode = "plan"
     services = _services_with_counts()
     telecom_services, entertainment_services, other_services = _sidebar(services)
     selected_service_id = request.GET.get("service") or request.POST.get("service") or request.GET.get("game") or ""
@@ -203,14 +160,12 @@ def catalog_resources(request, type=None):
         try:
             if request.POST.get("action") == "toggle":
                 kind = request.POST.get("subtype") or mode
-                if kind not in RESOURCE_META:
-                    raise ValueError("نوع العنصر غير صالح.")
+                if kind not in RESOURCE_META: raise ValueError("نوع العنصر غير صالح.")
                 obj = _toggle_resource(kind, request.POST.get("pk"))
                 messages.success(request, f"تم تغيير حالة: {obj.name}.")
             elif mode == "entertainment":
                 kind = (request.POST.get("subtype") or "game").strip().lower()
-                if kind not in {"game", "digital", "option"}:
-                    raise ValueError("نوع الفئة غير صالح.")
+                if kind not in {"game", "digital", "option"}: raise ValueError("نوع الفئة غير صالح.")
                 service = get_object_or_404(Service, pk=request.POST.get("service"), is_active=True)
                 _save_resource(request, kind, service)
                 messages.success(request, f"تم حفظ الفئة ضمن الخدمة: {service.name}.")
@@ -220,75 +175,45 @@ def catalog_resources(request, type=None):
                 _save_resource(request, mode, service)
                 messages.success(request, f"تم حفظ العنصر ضمن الخدمة: {service.name}.")
                 selected_service_id = str(service.id)
-        except (ValueError, InvalidOperation) as exc:
-            messages.error(request, str(exc))
-        except Exception as exc:
-            messages.error(request, f"تعذر الحفظ: {exc}")
-        redirect_type = "entertainment" if mode == "entertainment" else mode
-        return redirect(f"{request.path}?type={redirect_type}&service={selected_service_id}")
+        except (ValueError, InvalidOperation) as exc: messages.error(request, str(exc))
+        except Exception as exc: messages.error(request, f"تعذر الحفظ: {exc}")
+        return redirect(f"{request.path}?type={mode}&service={selected_service_id}")
 
     fields = ServiceField.objects.filter(service_id=selected_service_id, is_active=True).order_by("sort_order", "id") if selected_service_id else ServiceField.objects.none()
-    edit_obj = None
-    edit_resource_kind = (request.GET.get("edit_kind") or "").strip().lower()
+    edit_obj, edit_resource_kind = None, (request.GET.get("edit_kind") or "").strip().lower()
     edit_pk = request.GET.get("edit") or ""
     if edit_pk and edit_resource_kind in RESOURCE_META:
         candidate = RESOURCE_META[edit_resource_kind][0].objects.filter(pk=edit_pk).select_related("service").first()
         if candidate:
-            edit_obj = candidate
-            selected_service = candidate.service
-            selected_service_id = str(candidate.service_id)
+            edit_obj, selected_service, selected_service_id = candidate, candidate.service, str(candidate.service_id)
             fields = ServiceField.objects.filter(service=candidate.service, is_active=True).order_by("sort_order", "id")
     elif edit_pk:
         for kind, model in ((k, RESOURCE_META[k][0]) for k in ("plan", "denom", "game", "digital", "option")):
             candidate = model.objects.filter(pk=edit_pk).select_related("service").first()
             if candidate:
-                edit_obj = candidate
-                edit_resource_kind = kind
-                selected_service = candidate.service
-                selected_service_id = str(candidate.service_id)
+                edit_obj, edit_resource_kind, selected_service, selected_service_id = candidate, kind, candidate.service, str(candidate.service_id)
                 fields = ServiceField.objects.filter(service=candidate.service, is_active=True).order_by("sort_order", "id")
                 break
 
     items = []
-    if mode == "plan" and selected_service_id:
-        items = list(TelecomPlan.objects.filter(service_id=selected_service_id).select_related("service").order_by("sort_order", "id"))
-    elif mode == "denom" and selected_service_id:
-        items = list(TelecomDenomination.objects.filter(service_id=selected_service_id).select_related("service").order_by("sort_order", "id"))
+    if mode == "plan" and selected_service_id: items = list(TelecomPlan.objects.filter(service_id=selected_service_id).select_related("service").order_by("sort_order", "id"))
+    elif mode == "denom" and selected_service_id: items = list(TelecomDenomination.objects.filter(service_id=selected_service_id).select_related("service").order_by("sort_order", "id"))
 
-    q = (request.GET.get("q") or "").strip().lower()
-    game_service_id = request.GET.get("game") or ""
+    q, game_service_id = (request.GET.get("q") or "").strip(), (request.GET.get("game") or "")
     entertainment_items = []
     if mode == "entertainment":
-        for kind, model, label in (
-            ("game", GameProduct, "لعبة"),
-            ("digital", DigitalProduct, "برنامج / بطاقة"),
-            ("option", ServiceOption, "بطاقة / فئة"),
-        ):
+        for kind, model, label in (("game", GameProduct, "لعبة"), ("digital", DigitalProduct, "برنامج / بطاقة"), ("option", ServiceOption, "بطاقة / فئة")):
             qs = model.objects.select_related("service").filter(service__is_active=True)
-            if game_service_id:
-                qs = qs.filter(service_id=game_service_id)
-            if q:
-                qs = qs.filter(name__icontains=q) | qs.filter(external_code__icontains=q) | qs.filter(service__name__icontains=q)
+            if game_service_id: qs = qs.filter(service_id=game_service_id)
+            if q: qs = qs.filter(name__icontains=q) | qs.filter(external_code__icontains=q) | qs.filter(service__name__icontains=q)
             for obj in qs.order_by("service__name", "sort_order", "id"):
                 entertainment_items.append({"kind": kind, "kind_label": label, "obj": obj})
         entertainment_items.sort(key=lambda x: (str(x["obj"].service.name).lower(), x["obj"].sort_order, str(x["obj"].name).lower()))
 
     game_services = Service.objects.filter(is_active=True, game_products__isnull=False).distinct().order_by("name")
-    context = {
-        "mode": mode,
-        "edit_obj": edit_obj,
-        "edit_resource_kind": edit_resource_kind,
-        "services": services,
-        "telecom_services": telecom_services,
-        "entertainment_services": entertainment_services,
-        "other_services": other_services,
-        "selected_service": selected_service,
-        "selected_service_id": str(selected_service_id),
-        "service_fields": fields,
-        "items": items,
-        "entertainment_items": entertainment_items,
-        "game_services": game_services,
-        "query": request.GET.get("q", ""),
-        "selected_game": str(game_service_id),
-    }
-    return render(request, "services/resources_v9.html", context)
+    return render(request, "services/resources_v10.html", {
+        "mode": mode, "edit_obj": edit_obj, "edit_resource_kind": edit_resource_kind,
+        "services": services, "telecom_services": telecom_services, "entertainment_services": entertainment_services, "other_services": other_services,
+        "selected_service": selected_service, "selected_service_id": str(selected_service_id), "service_fields": fields, "items": items,
+        "entertainment_items": entertainment_items, "game_services": game_services, "query": q, "selected_game": str(game_service_id),
+    })
