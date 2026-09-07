@@ -77,8 +77,6 @@ class Service(models.Model):
         ordering = ["sort_order", "id"]
         constraints = [models.UniqueConstraint(fields=["category", "slug"], name="uniq_service_category_slug")]
         indexes = [models.Index(fields=["category", "is_active"], name="svc_category_active_idx")]
-        verbose_name = "الخدمة"
-        verbose_name_plural = "الخدمات"
 
     def __str__(self):
         return self.name
@@ -209,7 +207,6 @@ class ServiceDistribution(models.Model):
 
 
 class ServiceOption(models.Model):
-    """Generic provider catalog row for services whose provider table has arbitrary codes/numbers."""
     service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="options")
     name = models.CharField(max_length=180)
     external_code = models.CharField(max_length=120, blank=True)
@@ -296,7 +293,6 @@ class DigitalProduct(models.Model):
 
 
 class ServiceRequestReference(models.Model):
-    """Durable registry of every numeric provider transaction id ever allocated."""
     transid = models.PositiveBigIntegerField(unique=True)
     provider = models.ForeignKey("ProviderConnection", on_delete=models.PROTECT, related_name="request_references")
     transaction = models.ForeignKey("ServiceTransaction", null=True, blank=True, on_delete=models.SET_NULL, related_name="provider_references")
@@ -335,53 +331,50 @@ class ServiceTransaction(models.Model):
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.ACCEPTED)
     error_code = models.CharField(max_length=80, blank=True)
     error_message = models.TextField(blank=True)
-    idempotency_key = models.CharField(max_length=180, unique=True, null=True, blank=True)
-    reserved_journal_id = models.BigIntegerField(null=True, blank=True)
-    settled_journal_id = models.BigIntegerField(null=True, blank=True)
-    refund_journal_id = models.BigIntegerField(null=True, blank=True)
+    reserved_journal_id = models.PositiveIntegerField(null=True, blank=True)
     webhook_secret_encrypted = models.TextField(blank=True)
-    webhook_received_at = models.DateTimeField(null=True, blank=True)
+    idempotency_key = models.CharField(max_length=180, blank=True, null=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["customer", "status", "created_at"], name="svc_tx_customer_status_idx"),
-            models.Index(fields=["status", "created_at"], name="svc_tx_status_created_idx"),
-        ]
+        indexes = [models.Index(fields=["customer", "created_at"], name="svc_tx_customer_created_idx"), models.Index(fields=["status", "created_at"], name="svc_tx_status_created_idx")]
 
 
 class ServiceTask(models.Model):
     class Kinds(models.TextChoices):
-        SUBMIT = "submit", "إرسال العملية"
-        STATUS_CHECK = "status_check", "فحص حالة العملية"
+        SUBMIT = "submit", "إرسال للمزود"
+        STATUS = "status", "فحص الحالة"
+        RECONCILE = "reconcile", "مراجعة وتسوية"
 
-    class Statuses(models.TextChoices):
-        QUEUED = "queued", "في قائمة الانتظار"
-        RUNNING = "running", "قيد التنفيذ"
-        RETRY = "retry", "إعادة محاولة"
-        DONE = "done", "مكتملة"
-        FAILED = "failed", "فشلت"
-
-    id = models.BigAutoField(primary_key=True)
     transaction = models.ForeignKey(ServiceTransaction, on_delete=models.CASCADE, related_name="tasks")
-    kind = models.CharField(max_length=20, choices=Kinds.choices)
-    status = models.CharField(max_length=12, choices=Statuses.choices, default=Statuses.QUEUED)
-    provider_link = models.ForeignKey(ProviderLink, null=True, blank=True, on_delete=models.PROTECT, related_name="tasks")
-    available_at = models.DateTimeField(default=timezone.now)
+    kind = models.CharField(max_length=20, choices=Kinds.choices, default=Kinds.SUBMIT)
     attempts = models.PositiveIntegerField(default=0)
-    max_attempts = models.PositiveIntegerField(default=3)
+    available_at = models.DateTimeField(default=timezone.now)
+    locked_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
     last_error = models.TextField(blank=True)
-    metadata = models.JSONField(default=dict, blank=True)
-    started_at = models.DateTimeField(null=True, blank=True)
-    finished_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["available_at", "id"]
-        indexes = [models.Index(fields=["status", "available_at", "id"], name="svc_task_queue_idx")]
 
-    def __str__(self):
-        return f"#{self.id} {self.get_kind_display()} {self.transaction_id}"
+
+class ServiceRequestLog(models.Model):
+    transaction = models.ForeignKey(ServiceTransaction, on_delete=models.CASCADE, related_name="logs")
+    direction = models.CharField(max_length=20, default="provider")
+    http_status = models.PositiveIntegerField(null=True, blank=True)
+    result_code = models.CharField(max_length=80, blank=True)
+    description = models.TextField(blank=True)
+    request_payload = models.JSONField(default=dict, blank=True)
+    response_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+from .wifi_networks import WifiNetwork
+from .wifi_denominations import WifiDenomination
+from .wifi_cards import WifiCard
