@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{{ spec.title }} — دليل البيانات</title>
+<style>
+:root{--bg:#eef4f8;--card:#fff;--ink:#17324d;--muted:#718096;--line:#d6e0e8;--primary:#0a78a0;--primary2:#08728a;--soft:#dcecf7;--soft2:#edf6fb;--danger:#b42318;--success:#16794c;--shadow:0 4px 18px rgba(25,55,80,.08);--radius:16px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;line-height:1.65;overflow-x:hidden}a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
+.shell{max-width:1080px;margin:auto;padding:9px}.top{position:sticky;top:0;z-index:30;background:rgba(238,244,248,.94);backdrop-filter:blur(9px);padding-bottom:8px}.crumb{background:#cfe3f4;border:1px solid #c2dae9;border-radius:15px;padding:9px 13px;color:#274968;font-weight:900;display:flex;align-items:center;justify-content:space-between;gap:10px}.crumb .close{color:#315d7d;font-weight:700}.nav{display:flex;gap:6px;overflow:auto;padding:8px 1px 2px;scrollbar-width:none}.nav::-webkit-scrollbar{display:none}.nav a{white-space:nowrap;padding:7px 10px;background:#dfe8ef;border:1px solid var(--line);border-radius:10px;font-size:11px;font-weight:900;color:#40536b}.nav a.active{background:#cfe9f4;color:#086c82;border-color:#b6dce9}.page-head{padding:8px 4px 10px}.page-head h1{margin:0;color:#176fa1;font-size:25px;line-height:1.3}.page-head p{margin:3px 0 0;color:var(--muted);font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:11px;box-shadow:var(--shadow)}.title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.title-row h2,.title-row h3{margin:0}.muted{color:var(--muted);font-size:11px}.hint{background:#dcedf5;border:1px solid #c5dfe9;border-radius:13px;padding:10px 12px;color:#315d72;font-size:11px}.service-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end}.field label{display:block;font-size:12px;font-weight:950;color:#166a96;margin-bottom:4px}.required{color:var(--danger)}.field input,.field select,.field textarea{width:100%;padding:9px 11px;border:1px solid #cad7e2;border-radius:11px;background:#fff;color:var(--ink);outline:none;min-width:0}.field textarea{min-height:66px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus{border-color:#68afc0;box-shadow:0 0 0 3px rgba(8,127,145,.08)}.btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:10px;padding:9px 12px;background:var(--primary2);color:#fff;font-weight:950;cursor:pointer}.btn.alt{background:#e8f0f5;color:#23445d;border-color:#d2dfe8}.btn.danger{background:#fff0ee;color:var(--danger);border-color:#ffd2cb}.btn.small{padding:7px 10px;font-size:11px}.actions{display:flex;gap:6px;flex-wrap:wrap}.tabs{display:flex;gap:7px;overflow:auto;padding-bottom:2px;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tab{white-space:nowrap;border:1px solid var(--line);background:#e5edf3;border-radius:11px;padding:8px 12px;font-size:11px;font-weight:950;color:#40536b}.tab.active{background:#d6edf5;border-color:#b6dce5;color:#086c82}.count-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#e5f3f7;color:#086c82;font-size:10px;font-weight:950}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.full{grid-column:1/-1}.section-title{margin:13px 0 8px;color:#176fa1;font-size:14px;font-weight:950}.readonly-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.field-chip{display:flex;align-items:center;gap:7px;border:1px solid #dce7ee;background:#fbfdff;border-radius:10px;padding:8px;font-size:11px}.field-chip b{font-size:11px}.field-chip span{color:var(--muted);font-size:9px;margin-right:auto}.small-note{font-size:10px;color:var(--muted);margin-top:5px}.table-wrap{overflow:auto;border:1px solid #e0e7ec;border-radius:12px}.table{width:100%;min-width:820px;border-collapse:collapse;font-size:11px}.table th,.table td{text-align:right;padding:9px 8px;border-bottom:1px solid #edf1f4;vertical-align:middle}.table th{background:#f4f8fb;color:#5e7285;white-space:nowrap}.table tr:last-child td{border-bottom:0}.pill{display:inline-flex;border-radius:999px;padding:4px 8px;background:#eef3f7;font-size:9px;font-weight:950}.pill.ok{background:#e7f6ee;color:var(--success)}.pill.off{background:#fff0ee;color:var(--danger)}.empty{text-align:center;padding:25px;color:var(--muted)}.sticky{position:sticky;bottom:8px;z-index:20;display:flex;gap:7px;padding:8px;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;margin-top:10px}.msg{padding:10px 12px;border-radius:11px;background:#e8f6f8;border:1px solid #c6e4ea;margin-bottom:9px;font-size:11px}.searchbar{display:flex;gap:7px;margin:10px 0}.searchbar input{flex:1;min-width:160px;padding:9px 11px;border:1px solid #cbd7e2;border-radius:10px}
+@media(max-width:760px){.service-bar{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.full{grid-column:auto}.readonly-fields{grid-template-columns:1fr 1fr}.page-head h1{font-size:21px}.card{padding:12px;border-radius:14px}.nav a{font-size:10px;padding:7px 9px}.title-row h2{font-size:18px}.tabs{gap:5px}.tab{padding:7px 9px;font-size:10px}}
+@media(max-width:480px){.readonly-fields{grid-template-columns:1fr}.crumb{font-size:11px}.btn{width:100%}.actions .btn{width:auto;flex:1}.sticky .btn{width:auto;flex:1}}
+</style>
+</head>
+<body>
+<div class="shell">
+<div class="top">
+  <div class="crumb"><span>دليل البيانات <b>&lt;</b> {{ spec.title }}</span><a class="close" href="/admin/dashboard/services/">إغلاق</a></div>
+  <nav class="nav">
+    <a href="/admin/dashboard/services/">الخدمات</a>
+    <a href="/admin/dashboard/services/services/">تعريف الخدمات</a>
+    <a class="{% if kind == 'plan' %}active{% endif %}" href="?type=plan{% if selected_service_id %}&service={{ selected_service_id }}{% endif %}">الباقات</a>
+    <a class="{% if kind == 'denom' %}active{% endif %}" href="?type=denom{% if selected_service_id %}&service={{ selected_service_id }}{% endif %}">الفئات والشرائح</a>
+    <a class="{% if kind == 'game' %}active{% endif %}" href="?type=game{% if selected_service_id %}&service={{ selected_service_id }}{% endif %}">الألعاب</a>
+    <a class="{% if kind == 'digital' %}active{% endif %}" href="?type=digital{% if selected_service_id %}&service={{ selected_service_id }}{% endif %}">البرامج والرقمية</a>
+    <a class="{% if kind == 'option' %}active{% endif %}" href="?type=option{% if selected_service_id %}&service={{ selected_service_id }}{% endif %}">الفئات العامة</a>
+  </nav>
+</div>
+
+<div class="page-head">
+  <h1>{{ spec.title }}</h1>
+  <p>الفئة أو الباقة تابعة مباشرة للخدمة. الحقول لا تُنشأ هنا؛ بل تُورث من الحقول المعرفة داخل الخدمة.</p>
+</div>
+
+{% for message in messages %}<div class="msg">{{ message }}</div>{% endfor %}
+
+<div class="card">
+  <div class="title-row"><div><h2>اختيار الخدمة</h2><div class="muted">اختر الخدمة أولًا ثم أضف الفئات أو الباقات التابعة لها.</div></div>{% if selected_service %}<span class="count-badge">{{ selected_service.category.main_category.name }} ← {{ selected_service.category.name }} ← {{ selected_service.name }}</span>{% endif %}</div>
+  <div class="service-bar" style="margin-top:10px">
+    <div class="field"><label>الخدمة <span class="required">*</span></label><select onchange="location.href='?type={{ kind }}&service='+this.value"><option value="">اختر الخدمة</option>{% for s in services %}<option value="{{ s.id }}" {% if selected_service_id|stringformat:'s' == s.id|stringformat:'s' %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+    {% if selected_service %}<a class="btn alt" href="/admin/dashboard/services/services/?edit_service={{ selected_service.id }}">تعديل الخدمة وحقولها</a>{% endif %}
+  </div>
+</div>
+
+{% if selected_service %}
+<div class="card">
+  <div class="title-row"><div><h2>حقول {{ selected_service.name }}</h2><div class="muted">هذه الحقول هي التي ستظهر للمستخدم عند تنفيذ أي فئة من هذه الخدمة.</div></div><span class="count-badge">{{ service_fields|length }} حقل</span></div>
+  {% if service_fields %}
+  <div class="readonly-fields" style="margin-top:10px">{% for f in service_fields %}<div class="field-chip"><span>▦</span><b>{{ f.label }}</b><span>{{ f.key }} · {{ f.field_type }}{% if f.required %} · مطلوب{% endif %}</span></div>{% endfor %}</div>
+  {% else %}<div class="hint" style="margin-top:9px">لا توجد حقول فعالة لهذه الخدمة بعد. أضف الحقول من شاشة تعريف الخدمة، ثم ستظهر تلقائيًا هنا ولكل فئة تابعة لها.</div>{% endif %}
+</div>
+
+<div class="card">
+  <div class="title-row"><div><h2>{% if edit_obj %}تعديل {{ spec.singular }}{% else %}إضافة {{ spec.singular }}{% endif %}</h2><div class="muted">{{ selected_service.name }} — البيانات الخاصة بهذا المورد فقط.</div></div></div>
+  <form method="post" style="margin-top:10px">{% csrf_token %}<input type="hidden" name="type" value="{{ kind }}"><input type="hidden" name="service" value="{{ selected_service.id }}">{% if edit_obj %}<input type="hidden" name="pk" value="{{ edit_obj.id }}">{% endif %}
+    <div class="grid">
+      <div class="field"><label>{{ spec.label }} <span class="required">*</span></label><input name="name" required value="{{ edit_obj.name|default:'' }}" placeholder="مثال: 200 دقيقة / فئة 100 ريال / فئة فري فاير"></div>
+      {% if kind != 'digital' or edit_obj.external_code %}<div class="field"><label>الكود الخارجي / رقم الربط {% if kind != 'option' and kind != 'digital' %}<span class="required">*</span>{% endif %}</label><input name="external_code" value="{{ edit_obj.external_code|default:'' }}" placeholder="الكود أو uniqcode لدى المزود"></div>{% endif %}
+
+      {% if kind == 'plan' %}
+      <div class="field"><label>رقم الباقة</label><input name="package_number" value="{{ edit_obj.metadata.package_number|default:'' }}"></div>
+      <div class="field"><label>رقم المزود</label><input name="provider_num" value="{{ edit_obj.metadata.provider_num|default:'' }}"></div>
+      <div class="field"><label>السعر</label><input type="number" min="0" step="0.01" name="price" value="{{ edit_obj.price|default:'0' }}"></div>
+      <div class="field"><label>السعر بالدولار</label><input name="price_usd" value="{{ edit_obj.metadata.price_usd|default:'' }}"></div>
+      <div class="field"><label>السعر بالريال السعودي</label><input name="price_sar" value="{{ edit_obj.metadata.price_sar|default:'' }}"></div>
+      <div class="field"><label>سعر الموظف</label><input name="employee_price" value="{{ edit_obj.metadata.employee_price|default:'' }}"></div>
+      <div class="field"><label>الكمية / الحصة</label><input type="number" min="0" step="0.001" name="quota" value="{{ edit_obj.quota|default:'' }}"></div>
+      <div class="field"><label>الوحدة</label><input name="quota_unit" value="{{ edit_obj.quota_unit|default:'' }}" placeholder="MB / GB / دقيقة"></div>
+      <div class="field"><label>الصلاحية بالأيام</label><input type="number" min="0" name="validity_days" value="{{ edit_obj.validity_days|default:'' }}"></div>
+      <div class="field"><label>نوع الدفع</label><input name="payment_type" value="{{ edit_obj.payment_type|default:'' }}"></div>
+      <div class="field"><label>نوع الشريحة</label><input name="line_type" value="{{ edit_obj.line_type|default:'' }}"></div>
+      {% elif kind == 'denom' %}
+      <div class="field"><label>رقم المزود</label><input name="provider_num" value="{{ edit_obj.metadata.provider_num|default:'' }}"></div>
+      <div class="field"><label>القيمة الاسمية</label><input type="number" min="0" step="0.01" name="face_value" value="{{ edit_obj.face_value|default:'0' }}"></div>
+      <div class="field"><label>سعر البيع</label><input type="number" min="0" step="0.01" name="sale_price" value="{{ edit_obj.sale_price|default:'0' }}"></div>
+      <div class="field"><label>السعر بالدولار</label><input name="price_usd" value="{{ edit_obj.metadata.price_usd|default:'' }}"></div>
+      <div class="field"><label>السعر بالسعودي</label><input name="price_sar" value="{{ edit_obj.metadata.price_sar|default:'' }}"></div>
+      <div class="field"><label>سعر الموظف</label><input name="employee_price" value="{{ edit_obj.metadata.employee_price|default:'' }}"></div>
+      <div class="field"><label>نوع الدفع</label><input name="payment_type" value="{{ edit_obj.payment_type|default:'' }}"></div>
+      <div class="field"><label>نوع الشريحة</label><input name="line_type" value="{{ edit_obj.line_type|default:'' }}"></div>
+      {% elif kind == 'game' %}
+      <div class="field"><label>الكود / uniqcode</label><input name="external_code" value="{{ edit_obj.external_code|default:'' }}" required></div>
+      <div class="field"><label>السعر</label><input type="number" min="0" step="0.01" name="price" value="{{ edit_obj.price|default:'0' }}"></div>
+      <div class="field"><label>العملة</label><input name="currency" value="{{ edit_obj.currency|default:'YER' }}"></div>
+      <div class="field"><label>الصلاحية بالأيام</label><input type="number" min="0" name="validity_days" value="{{ edit_obj.metadata.validity_days|default:'' }}"></div>
+      <div class="field"><label>سعر الموظف</label><input name="employee_price" value="{{ edit_obj.metadata.employee_price|default:'' }}"></div>
+      <div class="field full"><label>تفاصيل / وصف الفئة</label><textarea name="details">{{ edit_obj.metadata.details|default:'' }}</textarea></div>
+      {% elif kind == 'digital' %}
+      <div class="field"><label>الكود</label><input name="external_code" value="{{ edit_obj.external_code|default:'' }}"></div>
+      <div class="field"><label>السعر</label><input type="number" min="0" step="0.01" name="price" value="{{ edit_obj.price|default:'0' }}"></div>
+      <div class="field"><label>العملة</label><input name="currency" value="{{ edit_obj.currency|default:'YER' }}"></div>
+      <div class="field"><label>الصلاحية بالأيام</label><input type="number" min="0" name="validity_days" value="{{ edit_obj.validity_days|default:'' }}"></div>
+      <div class="field"><label>سعر الموظف</label><input name="employee_price" value="{{ edit_obj.metadata.employee_price|default:'' }}"></div>
+      <div class="field full"><label>تفاصيل / وصف البرنامج</label><textarea name="details">{{ edit_obj.metadata.details|default:'' }}</textarea></div>
+      {% else %}
+      <div class="field"><label>رقم المزود</label><input name="provider_num" value="{{ edit_obj.provider_num|default:'' }}"></div>
+      <div class="field"><label>السعر</label><input type="number" min="0" step="0.01" name="price" value="{{ edit_obj.price|default:'0' }}"></div>
+      <div class="field"><label>العملة</label><input name="currency" value="{{ edit_obj.currency|default:'YER' }}"></div>
+      <div class="field"><label>سعر الموظف</label><input name="employee_price" value="{{ edit_obj.metadata.employee_price|default:'' }}"></div>
+      <div class="field full"><label>تفاصيل الفئة / العملية</label><textarea name="details">{{ edit_obj.metadata.details|default:'' }}</textarea></div>
+      {% endif %}
+      <div class="field"><label>الترتيب</label><input type="number" min="0" name="sort_order" value="{{ edit_obj.sort_order|default:'0' }}"></div>
+    </div>
+    <div class="sticky"><button class="btn">{% if edit_obj %}حفظ التعديل{% else %}إضافة {{ spec.singular }}{% endif %}</button>{% if edit_obj %}<a class="btn alt" href="?type={{ kind }}&service={{ selected_service.id }}">إلغاء</a>{% endif %}</div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="title-row"><div><h2>{{ spec.title }} الحالية</h2><div class="muted">لا تظهر هنا إلا العناصر التابعة للخدمة المحددة.</div></div><span class="count-badge">{{ items|length }}</span></div>
+  <div class="searchbar"><input id="q" placeholder="ابحث بالاسم أو الكود..." autocomplete="off"></div>
+  {% if items %}
+  <div class="table-wrap"><table class="table"><thead><tr><th>الاسم</th><th>الكود</th><th>السعر</th><th>الحقول الموروثة</th><th>الحالة</th><th></th></tr></thead><tbody id="rows">
+  {% for x in items %}<tr data-row><td><b>{{ x.name }}</b></td><td>{{ x.external_code|default:'—' }}</td><td>{% if kind == 'denom' %}{{ x.sale_price }}{% elif kind == 'plan' or kind == 'game' or kind == 'digital' or kind == 'option' %}{{ x.price }} {{ x.currency|default:'YER' }}{% else %}—{% endif %}</td><td><span class="count-badge">{{ service_fields|length }} حقل من الخدمة</span></td><td>{% if x.is_active %}<span class="pill ok">فعالة</span>{% else %}<span class="pill off">متوقفة</span>{% endif %}</td><td><a class="btn small alt" href="?type={{ kind }}&service={{ selected_service.id }}&edit={{ x.id }}">تعديل</a></td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<div class="empty">لا توجد عناصر لهذه الخدمة. أضف أول {{ spec.singular }} من النموذج أعلاه.</div>{% endif %}
+</div>
+{% else %}
+<div class="card"><div class="hint">اختر خدمة للبدء. بعد اختيار الخدمة ستظهر الحقول التي عرّفتها في شاشة الخدمة، ثم يمكنك إضافة الباقات أو الفئات أو الألعاب التابعة لها.</div></div>
+{% endif %}
+</div>
+<script>
+const q=document.getElementById('q');
+q?.addEventListener('input',function(){const v=this.value.trim().toLowerCase();document.querySelectorAll('[data-row]').forEach(r=>r.style.display=!v||r.textContent.toLowerCase().includes(v)?'':'none')});
+</script>
+</body>
+</html>
