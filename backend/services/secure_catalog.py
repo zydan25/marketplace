@@ -17,12 +17,29 @@ _PUBLIC_METADATA_KEYS = {
     "country",
     "region",
     "currency_name",
+    "unit_detail",
 }
+
+_GENERATED_KEYS = {"external_code", "num", "packageid", "uniqcode"}
 
 
 def _public_metadata(item):
     metadata = getattr(item, "metadata", {}) or {}
     return {key: metadata[key] for key in _PUBLIC_METADATA_KEYS if key in metadata}
+
+
+def _field_is_generated(service, field):
+    if field.key in _GENERATED_KEYS:
+        return True
+    # For an item-priced telecom service, the selected item determines the
+    # actual amount. The client must not be allowed to override that value.
+    if field.key == "amount" and service.pricing_mode == Service.PricingModes.ITEM:
+        return True
+    # Electricity and water contracts use customer_id + placeid; ``mobile``
+    # is not a required business input for those operations.
+    if field.key == "mobile" and service.code in {"electric-query", "electric-bill", "water-query", "water-bill"}:
+        return True
+    return bool((field.validation or {}).get("server_generated"))
 
 
 def _availability(item, service):
@@ -59,7 +76,7 @@ class SecureServiceCatalogAPIView(APIView):
                 "icon": main.icon,
                 "categories": [self._category(category) for category in main.categories.filter(is_active=True).order_by("sort_order", "id")],
             })
-        return Response({"version": "2", "categories": roots})
+        return Response({"version": "3", "categories": roots})
 
     def _category(self, category):
         return {
@@ -122,6 +139,7 @@ class SecureServiceCatalogAPIView(APIView):
                     "validation": field.validation,
                 }
                 for field in service.fields.filter(is_active=True).order_by("sort_order", "id")
+                if not _field_is_generated(service, field)
             ],
             "items": items,
         }
