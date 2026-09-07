@@ -87,21 +87,12 @@ def _service_data(service):
         "request_schema": service.request_schema,
         "response_schema": service.response_schema,
         "fields": [
-            {
-                "key": field.key, "label": field.label, "type": field.field_type,
-                "required": field.required, "secret": field.secret, "choices": field.choices,
-                "default": field.default_value, "validation": field.validation,
-            }
+            {"key": field.key, "label": field.label, "type": field.field_type, "required": field.required, "secret": field.secret, "choices": field.choices, "default": field.default_value, "validation": field.validation}
             for field in service.fields.filter(is_active=True).order_by("sort_order", "id")
             if not _field_is_generated(service, field)
         ],
         "items": items,
     }
-
-
-def _children(category):
-    children = list(category.children.filter(is_active=True).order_by("sort_order", "id"))
-    return [_category_data(child) for child in children]
 
 
 def _category_data(category):
@@ -110,28 +101,15 @@ def _category_data(category):
         "name": category.name,
         "slug": category.slug,
         "parent_id": category.parent_id,
-        "services": [_service_data(service) for service in category.services.filter(is_active=True).order_by("sort_order", "id") if service.code != "yem-denomination"],
-        "children": _children(category),
+        "services": [_service_data(service) for service in category.services.filter(is_active=True)],
+        "children": [_category_data(child) for child in category.children.filter(is_active=True).order_by("sort_order", "id")],
     }
 
 
 def _games_as_children(category):
-    """Present game services as customer-facing subcategories.
-
-    The provider contract exposes game network codes rather than a separate
-    category table. Turning each game service into a child category gives the
-    customer app the desired hierarchy: الألعاب → Free Fire/PUBG/... → service → pack.
-    """
     result = []
-    for service in category.services.filter(is_active=True).exclude(code="yem-denomination").order_by("sort_order", "id"):
-        result.append({
-            "id": -service.id,
-            "name": service.name,
-            "slug": service.code,
-            "parent_id": category.id,
-            "services": [_service_data(service)],
-            "children": [],
-        })
+    for service in category.services.filter(is_active=True).order_by("sort_order", "id"):
+        result.append({"id": -service.id, "name": service.name, "slug": service.code, "parent_id": category.id, "services": [_service_data(service)], "children": []})
     for child in category.children.filter(is_active=True).order_by("sort_order", "id"):
         result.append(_category_data(child))
     return result
@@ -145,17 +123,8 @@ class SecureServiceCatalogAPIView(APIView):
         for main in MainServiceCategory.objects.filter(is_active=True).order_by("sort_order", "id"):
             categories = []
             for category in main.categories.filter(is_active=True, parent=None).order_by("sort_order", "id"):
-                if category.slug == "yemen-mobile":
-                    pass
                 if main.slug == "games" and category.slug == "games":
-                    categories.append({
-                        "id": category.id,
-                        "name": category.name,
-                        "slug": category.slug,
-                        "parent_id": None,
-                        "services": [],
-                        "children": _games_as_children(category),
-                    })
+                    categories.append({"id": category.id, "name": category.name, "slug": category.slug, "parent_id": None, "services": [], "children": _games_as_children(category)})
                 else:
                     categories.append(_category_data(category))
             roots.append({"id": main.id, "name": main.name, "slug": main.slug, "icon": main.icon, "categories": categories})
@@ -168,9 +137,5 @@ class SecureServiceDetailAPIView(APIView):
     def get(self, request, pk):
         service = get_object_or_404(Service.objects.select_related("category__main_category"), pk=pk, is_active=True)
         data = _service_data(service)
-        data["category"] = {
-            "id": service.category_id,
-            "name": service.category.name,
-            "main_category": service.category.main_category.name,
-        }
+        data["category"] = {"id": service.category_id, "name": service.category.name, "main_category": service.category.main_category.name}
         return Response(data)
