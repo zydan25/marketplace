@@ -73,7 +73,9 @@ def transfer_between_users(
                 }
                 if actual != expected:
                     raise ValueError("Idempotency-Key سبق استخدامه لعملية مالية مختلفة.")
-                _project_transfer(sender, recipient, amount, currency, existing, source_type)
+                # The journal already owns the financial effect. Never project
+                # the same transfer a second time when a client retries the
+                # request or a reverse proxy repeats it.
                 return existing
 
         source = ensure_wallet(sender, Wallet.Kinds.CUSTOMER, currency)
