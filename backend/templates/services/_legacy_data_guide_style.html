@@ -15,4 +15,45 @@
 function legacyOpenMenu(){document.querySelector('.legacy-sidebar')?.classList.add('open');document.querySelector('.legacy-drawer-overlay')?.classList.add('open');document.body.style.overflow='hidden'}
 function legacyCloseMenu(){document.querySelector('.legacy-sidebar')?.classList.remove('open');document.querySelector('.legacy-drawer-overlay')?.classList.remove('open');document.body.style.overflow=''}
 window.addEventListener('keydown',e=>{if(e.key==='Escape')legacyCloseMenu()});window.addEventListener('resize',()=>{if(window.innerWidth>1000)legacyCloseMenu()});
+
+// ربط عناصر قسم الشرائح والوايرلس مباشرة بكتالوج الباقات والفئات في Django.
+document.addEventListener('DOMContentLoaded',()=>{
+  const base='/admin/dashboard/services/resources/';
+  const routes={
+    'فئات YOU':`${base}?type=denom&service_code=you-denomination`,
+    'باقات YOU':`${base}?type=plan&service_code=you-offer`,
+    'فئات يمن موبايل':`${base}?type=denom&service_code=yem-denomination`,
+    'باقات يمن موبايل':`${base}?type=plan&service_code=yem-offer`,
+    'باقات الانترنت':`${base}?type=plan`,
+    'باقات يمن فورجي':`${base}?type=plan&service_code=yem4g-package`,
+    'باقات واي':`${base}?type=plan&service_code=why-package`,
+    'كروت الشبكات':`${base}?type=denom`,
+    'واي':`${base}?type=plan&service_code=why-package`,
+  };
+  document.querySelectorAll('.legacy-sidebar .legacy-item').forEach((item)=>{
+    const label=item.querySelector('.menu-label')?.textContent.trim();
+    const href=routes[label];
+    if(!href)return;
+    if(item.tagName.toLowerCase()!=='a'){
+      const a=document.createElement('a');
+      a.className=item.className;
+      while(item.firstChild)a.appendChild(item.firstChild);
+      item.replaceWith(a);
+      item=a;
+    }
+    item.href=href;
+  });
+
+  // قسم واحد موحد للألعاب والبطائق والبرامج.
+  const menu=document.querySelector('.legacy-menu');
+  if(menu && !document.getElementById('legacy-games-cards-section')){
+    const section=document.createElement('details');
+    section.id='legacy-games-cards-section';
+    section.className='legacy-menu-section';
+    section.open=true;
+    section.innerHTML='<summary class="legacy-section-head"><span>قسم الألعاب والبطائق</span><span class="chev">⌄</span></summary><a class="legacy-item" href="'+base+'?type=entertainment"><span class="menu-icon">🎮</span><span class="menu-label">فئات الألعاب والبطائق</span></a>';
+    const wireless=[...menu.querySelectorAll('.legacy-menu-section')].find(d=>d.querySelector('.legacy-section-head')?.textContent.includes('قسم الوايرلس'));
+    menu.insertBefore(section,wireless||null);
+  }
+});
 </script>
