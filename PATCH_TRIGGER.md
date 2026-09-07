@@ -1,1 +1,1 @@
-Temporary trigger for the one-time customer-flow patch workflow.
+Trigger valid one-time client flow patch.
