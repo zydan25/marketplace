@@ -88,8 +88,8 @@ class MainViewModel(
     }
     fun syncWalletBalance(onSynced: (Boolean, String) -> Unit = { _, _ -> }) = syncBalance(onSynced)
 
-    /** Server-authoritative recipient lookup. No synthetic recipient is ever created on-device. */
-    suspend fun checkTransferEligibility(phone: String, amount: Double): TransferCheckResult {
+    /** Server-authoritative recipient lookup; message is carried into gift creation. */
+    suspend fun checkTransferEligibility(phone: String, amount: Double, message: String = ""): TransferCheckResult {
         val cleanPhone = phone.trim()
         val token = userSession.value.token
         if (cleanPhone.isBlank()) return TransferCheckResult(false, recipientPhone = cleanPhone, amount = amount, message = "رقم المستلم مطلوب")
@@ -101,7 +101,7 @@ class MainViewModel(
                 if (!response.isSuccessful || response.body() == null) return@withContext TransferCheckResult(false, recipientPhone = cleanPhone, amount = amount, message = "المشترك المستلم غير موجود")
                 val body = response.body()!!
                 val available = body["available_balance"]?.toString()?.toDoubleOrNull()
-                if (available != null && available < amount) return@withContext TransferCheckResult(false, recipientPhone = cleanPhone, amount = amount, message = "الرصيد المحاسبي غير كافٍ")
+                if (available != null && available < amount) return@withContext TransferCheckResult(false, recipientPhone = cleanPhone, amount = amount, message = "رصيدك المحاسبي غير كافٍ للتحويل")
                 TransferCheckResult(true, body["receiver_name"]?.toString(), cleanPhone, amount, 0.0, null, "تم التحقق من المشترك. راجع البيانات ثم أكد التحويل.")
             } catch (e: Exception) {
                 TransferCheckResult(false, recipientPhone = cleanPhone, amount = amount, message = "تعذر التحقق من المشترك: ${e.localizedMessage}")
@@ -109,20 +109,27 @@ class MainViewModel(
         }
     }
 
-    suspend fun executeTransfer(phone: String, name: String, amount: Double): Pair<Boolean, WalletTransaction?> {
-        val check = checkTransferEligibility(phone, amount)
+    suspend fun executeTransfer(phone: String, name: String, amount: Double, message: String = "تحويل مالي إلى مشترك"): Pair<Boolean, WalletTransaction?> {
+        val check = checkTransferEligibility(phone, amount, message)
         if (!check.isAllowed) return Pair(false, null)
-        return confirmTransfer(check.giftId, phone, name, amount)
+        return confirmTransfer(check.giftId, phone, name, amount, message)
     }
 
-    /** Transfer is committed on Django/accounting first; local UI changes only after a confirmed response. */
-    suspend fun confirmTransfer(giftId: Int?, recipientPhone: String, recipientName: String, amount: Double): Pair<Boolean, WalletTransaction?> {
+    /** Django/accounting is authoritative. Local balances change only after server confirmation. */
+    suspend fun confirmTransfer(giftId: Int?, recipientPhone: String, recipientName: String, amount: Double, message: String = "تحويل مالي إلى مشترك"): Pair<Boolean, WalletTransaction?> {
         val token = userSession.value.token ?: return Pair(false, null)
         return withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val api = NetworkClient.getApiService(djangoBaseUrl.value)
                 val id = giftId ?: run {
-                    val created = api.createGift("Token $token", mapOf("receiver_phone" to recipientPhone.trim(), "amount" to amount, "message" to "تحويل مالي إلى مشترك"))
+                    val created = api.createGift(
+                        "Token $token",
+                        mapOf(
+                            "receiver_phone" to recipientPhone.trim(),
+                            "amount" to amount,
+                            "message" to message.trim().ifBlank { "تحويل مالي إلى مشترك" }
+                        )
+                    )
                     if (!created.isSuccessful || created.body() == null) return@withContext Pair(false, null)
                     created.body()!!["id"]?.toString()?.toIntOrNull() ?: return@withContext Pair(false, null)
                 }
@@ -166,8 +173,6 @@ class MainViewModel(
     val telecomPackages = repository.telecomPackages
 
     fun payTelecom(phone: String, operatorName: String, category: String, packageName: String, amount: Double): Pair<Boolean, String> {
-        // Keep the legacy callback API for old telecom screens. The primary customer flow is DynamicServicesScreen,
-        // which always submits the selected service/item to /api/v2/services/requests/ using the server catalog.
         val result = repository.payTelecomRecharge(phone, operatorName, category, packageName, amount)
         if (result.first) showOrderSuccessDialog.value = result.second
         return result
@@ -244,8 +249,6 @@ class MainViewModel(
     val invitedCount = repository.invitedCount
     val referralRewardYer = repository.referralRewardYer
     val selectedCurrency = repository.selectedCurrency
-    val notificationsEnabled = repository.notificationsEnabled
-    val currencyRates = repository.currencyRates
     val vendorFinance = repository.vendorFinance
     val vendorPayouts = repository.vendorPayouts
 
@@ -375,6 +378,5 @@ class MainViewModel(
                 if (!result.first) SessionStore.clear() else loadWifiData()
             }
         }
-        loadWifiData()
     }
 }
