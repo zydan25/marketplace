@@ -3,12 +3,12 @@ package com.example.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.data.model.UserSession
+import com.example.data.repository.StoreRepository
 
 /**
  * Compatibility entry point kept for MainActivity.
- * The old hardcoded telecom/game/program catalog is intentionally removed;
- * all services, fields, branches and provider catalog items now come from the
- * authenticated Django services catalog.
+ * The customer-facing service catalog is now server-driven: categories,
+ * services, required fields and selectable products are fetched from Django.
  */
 @Composable
 fun ServicesScreen(
@@ -23,7 +23,7 @@ fun ServicesScreen(
 ) {
     DynamicServicesScreen(
         userSession = userSession,
-        djangoBaseUrl = "https://shopik.alattab.site/api/",
+        djangoBaseUrl = StoreRepository.instance.djangoBaseUrl.value,
         onBackClick = onBackClick,
         modifier = modifier
     )
