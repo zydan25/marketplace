@@ -35,6 +35,7 @@ jobs:
               '''private fun providerMark(provider: ServiceCategoryDto?): String = when {\n    providerMatches(provider ?: return "K", ProviderKind.YEMEN_MOBILE) -> "YM"\n    providerMatches(provider, ProviderKind.SABAFON) -> "S"\n    providerMatches(provider, ProviderKind.YOU) -> "YOU"\n    providerMatches(provider, ProviderKind.WHY) -> "WHY"\n    providerMatches(provider, ProviderKind.FOUR_G) -> "4G"\n    providerMatches(provider, ProviderKind.YEMEN_NET) -> "YN"\n    else -> "K"\n}''': '''private fun providerMark(provider: ServiceCategoryDto?): String {\n    if (provider == null) return "K"\n    return when {\n        providerMatches(provider, ProviderKind.YEMEN_MOBILE) -> "YM"\n        providerMatches(provider, ProviderKind.SABAFON) -> "S"\n        providerMatches(provider, ProviderKind.YOU) -> "YOU"\n        providerMatches(provider, ProviderKind.WHY) -> "WHY"\n        providerMatches(provider, ProviderKind.FOUR_G) -> "4G"\n        providerMatches(provider, ProviderKind.YEMEN_NET) -> "YN"\n        else -> "K"\n    }\n}''',
               '''private fun isYemenNet(provider: ServiceCategoryDto?): Boolean =\n    providerMatches(provider ?: return false, ProviderKind.YEMEN_NET)''': '''private fun isYemenNet(provider: ServiceCategoryDto?): Boolean =\n    providerMatches(provider, ProviderKind.YEMEN_NET)''',
               '''private fun isYemenMobile(provider: ServiceCategoryDto?): Boolean =\n    providerMatches(provider ?: return false, ProviderKind.YEMEN_MOBILE)''': '''private fun isYemenMobile(provider: ServiceCategoryDto?): Boolean =\n    providerMatches(provider, ProviderKind.YEMEN_MOBILE)''',
+              '''    if (providerMatches(provider ?: return when (action) {\n            PaymentAction.BALANCE -> "الرصيد"\n            PaymentAction.INSTANT -> "فوري"\n            PaymentAction.PACKAGES -> "باقات"\n            PaymentAction.WHOLESALE -> "جملة"\n            PaymentAction.POSTPAID -> "فوترة"\n        }, ProviderKind.FOUR_G)) {''': '''    if (provider != null && providerMatches(provider, ProviderKind.FOUR_G)) {''',
           }
           changed = False
           for old, new in replacements.items():
@@ -49,7 +50,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt
-            git commit -m "fix(katolin): repair provider helper expression bodies"
+            git commit -m "fix(katolin): repair provider helper nullability"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
