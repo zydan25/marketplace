@@ -1,71 +1,48 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>إدارة الباقات والخدمات</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>الباقات والموارد</title>
+{% include "services/_legacy_data_guide_style.html" %}
 <style>
-body{margin:0;background:#f3f6fa;color:#17324d;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:1200px;margin:auto;padding:18px}.card{background:#fff;border:1px solid #dce6ef;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 6px 20px #17324d10}.head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.full{grid-column:1/-1}label{display:block;font-weight:800;font-size:13px;margin-bottom:5px}input,select,textarea{width:100%;box-sizing:border-box;border:1px solid #cbd7e2;border-radius:10px;padding:10px;background:#fff}textarea{min-height:76px}.btn{display:inline-block;border:0;border-radius:10px;padding:9px 13px;background:#117a8b;color:#fff;font-weight:800;cursor:pointer}.btn.alt{background:#e8f0f5;color:#17324d}.btn.danger{background:#b42318}.msg{padding:11px;border-radius:10px;background:#edf8fa;margin:8px 0}.muted{color:#718096;font-size:12px}.scroll{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:860px}.table th,.table td{padding:9px;border-bottom:1px solid #edf1f5;text-align:right;vertical-align:top}.pill{display:inline-block;background:#eef4f8;padding:4px 8px;border-radius:999px;font-size:11px}.actions{display:flex;gap:6px;flex-wrap:wrap}.section-nav{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}.section-nav a{padding:8px 11px;border-radius:9px;background:#eaf0f5;color:#30465c;text-decoration:none;font-weight:700}.section-nav a.active{background:#d7f0f4;color:#086b79}
-@media(max-width:700px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+.resource-actions{display:flex;gap:7px;flex-wrap:wrap}.resource-filter{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:8px;align-items:end}.resource-table{min-width:920px}.resource-note{font-size:12px;color:var(--legacy-muted);margin-top:6px}.resource-section{margin-top:12px}.resource-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.resource-form-grid .full{grid-column:1/-1}.resource-form-grid label{font-size:12px}.resource-form-grid input,.resource-form-grid select,.resource-form-grid textarea{width:100%;min-height:40px}.resource-empty{text-align:center;padding:25px;color:var(--legacy-muted)}@media(max-width:900px){.resource-filter,.resource-form-grid{grid-template-columns:1fr}.resource-form-grid .full{grid-column:auto}}
 </style>
 </head>
 <body>
-<div class="wrap">
-<div class="section-nav">
-<a href="/admin/dashboard/services/services/">الخدمات</a>
-<a class="active" href="/admin/dashboard/services/resources/">الباقات والموارد</a>
-<a href="/admin/dashboard/services/fields/">حقول الخدمة</a>
-<a href="/admin/dashboard/services/providers/">الربطيات</a>
-<a href="/admin/dashboard/services/distribution/">التوزيع</a>
-</div>
-<div class="card head"><div><h1 style="margin:0 0 5px">الباقات والمنتجات</h1><div class="muted">النموذج يحتفظ بالأكواد والأرقام والأسعار والصلاحية ونوع الدفع، ويمنع حذف العناصر المرتبطة بتاريخ العمليات.</div></div></div>
-{% for message in messages %}<div class="msg">{{ message }}</div>{% endfor %}
+<div class="legacy-main" style="max-width:1280px;margin:auto;padding-top:0">
+<div class="legacy-breadcrumb"><a href="/admin/dashboard/services/">مركز الخدمات</a><span class="sep">›</span><b>الباقات والموارد</b></div>
+{% for message in messages %}<div class="legacy-info">{{ message }}</div>{% endfor %}
+<div class="legacy-page-head"><div><h1>الباقات والمنتجات والفئات</h1><p>عرض البيانات أولًا. لا يظهر نموذج الإدخال إلا عند الضغط على «إضافة»، ويظل المورد مربوطًا بالخدمة والشركة المختارة.</p></div><div class="legacy-actions"><a class="legacy-btn secondary" href="/admin/dashboard/services/">مركز الخدمات</a><a class="legacy-btn primary" href="?{% if filters.main %}main_category={{ filters.main }}&{% endif %}{% if filters.service %}service={{ filters.service }}&{% endif %}add=plan">+ إضافة باقة</a><a class="legacy-btn primary" href="?{% if filters.main %}main_category={{ filters.main }}&{% endif %}{% if filters.service %}service={{ filters.service }}&{% endif %}add=denom">+ إضافة فئة اتصالات</a><a class="legacy-btn primary" href="?{% if filters.main %}main_category={{ filters.main }}&{% endif %}{% if filters.service %}service={{ filters.service }}&{% endif %}add=game">+ إضافة فئة لعبة</a></div></div>
 
-<div class="card">
-<h2>باقة اتصالات</h2>
-<form method="post">{% csrf_token %}<input type="hidden" name="action" value="plan">
-<div class="grid">
-<div><label>الخدمة</label><select name="service" required>{% for s in services %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}</select></div>
-<div><label>اسم الباقة</label><input name="name" required></div>
-<div><label>الكود الخارجي</label><input name="external_code" required></div>
-<div><label>رقم الباقة</label><input name="package_number"></div>
-<div><label>رقم المزود</label><input name="provider_num"></div>
-<div><label>السعر</label><input type="number" step="0.01" min="0" name="price"></div>
-<div><label>السعر بالدولار</label><input name="price_usd"></div>
-<div><label>السعر بالريال السعودي</label><input name="price_sar"></div>
-<div><label>سعر الموظف</label><input name="employee_price"></div>
-<div><label>الكمية / الحصة</label><input type="number" step="0.001" min="0" name="quota"></div>
-<div><label>وحدة الحصة</label><input name="quota_unit" placeholder="MB / GB / دقيقة"></div>
-<div><label>الصلاحية بالأيام</label><input type="number" min="0" name="validity_days"></div>
-<div><label>نوع الدفع</label><input name="payment_type"></div>
-<div><label>نوع الشريحة</label><input name="line_type"></div>
-<div><label>الترتيب</label><input type="number" min="0" name="sort_order" value="0"></div>
-</div><button class="btn">حفظ الباقة</button></form></div>
+{% if show_form %}
+<section class="legacy-card"><div class="legacy-title-row"><div><h2>{% if add_type == 'plan' %}إضافة باقة اتصالات{% elif add_type == 'denom' %}إضافة فئة / شريحة اتصالات{% elif add_type == 'game' %}إضافة فئة لعبة{% else %}إضافة منتج رقمي{% endif %}</h2><div class="legacy-muted">اختر الخدمة داخل نطاق الفئة الرئيسية فقط. رقم المورد/الكود الخارجي يخص هذه الخدمة.</div></div></div>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="{{ add_type }}"><input type="hidden" name="main_category" value="{{ filters.main }}">
+<div class="resource-form-grid">
+<div class="legacy-field"><label>الخدمة <span class="legacy-required">*</span></label><select name="service" required>{% for s in services %}<option value="{{ s.id }}" {% if filters.service == s.id|stringformat:'s' %}selected{% endif %}>{{ s.name }} — {{ s.category.main_category.name }}</option>{% endfor %}</select></div>
+<div class="legacy-field"><label>اسم العنصر <span class="legacy-required">*</span></label><input name="name" required></div>
+<div class="legacy-field"><label>الكود الخارجي <span class="legacy-required">*</span></label><input name="external_code" required></div>
+{% if add_type == 'plan' %}
+<div class="legacy-field"><label>رقم الباقة</label><input name="package_number"></div><div class="legacy-field"><label>رقم المزود</label><input name="provider_num"></div><div class="legacy-field"><label>السعر</label><input type="number" step="0.01" min="0" name="price"></div><div class="legacy-field"><label>السعر بالدولار</label><input name="price_usd"></div><div class="legacy-field"><label>السعر بالريال السعودي</label><input name="price_sar"></div><div class="legacy-field"><label>سعر الموظف</label><input name="employee_price"></div><div class="legacy-field"><label>الحصة</label><input type="number" step="0.001" min="0" name="quota"></div><div class="legacy-field"><label>وحدة الحصة</label><input name="quota_unit"></div><div class="legacy-field"><label>الصلاحية بالأيام</label><input type="number" min="0" name="validity_days"></div><div class="legacy-field"><label>نوع الدفع</label><input name="payment_type"></div><div class="legacy-field"><label>نوع الشريحة</label><input name="line_type"></div>
+{% elif add_type == 'denom' %}
+<div class="legacy-field"><label>رقم المزود</label><input name="provider_num"></div><div class="legacy-field"><label>القيمة الاسمية</label><input type="number" step="0.01" min="0" name="face_value"></div><div class="legacy-field"><label>سعر البيع</label><input type="number" step="0.01" min="0" name="sale_price"></div><div class="legacy-field"><label>السعر بالدولار</label><input name="price_usd"></div><div class="legacy-field"><label>السعر بالريال السعودي</label><input name="price_sar"></div><div class="legacy-field"><label>سعر الموظف</label><input name="employee_price"></div><div class="legacy-field"><label>نوع الدفع</label><input name="payment_type"></div><div class="legacy-field"><label>نوع الشريحة</label><input name="line_type"></div>
+{% elif add_type == 'game' %}
+<div class="legacy-field"><label>السعر</label><input type="number" step="0.01" min="0" name="price"></div><div class="legacy-field"><label>العملة</label><input name="currency" value="YER"></div><div class="legacy-field"><label>حقل اللاعب</label><input name="player_field" placeholder="playerid"></div>
+{% else %}
+<div class="legacy-field"><label>السعر</label><input type="number" step="0.01" min="0" name="price"></div><div class="legacy-field"><label>العملة</label><input name="currency" value="YER"></div><div class="legacy-field"><label>الصلاحية بالأيام</label><input type="number" min="0" name="validity_days"></div><div class="legacy-field full"><label>التفاصيل</label><textarea name="details"></textarea></div>
+{% endif %}
+<div class="legacy-field"><label>الترتيب</label><input type="number" min="0" name="sort_order" value="0"></div>
+</div><div class="legacy-actions" style="margin-top:12px"><button class="legacy-btn primary" type="submit">حفظ وإضافة</button><a class="legacy-btn secondary" href="/admin/dashboard/services/catalog/resources/">إلغاء</a></div></form></section>
+{% endif %}
 
-<div class="card">
-<h2>فئة / شريحة اتصالات</h2>
-<form method="post">{% csrf_token %}<input type="hidden" name="action" value="denom">
-<div class="grid">
-<div><label>الخدمة</label><select name="service" required>{% for s in services %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}</select></div>
-<div><label>الاسم</label><input name="name" required></div>
-<div><label>الكود الخارجي</label><input name="external_code" required></div>
-<div><label>رقم المزود</label><input name="provider_num"></div>
-<div><label>القيمة الاسمية</label><input type="number" step="0.01" min="0" name="face_value"></div>
-<div><label>سعر البيع</label><input type="number" step="0.01" min="0" name="sale_price"></div>
-<div><label>السعر بالدولار</label><input name="price_usd"></div>
-<div><label>السعر بالريال السعودي</label><input name="price_sar"></div>
-<div><label>سعر الموظف</label><input name="employee_price"></div>
-<div><label>نوع الدفع</label><input name="payment_type"></div>
-<div><label>نوع الشريحة</label><input name="line_type"></div>
-<div><label>الترتيب</label><input type="number" min="0" name="sort_order" value="0"></div>
-</div><button class="btn">حفظ الفئة</button></form></div>
+<section class="legacy-card"><div class="legacy-title-row"><div><h2>البيانات الحالية</h2><div class="legacy-muted">استخدم الفلاتر لتضييق النتائج قبل الإضافة أو المراجعة.</div></div></div>
+<form class="resource-filter" method="get"><div class="legacy-field"><label>بحث في البيانات</label><input name="q" value="{{ filters.q }}" placeholder="اسم، كود، خدمة..."></div><div class="legacy-field"><label>الشركة / الفئة الرئيسية</label><select name="main_category"><option value="">الكل</option>{% for m in main_categories %}<option value="{{ m.id }}" {% if filters.main == m.id|stringformat:'s' %}selected{% endif %}>{{ m.name }}</option>{% endfor %}</select></div><div class="legacy-field"><label>الخدمة</label><select name="service"><option value="">كل الخدمات</option>{% for s in services %}<option value="{{ s.id }}" {% if filters.service == s.id|stringformat:'s' %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div><button class="legacy-btn primary" type="submit">بحث وتصفية</button></form>
 
-<div class="card">
-<h2>العناصر الحالية</h2><div class="scroll"><table class="table"><tr><th>النوع</th><th>الخدمة</th><th>الاسم</th><th>الكود</th><th>السعر</th><th>الحالة</th><th>الإجراء</th></tr>
-{% for x in plans %}<tr><td><span class="pill">باقة</span></td><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.price}}</td><td>{% if x.is_active %}فعالة{% else %}متوقفة{% endif %}</td><td><div class="actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="plan"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn alt">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="plan"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn danger">حذف</button></form></div></td></tr>{% endfor %}
-{% for x in denoms %}<tr><td><span class="pill">فئة</span></td><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.sale_price}}</td><td>{% if x.is_active %}فعالة{% else %}متوقفة{% endif %}</td><td><div class="actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="denom"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn alt">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="denom"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn danger">حذف</button></form></div></td></tr>{% endfor %}
-{% for x in games %}<tr><td><span class="pill">لعبة</span></td><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.price}} {{x.currency}}</td><td>{% if x.is_active %}فعالة{% else %}متوقفة{% endif %}</td><td><div class="actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="game"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn alt">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="game"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn danger">حذف</button></form></div></td></tr>{% endfor %}
-{% for x in digital %}<tr><td><span class="pill">رقمي</span></td><td>{{x.service.name}}</td><td>{{x.name}}</td><td>{{x.external_code}}</td><td>{{x.price}} {{x.currency}}</td><td>{% if x.is_active %}فعالة{% else %}متوقفة{% endif %}</td><td><div class="actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="digital"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn alt">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="digital"><input type="hidden" name="pk" value="{{x.id}}"><button class="btn danger">حذف</button></form></div></td></tr>{% endfor %}
-</table></div></div>
-</div>
-</body></html>
+<div class="resource-section"><div class="legacy-title-row"><h3>الباقات</h3><a class="legacy-btn small primary" href="?{% if filters.main %}main_category={{ filters.main }}&{% endif %}{% if filters.service %}service={{ filters.service }}&{% endif %}add=plan">+ إضافة</a></div><div class="legacy-table-wrap"><table class="legacy-table resource-table"><thead><tr><th>الشركة</th><th>الخدمة</th><th>الباقة</th><th>الكود</th><th>السعر</th><th>الحصة</th><th>الصلاحية</th><th>الحالة</th><th>الإجراء</th></tr></thead><tbody>{% for x in plans %}<tr><td>{{ x.service.category.main_category.name }}</td><td>{{ x.service.name }}</td><td><b>{{ x.name }}</b></td><td><span class="legacy-code">{{ x.external_code }}</span></td><td>{{ x.price }}</td><td>{{ x.quota|default:'-' }} {{ x.quota_unit }}</td><td>{{ x.validity_days|default:'-' }}</td><td>{% if x.is_active %}<span class="legacy-pill ok">فعالة</span>{% else %}<span class="legacy-pill off">متوقفة</span>{% endif %}</td><td><div class="resource-actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="plan"><input type="hidden" name="pk" value="{{ x.id }}"><button class="legacy-btn small secondary">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="plan"><input type="hidden" name="pk" value="{{ x.id }}"><button class="legacy-btn small danger">حذف</button></form></div></td></tr>{% empty %}<tr><td colspan="9" class="resource-empty">لا توجد باقات مطابقة.</td></tr>{% endfor %}</tbody></table></div></div>
+
+<div class="resource-section"><div class="legacy-title-row"><h3>فئات الاتصالات</h3><a class="legacy-btn small primary" href="?{% if filters.main %}main_category={{ filters.main }}&{% endif %}{% if filters.service %}service={{ filters.service }}&{% endif %}add=denom">+ إضافة</a></div><div class="legacy-table-wrap"><table class="legacy-table resource-table"><thead><tr><th>الشركة</th><th>الخدمة</th><th>الفئة</th><th>الكود</th><th>القيمة</th><th>سعر البيع</th><th>نوع الدفع</th><th>الحالة</th><th>الإجراء</th></tr></thead><tbody>{% for x in denoms %}<tr><td>{{ x.service.category.main_category.name }}</td><td>{{ x.service.name }}</td><td><b>{{ x.name }}</b></td><td><span class="legacy-code">{{ x.external_code }}</span></td><td>{{ x.face_value }}</td><td>{{ x.sale_price }}</td><td>{{ x.payment_type|default:'-' }}</td><td>{% if x.is_active %}<span class="legacy-pill ok">فعالة</span>{% else %}<span class="legacy-pill off">متوقفة</span>{% endif %}</td><td><div class="resource-actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="denom"><input type="hidden" name="pk" value="{{ x.id }}"><button class="legacy-btn small secondary">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="denom"><input type="hidden" name="pk" value="{{ x.id }}"><button class="legacy-btn small danger">حذف</button></form></div></td></tr>{% empty %}<tr><td colspan="9" class="resource-empty">لا توجد فئات اتصالات مطابقة.</td></tr>{% endfor %}</tbody></table></div></div>
+
+<div class="resource-section"><div class="legacy-title-row"><h3>فئات الألعاب</h3><a class="legacy-btn small primary" href="?{% if filters.main %}main_category={{ filters.main }}&{% endif %}{% if filters.service %}service={{ filters.service }}&{% endif %}add=game">+ إضافة</a></div><div class="legacy-table-wrap"><table class="legacy-table resource-table"><thead><tr><th>الشركة / المجموعة</th><th>اللعبة</th><th>الفئة</th><th>الكود</th><th>السعر</th><th>العملة</th><th>الحالة</th><th>الإجراء</th></tr></thead><tbody>{% for x in games %}<tr><td>{{ x.service.category.main_category.name }}</td><td>{{ x.service.name }}</td><td><b>{{ x.name }}</b></td><td><span class="legacy-code">{{ x.external_code }}</span></td><td>{{ x.price }}</td><td>{{ x.currency }}</td><td>{% if x.is_active %}<span class="legacy-pill ok">فعالة</span>{% else %}<span class="legacy-pill off">متوقفة</span>{% endif %}</td><td><div class="resource-actions"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="game"><input type="hidden" name="pk" value="{{ x.id }}"><button class="legacy-btn small secondary">تبديل</button></form><form method="post" onsubmit="return confirm('حذف العنصر؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="game"><input type="hidden" name="pk" value="{{ x.id }}"><button class="legacy-btn small danger">حذف</button></form></div></td></tr>{% empty %}<tr><td colspan="8" class="resource-empty">لا توجد فئات ألعاب مطابقة.</td></tr>{% endfor %}</tbody></table></div></div>
+
+<div class="resource-section"><div class="legacy-title-row"><h3>البرامج والبطاقات الرقمية</h3></div><div class="legacy-table-wrap"><table class="legacy-table resource-table"><thead><tr><th>الخدمة</th><th>العنصر</th><th>الكود</th><th>السعر</th><th>العملة</th><th>الصلاحية</th><th>الحالة</th></tr></thead><tbody>{% for x in digital %}<tr><td>{{ x.service.name }}</td><td>{{ x.name }}</td><td><span class="legacy-code">{{ x.external_code }}</span></td><td>{{ x.price }}</td><td>{{ x.currency }}</td><td>{{ x.validity_days|default:'-' }}</td><td>{% if x.is_active %}<span class="legacy-pill ok">فعالة</span>{% else %}<span class="legacy-pill off">متوقفة</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="7" class="resource-empty">لا توجد منتجات رقمية مطابقة.</td></tr>{% endfor %}</tbody></table></div></div>
+</section>
+</div></body></html>
