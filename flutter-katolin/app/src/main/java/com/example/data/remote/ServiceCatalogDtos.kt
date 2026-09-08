@@ -19,15 +19,25 @@ data class ServiceCategoryDto(
     @Json(name = "id") val id: Int,
     @Json(name = "name") val name: String,
     @Json(name = "slug") val slug: String = "",
+    @Json(name = "icon") val icon: String? = null,
     @Json(name = "parent_id") val parentId: Int? = null,
     @Json(name = "services") val services: List<ServiceDto> = emptyList(),
     @Json(name = "children") val children: List<ServiceCategoryDto> = emptyList()
+)
+
+data class ServicePlanTypeDto(
+    @Json(name = "id") val id: Int,
+    @Json(name = "code") val code: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "description") val description: String = "",
+    @Json(name = "plan_ids") val planIds: List<Long> = emptyList()
 )
 
 data class ServiceDto(
     @Json(name = "id") val id: Int,
     @Json(name = "code") val code: String,
     @Json(name = "name") val name: String,
+    @Json(name = "icon") val icon: String? = null,
     @Json(name = "description") val description: String = "",
     @Json(name = "service_kind") val serviceKind: String = "purchase",
     @Json(name = "requires_balance") val requiresBalance: Boolean = false,
@@ -37,7 +47,8 @@ data class ServiceDto(
     @Json(name = "min_amount") val minAmount: String? = null,
     @Json(name = "max_amount") val maxAmount: String? = null,
     @Json(name = "fields") val fields: List<ServiceFieldDto> = emptyList(),
-    @Json(name = "items") val items: List<ServiceItemDto> = emptyList()
+    @Json(name = "items") val items: List<ServiceItemDto> = emptyList(),
+    @Json(name = "plan_types") val planTypes: List<ServicePlanTypeDto> = emptyList()
 )
 
 data class ServiceFieldDto(
