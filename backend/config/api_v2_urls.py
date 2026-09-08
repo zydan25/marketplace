@@ -20,9 +20,13 @@ def api_v2_root(request):
             "storefront": "/api/v2/storefront/",
             "orders": "/api/v2/orders/",
             "finance": "/api/v2/finance/",
+            "accounting": "/api/v2/accounting/",
+            "services": "/api/v2/services/",
             "communication": "/api/v2/communication/",
             "promotions": "/api/v2/promotions/",
         },
+        "accounting_contract": "/api/v2/accounting/contract/",
+        "services_catalog": "/api/v2/services/catalog/",
         "schema": "/api/v2/schema/",
     })
 
@@ -36,6 +40,8 @@ urlpatterns = [
     path("storefront/", include(("storefront.urls", "storefront-v2"), namespace="storefront-v2")),
     path("orders/", include(("orders.urls", "orders-v2"), namespace="orders-v2")),
     path("finance/", include(("finance.urls", "finance-v2"), namespace="finance-v2")),
+    path("accounting/", include(("accounting.urls", "accounting-v2"), namespace="accounting-v2")),
+    path("services/", include(("services.urls", "services-v2"), namespace="services-v2")),
     path("communication/", include(("communication.urls", "communication-v2"), namespace="communication-v2")),
     path("promotions/", include(("promotions.urls", "promotions-v2"), namespace="promotions-v2")),
 ]
