@@ -33,7 +33,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -145,10 +144,11 @@ private fun ServerProductsScreen(
                 val response = NetworkClient.getApiService(apiBase).submitServiceRequest("Token $token", key, body)
                 if (!response.isSuccessful || response.body() == null) { error = "تعذر تنفيذ العملية (HTTP ${response.code()})."; return@launch }
                 var latest = response.body()!!
-                repeat(20) {
+                for (attempt in 0 until 20) {
                     transaction = latest
                     val status = latest.status.orEmpty().lowercase()
-                    if (status in setOf("success", "failed", "refunded") || !latest.result.isNullOrEmpty()) return@repeat
+                    if (status in setOf("success", "failed", "refunded") || !latest.result.isNullOrEmpty()) break
+                    if (attempt == 19) break
                     delay(900)
                     val next = NetworkClient.getApiService(apiBase).getServiceTransaction("Token $token", latest.id)
                     if (next.isSuccessful && next.body() != null) latest = next.body()!!
@@ -233,4 +233,4 @@ private fun CatalogInput(field: ServiceFieldDto, value: String, onValueChange: (
 fun GamesScreen(userSession: UserSession, onBackClick: () -> Unit, formatMoney: (Double) -> String, onRechargeGame: (String, String, Double, String) -> Unit = { _, _, _, _ -> }, modifier: Modifier = Modifier) = ServerProductsScreen(userSession, "شحن الألعاب الإلكترونية", "games", "لا توجد ألعاب أو منتجات مهيأة في الخادم.", onBackClick, formatMoney, true, modifier)
 
 @Composable
-fun ProgramsScreen(userSession: UserSession, onBackClick: () -> Unit, formatMoney: (Double) -> String, onPurchaseProgram: (String, String, Double, String) -> Unit = { _, _, _, _ -> }, modifier: Modifier = Modifier) = ServerProductsScreen(userSession, "البطاقات والبرامج الرقمية", "digital", "لا توجد بطاقات رقمية مهيأة في الخادم.", onBackClick, formatMoney, false, modifier)
+fun ProgramsScreen(userSession: UserSession, onBackClick: () -> Unit, formatMoney: (Double) -> String, onPurchaseProgram: (String, String, Double, String) -> Unit = { _, _, _, _ -> }, modifier: Modifier = Modifier) = ServerProductsScreen(userSession, "البطاقات والبرامج الرقمية", "software", "لا توجد بطاقات رقمية مهيأة في الخادم.", onBackClick, formatMoney, false, modifier)
