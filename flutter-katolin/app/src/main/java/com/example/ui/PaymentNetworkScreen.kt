@@ -136,7 +136,8 @@ private fun detectProviderKind(phone: String): ProviderKind? {
 private fun providerKey(provider: ServiceCategoryDto?): String =
     "${provider?.slug.orEmpty()} ${provider?.name.orEmpty()}".lowercase()
 
-private fun providerMatches(provider: ServiceCategoryDto, kind: ProviderKind): Boolean {
+private fun providerMatches(provider: ServiceCategoryDto?, kind: ProviderKind): Boolean {
+    if (provider == null) return false
     val k = providerKey(provider)
     return when (kind) {
         ProviderKind.YEMEN_MOBILE -> "yemen-mobile" in k || "yemenmobile" in k || "يمن موبايل" in k
