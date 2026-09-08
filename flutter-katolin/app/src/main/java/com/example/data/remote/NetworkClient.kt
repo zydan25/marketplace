@@ -90,9 +90,22 @@ object NetworkClient {
             .build()
     }
 
+    /**
+     * Retrofit annotations in DjangoApiService already contain the `v2/` prefix
+     * for service endpoints. Older screens were passing `/api/v2/`, which created
+     * `/api/v2/v2/...` and resulted in 404 responses. Normalize that legacy input
+     * back to the API root before constructing Retrofit.
+     */
+    private fun normalizeBaseUrl(baseUrl: String): String {
+        var normalized = baseUrl.trim()
+        if (!normalized.endsWith("/")) normalized += "/"
+        normalized = normalized.replace(Regex("/v2/$"), "/")
+        return normalized
+    }
+
     @Synchronized
     fun getApiService(baseUrl: String = currentBaseUrl): DjangoApiService {
-        val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        val normalizedUrl = normalizeBaseUrl(baseUrl)
         if (cachedService != null && currentBaseUrl == normalizedUrl) {
             return cachedService!!
         }
