@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .admin_v4 import center, distribution
-from .dashboard_resource_catalog import dashboard_resources
+from .dashboard_resource_catalog_v11 import dashboard_resources
 from .operations_dashboard import balances_dashboard, operations_dashboard
 from .provider_setup_v3 import provider_setup
 from .service_dashboard_home import modern_home
