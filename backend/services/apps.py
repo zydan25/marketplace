@@ -14,8 +14,6 @@ class ServicesConfig(AppConfig):
     def ready(self):
         from . import admin_v4
 
-        # Keep the legacy service editor's field library available without
-        # querying the database during Django application initialization.
         extra_fields = [
             ("external_code", "الكود الخارجي", "text"),
             ("num", "رقم/فئة المزود", "text"),
@@ -32,7 +30,3 @@ class ServicesConfig(AppConfig):
                 admin_v4.FIELD_LIBRARY.append(row)
                 existing_keys.add(row[0])
         admin_v4.FIELD_MAP = {key: (label, typ) for key, label, typ in admin_v4.FIELD_LIBRARY}
-
-        # Catalog initialization is intentionally explicit via:
-        #   python manage.py sync_api_catalog
-        # This keeps migrations, tests and worker startup free of database I/O.
