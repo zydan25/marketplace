@@ -37,6 +37,7 @@ jobs:
               '''private fun isYemenNet(provider: ServiceCategoryDto?): Boolean =\n    providerMatches(provider ?: return false, ProviderKind.YEMEN_NET)''': '''private fun isYemenNet(provider: ServiceCategoryDto?): Boolean =\n    providerMatches(provider, ProviderKind.YEMEN_NET)''',
               '''private fun isYemenMobile(provider: ServiceCategoryDto?): Boolean =\n    providerMatches(provider ?: return false, ProviderKind.YEMEN_MOBILE)''': '''private fun isYemenMobile(provider: ServiceCategoryDto?): Boolean =\n    providerMatches(provider, ProviderKind.YEMEN_MOBILE)''',
               '''    if (providerMatches(provider ?: return when (action) {\n            PaymentAction.BALANCE -> "الرصيد"\n            PaymentAction.INSTANT -> "فوري"\n            PaymentAction.PACKAGES -> "باقات"\n            PaymentAction.WHOLESALE -> "جملة"\n            PaymentAction.POSTPAID -> "فوترة"\n        }, ProviderKind.FOUR_G)) {''': '''    if (provider != null && providerMatches(provider, ProviderKind.FOUR_G)) {''',
+              '''    Card(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp).clickable(onClick = onClick), colors = CardDefaults.cardColors(White), elevation = CardDefaults.cardElevation(1.dp)) {''': '''    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(White), elevation = CardDefaults.cardElevation(1.dp)) {''',
           }
           changed = False
           for old, new in replacements.items():
@@ -51,7 +52,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt
-            git commit -m "fix(katolin): repair provider helper nullability"
+            git commit -m "fix(katolin): repair payment screen source"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
