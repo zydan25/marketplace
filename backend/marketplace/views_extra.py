@@ -11,6 +11,7 @@ from accounting.services_v2 import wallet_summary
 from accounting.transfer_service import transfer_between_users
 from .models import User
 from .models_extra import Address, Loan, GiftTransfer
+from .phone_utils import normalize_yemen_phone
 from .serializers_extra import AddressSerializer, LoanSerializer, GiftTransferSerializer
 
 
@@ -48,13 +49,15 @@ class GiftTransferViewSet(viewsets.ModelViewSet):
         return GiftTransfer.objects.filter(sender=self.request.user) | GiftTransfer.objects.filter(receiver=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        receiver_phone = str(request.data.get("receiver_phone", "")).strip()
+        receiver_phone = normalize_yemen_phone(request.data.get("receiver_phone", ""))
         try:
             amount = Decimal(str(request.data.get("amount", "0"))).quantize(Decimal("0.01"))
         except (ValueError, TypeError, InvalidOperation):
             return Response({"detail": "المبلغ غير صالح"}, status=status.HTTP_400_BAD_REQUEST)
         if amount <= 0:
             return Response({"detail": "المبلغ يجب أن يكون أكبر من صفر"}, status=status.HTTP_400_BAD_REQUEST)
+        if not receiver_phone:
+            return Response({"detail": "رقم المستلم مطلوب"}, status=status.HTTP_400_BAD_REQUEST)
 
         receiver = User.objects.filter(phone=receiver_phone, is_active=True).first()
         if not receiver:
