@@ -30,3 +30,11 @@ class ServicesConfig(AppConfig):
                 admin_v4.FIELD_LIBRARY.append(row)
                 existing_keys.add(row[0])
         admin_v4.FIELD_MAP = {key: (label, typ) for key, label, typ in admin_v4.FIELD_LIBRARY}
+
+        # Gunicorn runs multiple workers; the embedded thread is protected by
+        # a host-level singleton lock so only one worker executes tasks.
+        try:
+            from .embedded_worker import start_embedded_worker
+            start_embedded_worker()
+        except Exception:
+            logger.exception("Unable to start embedded services worker")
