@@ -191,9 +191,7 @@ private fun MainTab(action: PaymentAction, selected: Boolean, accent: Color, onC
 }
 
 @Composable
-private fun SectionTitle(title: String, caption: String? = null) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(title, fontWeight = FontWeight.Black, fontSize = 16.sp, color = TextDark); caption?.let { Text(it, color = Muted, fontSize = 9.sp) } }
-}
+private fun SectionTitle(title: String, caption: String? = null) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(title, fontWeight = FontWeight.Black, fontSize = 16.sp, color = TextDark); caption?.let { Text(it, color = Muted, fontSize = 9.sp) } } }
 
 @Composable
 private fun PackageTile(item: ServiceItemDto, accent: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
@@ -201,11 +199,7 @@ private fun PackageTile(item: ServiceItemDto, accent: Color, modifier: Modifier 
     Card(modifier = modifier.aspectRatio(.72f).clickable(onClick = onClick), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
         Column(Modifier.fillMaxSize()) {
             Surface(modifier = Modifier.fillMaxWidth(), color = accent, shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)) { Column(Modifier.padding(5.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text("فئة", color = White, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(amount?.let { formatNumber(it) } ?: item.name.take(10), color = White, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1) } }
-            Column(Modifier.fillMaxSize().padding(7.dp), verticalArrangement = Arrangement.SpaceBetween, horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("السعر", color = TextDark, fontWeight = FontWeight.Bold, fontSize = 9.sp)
-                Text(item.price?.let { "$it ${item.currency}" } ?: "—", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                Surface(modifier = Modifier.fillMaxWidth(), color = accent.copy(alpha = .10f), shape = RoundedCornerShape(8.dp)) { Text(item.metadata["validity"] ?: item.metadata["duration"] ?: item.metadata["days"] ?: "", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 5.dp)) }
-            }
+            Column(Modifier.fillMaxSize().padding(7.dp), verticalArrangement = Arrangement.SpaceBetween, horizontalAlignment = Alignment.CenterHorizontally) { Text("السعر", color = TextDark, fontWeight = FontWeight.Bold, fontSize = 9.sp); Text(item.price?.let { "$it ${item.currency}" } ?: "—", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black); Surface(modifier = Modifier.fillMaxWidth(), color = accent.copy(alpha = .10f), shape = RoundedCornerShape(8.dp)) { Text(item.metadata["validity"] ?: item.metadata["duration"] ?: item.metadata["days"] ?: "", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 5.dp)) } }
         }
     }
 }
@@ -214,15 +208,13 @@ private fun formatNumber(value: Double): String = if (value % 1.0 == 0.0) value.
 @Composable
 private fun ResultDetailsDialog(tx: ServiceTransactionDto, onClose: () -> Unit) {
     val pending = tx.status.orEmpty() in setOf("accepted", "queued", "processing", "pending_provider", "manual_review")
-    AlertDialog(onDismissRequest = onClose, title = { Text("نتيجة العملية", fontWeight = FontWeight.Black) }, text = {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            item { Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = if (tx.status == "success") Color(0xFFE9F7EE) else Bg) { Text(when { tx.status == "success" -> "تمت العملية بنجاح ✅"; pending -> "العملية قيد المعالجة لدى المزود ⏳"; tx.status == "refunded" -> "أعيد المبلغ إلى محفظتك."; else -> tx.errorMessage ?: "تعذر إكمال العملية." }, fontWeight = FontWeight.Bold, modifier = Modifier.padding(10.dp)) } }
-            item { Text("المرجع: ${tx.id}", color = Muted, fontSize = 10.sp) }
-            tx.amount?.let { item { Text("المبلغ: $it ${tx.currency.orEmpty()}", fontWeight = FontWeight.Bold) } }
-            tx.providerTransid?.let { item { Text("رقم المزود: $it", color = Muted, fontSize = 10.sp) } }
-            tx.result.orEmpty().entries.sortedBy { it.key }.forEach { (key, value) -> item { Column(Modifier.fillMaxWidth()) { Text(resultLabel(key), color = Muted, fontSize = 9.sp); Text(displayValue(value), fontWeight = FontWeight.Bold, fontSize = 11.sp, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth()) } } }
-        }
-    }, confirmButton = { TextButton(onClick = onClose) { Text("إغلاق") } })
+    AlertDialog(onDismissRequest = onClose, title = { Text("نتيجة العملية", fontWeight = FontWeight.Black) }, text = { LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        item { Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = if (tx.status == "success") Color(0xFFE9F7EE) else Bg) { Text(when { tx.status == "success" -> "تمت العملية بنجاح ✅"; pending -> "العملية قيد المعالجة لدى المزود ⏳"; tx.status == "refunded" -> "أعيد المبلغ إلى محفظتك."; else -> tx.errorMessage ?: "تعذر إكمال العملية." }, fontWeight = FontWeight.Bold, modifier = Modifier.padding(10.dp)) } }
+        item { Text("المرجع: ${tx.id}", color = Muted, fontSize = 10.sp) }
+        tx.amount?.let { item { Text("المبلغ: $it ${tx.currency.orEmpty()}", fontWeight = FontWeight.Bold) } }
+        tx.providerTransid?.let { item { Text("رقم المزود: $it", color = Muted, fontSize = 10.sp) } }
+        tx.result.orEmpty().entries.sortedBy { it.key }.forEach { (key, value) -> item { Column(Modifier.fillMaxWidth()) { Text(resultLabel(key), color = Muted, fontSize = 9.sp); Text(displayValue(value), fontWeight = FontWeight.Bold, fontSize = 11.sp, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth()) } } }
+    } }, confirmButton = { TextButton(onClick = onClose) { Text("إغلاق") } })
 }
 
 @Composable
@@ -244,7 +236,7 @@ fun PaymentNetworkScreen(
     val baseUrl by repo.djangoBaseUrl.collectAsState()
     val session by repo.userSession.collectAsState()
     val scope = rememberCoroutineScope()
-    var catalog by remember { mutableStateOf<List<ServiceMainCategoryDto>>(emptyList()) }
+    var catalog by remember { mutableStateOf<List<com.example.data.remote.ServiceMainCategoryDto>>(emptyList()) }
     var provider by remember { mutableStateOf<ServiceCategoryDto?>(null) }
     var action by remember { mutableStateOf(PaymentAction.BALANCE) }
     var service by remember { mutableStateOf<ServiceDto?>(null) }
@@ -295,15 +287,9 @@ fun PaymentNetworkScreen(
     val resultOffers = result?.result?.let(::resultOfferItems).orEmpty()
     val loan = resultLoan(result?.result.orEmpty())
 
-    fun fillService(s: ServiceDto) {
-        values.clear()
-        s.fields.forEach { field ->
-            if (field.key == "mobile") values[field.key] = digits(phone)
-            if (field.type == "select" && field.choices.isNotEmpty()) values[field.key] = field.choices.first()
-        }
-        if (yemenNet) values["type"] = netType
-    }
+    fun fillService(s: ServiceDto) { values.clear(); s.fields.forEach { field -> if (field.key == "mobile") values[field.key] = digits(phone); if (field.type == "select" && field.choices.isNotEmpty()) values[field.key] = field.choices.first() }; if (yemenNet) values["type"] = netType }
     fun selectProvider(p: ServiceCategoryDto) { provider = p; service = null; selectedItem = null; result = null; error = null; values.clear() }
+    LaunchedEffect(yemenMobile, providers) { if (yemenMobile) providers.firstOrNull { "yemen-mobile" in providerKey(it) || "يمن موبايل" in providerKey(it) }?.let { target -> if (provider?.id != target.id) selectProvider(target) } }
     fun runQuery(s: ServiceDto) {
         val token = session.token ?: return
         service = s; fillService(s)
@@ -322,35 +308,18 @@ fun PaymentNetworkScreen(
     fun selectAction(next: PaymentAction) {
         action = next; selectedItem = null; result = null; error = null
         val target = queryService(providerServices, next)
-        if (next == PaymentAction.BALANCE || next == PaymentAction.PACKAGES || next == PaymentAction.INSTANT) {
-            if (target == null) error = "لا توجد خدمة ${actionLabel(next)} مهيأة لهذا المزود." else runQuery(target)
-        } else {
-            service = purchaseService(providerServices, next); service?.let(::fillService)
-        }
+        if (next == PaymentAction.BALANCE || next == PaymentAction.PACKAGES || next == PaymentAction.INSTANT) { if (target == null) error = "لا توجد خدمة ${actionLabel(next)} مهيأة لهذا المزود." else runQuery(target) } else { service = purchaseService(providerServices, next); service?.let(::fillService) }
     }
     fun confirmPurchase() {
         val s = service ?: return; val token = session.token ?: return; if (working) return
         scope.launch {
             working = true; waitingPurchase = true; error = null; result = null
             try {
-                val payload = values.toMutableMap()
-                selectedItem?.metadata?.get("offerid")?.let { payload["offerid"] = it }
-                selectedItem?.metadata?.get("offerkey")?.let { payload["offerkey"] = it }
-                if (selectedOfferName.isNotBlank()) payload["offername"] = selectedOfferName
-                if (selectedOfferAmount > 0) payload["amount"] = selectedOfferAmount.toString()
-                if (amount.isNotBlank()) payload["amount"] = amount
-                if (yemenNet) payload["type"] = netType
-                val missing = s.fields.firstOrNull { it.required && payload[it.key].isNullOrBlank() }
-                if (missing != null) throw IllegalStateException("الحقل المطلوب: ${missing.label}")
+                val payload = values.toMutableMap(); selectedItem?.metadata?.get("offerid")?.let { payload["offerid"] = it }; selectedItem?.metadata?.get("offerkey")?.let { payload["offerkey"] = it }; if (selectedOfferName.isNotBlank()) payload["offername"] = selectedOfferName; if (selectedOfferAmount > 0) payload["amount"] = selectedOfferAmount.toString(); if (amount.isNotBlank()) payload["amount"] = amount; if (yemenNet) payload["type"] = netType
+                val missing = s.fields.firstOrNull { it.required && payload[it.key].isNullOrBlank() }; if (missing != null) throw IllegalStateException("الحقل المطلوب: ${missing.label}")
                 val id = UUID.randomUUID().toString()
                 var latest = NetworkClient.getApiService(baseUrl.trimEnd('/') + "/").submitServiceRequest("Token $token", id, ServiceRequestPayload(s.id, selectedItem?.type, selectedItem?.id, payload, id)).body() ?: throw IllegalStateException("لم تصل نتيجة العملية.")
-                repeat(25) {
-                    result = latest
-                    if (latest.status.orEmpty() in setOf("success", "failed", "refunded", "manual_review")) return@repeat
-                    delay(800)
-                    val poll = NetworkClient.getApiService(baseUrl.trimEnd('/') + "/").getServiceTransaction("Token $token", latest.id)
-                    if (poll.isSuccessful && poll.body() != null) latest = poll.body()!!
-                }
+                repeat(25) { result = latest; if (latest.status.orEmpty() in setOf("success", "failed", "refunded", "manual_review")) return@repeat; delay(800); val poll = NetworkClient.getApiService(baseUrl.trimEnd('/') + "/").getServiceTransaction("Token $token", latest.id); if (poll.isSuccessful && poll.body() != null) latest = poll.body()!! }
                 result = latest; showResult = true
                 if (latest.status == "success" || latest.status == "refunded") onSyncBalance()
                 if (latest.status == "success") onRechargeSubmit(phone, providerTitle(provider), s.name, selectedOfferName.ifBlank { selectedItem?.name ?: s.name }, latest.amount?.toDoubleOrNull() ?: selectedOfferAmount)
@@ -360,7 +329,6 @@ fun PaymentNetworkScreen(
     }
 
     if (showReports) { ServiceReportsScreen(onBackClick = { showReports = false }, modifier = modifier); return }
-
     Scaffold(modifier = modifier.fillMaxSize(), topBar = {
         TopAppBar(
             title = { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("رصيدي", color = White, fontWeight = FontWeight.Black, fontSize = 20.sp); Text("******  •  رصيد مخفي", color = White.copy(alpha = .88f), fontSize = 9.sp, fontWeight = FontWeight.Bold) } },
@@ -389,45 +357,27 @@ fun PaymentNetworkScreen(
                 }
             }
             item {
-                Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(16.dp), color = if (isYellowProvider) Yellow.copy(alpha = .20f) else if (yemenMobile) Pink.copy(alpha = .12f) else accent.copy(alpha = .10f)) {
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.SpaceEvenly) { listOf(PaymentAction.BALANCE, PaymentAction.INSTANT, PaymentAction.PACKAGES, PaymentAction.WHOLESALE, PaymentAction.POSTPAID).forEach { a -> MainTab(a, action == a, if (yemenMobile) Pink else accent) { selectAction(a) } } }
-                }
+                Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(16.dp), color = if (isYellowProvider) Yellow.copy(alpha = .20f) else if (yemenMobile) Pink.copy(alpha = .12f) else accent.copy(alpha = .10f)) { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.SpaceEvenly) { listOf(PaymentAction.BALANCE, PaymentAction.INSTANT, PaymentAction.PACKAGES, PaymentAction.WHOLESALE, PaymentAction.POSTPAID).forEach { a -> MainTab(a, action == a, if (yemenMobile) Pink else accent) { selectAction(a) } } } }
             }
-            if (provider == null && providers.isNotEmpty()) item {
-                Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) { SectionTitle("اختر الشبكة", "المحفوظة محليًا"); Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { providers.forEach { p -> ProviderCard(p, false, ::selectProvider) } } }
-            }
+            if (provider == null && providers.isNotEmpty()) item { Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) { SectionTitle("اختر الشبكة", "المحفوظة محليًا"); Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { providers.forEach { p -> ProviderCard(p, false, ::selectProvider) } } } }
             if (provider != null) item {
-                Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = White), elevation = CardDefaults.cardElevation(1.dp)) {
-                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("الشبكة", color = Muted, fontSize = 9.sp); Text(providerTitle(provider), color = if (yemenMobile) Pink else accent, fontWeight = FontWeight.Black, fontSize = 17.sp) }
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { providers.forEach { p -> ProviderCard(p, p.id == provider?.id, ::selectProvider) } }
-                        if (isYemenNet) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) { listOf("adsl" to "إنترنت ADSL", "line" to "الخط الثابت").forEach { (type, label) -> val selected = netType == type; Surface(Modifier.weight(1f).clickable { netType = type; service?.let(::runQuery) }, RoundedCornerShape(10.dp), if (selected) accent else Bg) { Text(label, color = if (selected) White else TextDark, fontWeight = FontWeight.Bold, fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 9.dp)) } } }
-                    }
-                }
+                Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = White), elevation = CardDefaults.cardElevation(1.dp)) { Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("الشبكة", color = Muted, fontSize = 9.sp); Text(providerTitle(provider), color = if (yemenMobile) Pink else accent, fontWeight = FontWeight.Black, fontSize = 17.sp) }; Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { providers.forEach { p -> ProviderCard(p, p.id == provider?.id, ::selectProvider) } }; if (isYemenNet) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) { listOf("adsl" to "إنترنت ADSL", "line" to "الخط الثابت").forEach { (type, label) -> val selected = netType == type; Surface(Modifier.weight(1f).clickable { netType = type; service?.let(::runQuery) }, RoundedCornerShape(10.dp), if (selected) accent else Bg) { Text(label, color = if (selected) White else TextDark, fontWeight = FontWeight.Bold, fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 9.dp)) } } } } }
             }
             if (yemenMobile) item { Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), color = Pink.copy(alpha = .08f), shape = RoundedCornerShape(13.dp)) { Text("Yemen Mobile", color = Pink, fontWeight = FontWeight.Black, fontSize = 13.sp, modifier = Modifier.padding(10.dp)) } }
             if (action == PaymentAction.PACKAGES) item {
                 Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { SectionTitle("الباقات", "اضغط على الباقة للتسديد"); if (provider != null) Row(verticalAlignment = Alignment.CenterVertically) { Text("الشاحن الذكي", fontSize = 9.sp, color = Muted); Switch(checked = smartCharge, onCheckedChange = { smartCharge = it }) } }
                     val items = if (resultOffers.isNotEmpty()) resultOffers else purchaseService(providerServices, PaymentAction.PACKAGES)?.items.orEmpty().take(30)
-                    if (items.isEmpty()) Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), White) { Text("سيتم عرض الباقات بعد استعلام الباقات من المزود.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(14.dp), textAlign = TextAlign.Center) }
-                    else items.chunked(3).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) { row.forEach { item -> PackageTile(item, if (yemenMobile) Pink else accent, Modifier.weight(1f)) { selectedItem = item; selectedOfferName = item.name; selectedOfferAmount = item.price?.toDoubleOrNull() ?: 0.0; service = purchaseService(providerServices, PaymentAction.PACKAGES) ?: service; showConfirmation = true } }; if (row.size < 3) repeat(3 - row.size) { Spacer(Modifier.weight(1f)) } } }
+                    if (items.isEmpty()) Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), White) { Text("سيتم عرض الباقات بعد استعلام الباقات من المزود.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(14.dp), textAlign = TextAlign.Center) } else items.chunked(3).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) { row.forEach { item -> PackageTile(item, if (yemenMobile) Pink else accent, Modifier.weight(1f)) { selectedItem = item; selectedOfferName = item.name; selectedOfferAmount = item.price?.toDoubleOrNull() ?: 0.0; service = purchaseService(providerServices, PaymentAction.PACKAGES) ?: service; showConfirmation = true } }; if (row.size < 3) repeat(3 - row.size) { Spacer(Modifier.weight(1f)) } } }
                 }
             }
-            if (action == PaymentAction.BALANCE && result != null) item {
-                Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(19.dp), colors = CardDefaults.cardColors(containerColor = White), elevation = CardDefaults.cardElevation(2.dp)) {
-                    Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { SectionTitle("نتيجة الاستعلام"); result!!.result.orEmpty().entries.sortedBy { it.key }.forEach { (key, value) -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(resultLabel(key), color = Muted, fontSize = 10.sp); Text(displayValue(value), color = TextDark, fontWeight = FontWeight.Bold, fontSize = 10.sp, textAlign = TextAlign.End) } }; Surface(Modifier.fillMaxWidth(), Pink.copy(alpha = .09f), RoundedCornerShape(11.dp)) { Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("السلفة الحالية", color = Pink, fontWeight = FontWeight.Bold, fontSize = 11.sp); Text(formatNumber(loan), color = Pink, fontWeight = FontWeight.Black, fontSize = 12.sp) } } }
-                }
-            }
-            if (action != PaymentAction.BALANCE && action != PaymentAction.PACKAGES && service != null) item {
-                Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = White), elevation = CardDefaults.cardElevation(2.dp)) { Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(actionLabel(action), color = if (yemenMobile) Pink else accent, fontWeight = FontWeight.Black, fontSize = 18.sp); service!!.fields.filter { it.key != "mobile" }.forEach { f -> OutlinedTextField(values[f.key].orEmpty(), { values[f.key] = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(f.label + if (f.required) " *" else "") }, shape = RoundedCornerShape(10.dp)) }; if (service!!.pricingMode == "amount" || action == PaymentAction.INSTANT) OutlinedTextField(amount, { amount = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), shape = RoundedCornerShape(10.dp)); Button(onClick = { selectedOfferName = service!!.name; selectedOfferAmount = amount.toDoubleOrNull() ?: service!!.price.toDoubleOrNull() ?: 0.0; showConfirmation = true }, enabled = !working, modifier = Modifier.fillMaxWidth().height(49.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = if (yemenMobile) Pink else accent)) { Icon(Icons.Default.CheckCircle, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("تسديد + تفعيل", fontWeight = FontWeight.Black) } } }
-            }
+            if (action == PaymentAction.BALANCE && result != null) item { Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(19.dp), colors = CardDefaults.cardColors(containerColor = White), elevation = CardDefaults.cardElevation(2.dp)) { Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { SectionTitle("نتيجة الاستعلام"); result!!.result.orEmpty().entries.sortedBy { it.key }.forEach { (key, value) -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(resultLabel(key), color = Muted, fontSize = 10.sp); Text(displayValue(value), color = TextDark, fontWeight = FontWeight.Bold, fontSize = 10.sp, textAlign = TextAlign.End) } }; Surface(Modifier.fillMaxWidth(), Pink.copy(alpha = .09f), RoundedCornerShape(11.dp)) { Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("السلفة الحالية", color = Pink, fontWeight = FontWeight.Bold, fontSize = 11.sp); Text(formatNumber(loan), color = Pink, fontWeight = FontWeight.Black, fontSize = 12.sp) } } } } }
+            if (action != PaymentAction.BALANCE && action != PaymentAction.PACKAGES && service != null) item { Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = White), elevation = CardDefaults.cardElevation(2.dp)) { Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(actionLabel(action), color = if (yemenMobile) Pink else accent, fontWeight = FontWeight.Black, fontSize = 18.sp); service!!.fields.filter { it.key != "mobile" }.forEach { f -> OutlinedTextField(values[f.key].orEmpty(), { values[f.key] = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(f.label + if (f.required) " *" else "") }, shape = RoundedCornerShape(10.dp)) }; if (service!!.pricingMode == "amount" || action == PaymentAction.INSTANT) OutlinedTextField(amount, { amount = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), shape = RoundedCornerShape(10.dp)); Button(onClick = { selectedOfferName = service!!.name; selectedOfferAmount = amount.toDoubleOrNull() ?: service!!.price.toDoubleOrNull() ?: 0.0; showConfirmation = true }, enabled = !working, modifier = Modifier.fillMaxWidth().height(49.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = if (yemenMobile) Pink else accent)) { Icon(Icons.Default.CheckCircle, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("تسديد + تفعيل", fontWeight = FontWeight.Black) } } } }
             result?.let { tx -> if ((action != PaymentAction.BALANCE && action != PaymentAction.PACKAGES) || tx.status != "success") item { Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable { showResult = true }, shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = White), elevation = CardDefaults.cardElevation(2.dp)) { Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("نتيجة العملية", fontWeight = FontWeight.Black, fontSize = 15.sp); Text(when(tx.status) { "success" -> "نجاح ✅"; "accepted", "queued", "processing", "pending_provider", "manual_review" -> "معلقة ⏳"; else -> "انتهت" }, color = if (tx.status == "success") Color(0xFF218838) else accent, fontWeight = FontWeight.Bold, fontSize = 10.sp) }; Text("اضغط لعرض كل بيانات المزود", color = Muted, fontSize = 9.sp) } } } }
             error?.let { msg -> item { Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(13.dp), color = Color(0xFFFFEEEE)) { Text(msg, color = Color(0xFFC13D3D), textAlign = TextAlign.Center, fontSize = 10.sp, modifier = Modifier.padding(11.dp)) } } }
             if (syncing) item { Box(Modifier.fillMaxWidth().padding(18.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = if (yemenMobile) Pink else accent) } }
         }
     }
-
     if (showConfirmation) PurchaseConfirmDialog(selectedOfferName.ifBlank { selectedItem?.name.orEmpty() }, selectedOfferAmount, loan, if (yemenMobile) Pink else accent, ::confirmPurchase) { showConfirmation = false }
     if (waitingPurchase) AlertDialog(onDismissRequest = {}, title = { Text("تنفيذ العملية", fontWeight = FontWeight.Black) }, text = { Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) { CircularProgressIndicator(color = if (yemenMobile) Pink else accent); Text("جاري انتظار النتيجة من المزود…", fontWeight = FontWeight.Bold); Text("لن يتم إغلاق العملية حتى تصل نتيجة الخادم.", color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center) } }, confirmButton = {})
     if (showResult && result != null) ResultDetailsDialog(result!!) { showResult = false }
