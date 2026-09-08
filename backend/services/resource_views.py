@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .models import DigitalProduct, GameProduct, Service, ServiceTransaction, TelecomDenomination, TelecomPlan
+from .models import DigitalProduct, GameProduct, MainServiceCategory, Service, ServiceTransaction, TelecomDenomination, TelecomPlan
 
 
 def staff_only(user):
@@ -29,6 +29,15 @@ def has_history(kind, obj_id):
     return ServiceTransaction.objects.filter(item_type=kind, item_id=obj_id).exists()
 
 
+def _scoped_service(request):
+    """Resolve the service and optionally enforce a selected main category."""
+    service = get_object_or_404(Service, pk=request.POST.get("service"), is_active=True)
+    main_id = (request.POST.get("main_category") or request.GET.get("main_category") or "").strip()
+    if main_id.isdigit() and service.category.main_category_id != int(main_id):
+        raise ValueError("الخدمة لا تنتمي إلى الفئة الرئيسية المحددة.")
+    return service
+
+
 @user_passes_test(staff_only, login_url="/admin/dashboard/login/")
 def resources(request):
     if request.method == "POST":
@@ -36,7 +45,7 @@ def resources(request):
         try:
             with transaction.atomic():
                 if action in {"plan", "denom", "game", "digital"}:
-                    service = get_object_or_404(Service, pk=request.POST.get("service"), is_active=True)
+                    service = _scoped_service(request)
                     name = (request.POST.get("name") or "").strip()
                     code = (request.POST.get("external_code") or "").strip()
                     if not name or not code:
@@ -144,14 +153,49 @@ def resources(request):
             messages.error(request, f"تعذر تنفيذ العملية: {exc}")
         return redirect(request.path)
 
+    main_id = (request.GET.get("main_category") or request.GET.get("main") or "").strip()
+    service_id = (request.GET.get("service") or "").strip()
+    resource_type = (request.GET.get("type") or "").strip().lower()
+    q = (request.GET.get("q") or "").strip()
+    sort = (request.GET.get("sort") or "name").strip().lower()
+
+    services = Service.objects.select_related("category__main_category").filter(is_active=True)
+    if main_id.isdigit():
+        services = services.filter(category__main_category_id=int(main_id))
+    services = services.order_by("category__main_category__sort_order", "category__sort_order", "name", "id")
+    if service_id.isdigit():
+        services = services.filter(pk=int(service_id))
+
+    plans = TelecomPlan.objects.select_related("service__category__main_category").filter(is_active=True)
+    denoms = TelecomDenomination.objects.select_related("service__category__main_category").filter(is_active=True)
+    games = GameProduct.objects.select_related("service__category__main_category").filter(is_active=True)
+    digital = DigitalProduct.objects.select_related("service__category__main_category").filter(is_active=True)
+    for qs_name in ("plans", "denoms", "games", "digital"):
+        qs = locals()[qs_name]
+        if main_id.isdigit():
+            qs = qs.filter(service__category__main_category_id=int(main_id))
+        if service_id.isdigit():
+            qs = qs.filter(service_id=int(service_id))
+        if q:
+            qs = qs.filter(name__icontains=q) | qs.filter(external_code__icontains=q)
+        if sort == "price":
+            qs = qs.order_by("price", "id") if qs_name != "denoms" else qs.order_by("sale_price", "id")
+        elif sort == "newest":
+            qs = qs.order_by("-id")
+        else:
+            qs = qs.order_by("name", "id")
+        locals()[qs_name] = qs
+
     return render(
         request,
         "services/resources_manage.html",
         {
-            "services": Service.objects.filter(is_active=True).order_by("name"),
-            "plans": TelecomPlan.objects.select_related("service").order_by("service__name", "sort_order", "id"),
-            "denoms": TelecomDenomination.objects.select_related("service").order_by("service__name", "sort_order", "id"),
-            "games": GameProduct.objects.select_related("service").order_by("service__name", "sort_order", "id"),
-            "digital": DigitalProduct.objects.select_related("service").order_by("service__name", "sort_order", "id"),
+            "main_categories": MainServiceCategory.objects.filter(is_active=True).order_by("sort_order", "id"),
+            "services": services,
+            "plans": plans[:300],
+            "denoms": denoms[:300],
+            "games": games[:300],
+            "digital": digital[:300],
+            "filters": {"main": main_id, "service": service_id, "type": resource_type, "q": q, "sort": sort},
         },
     )
