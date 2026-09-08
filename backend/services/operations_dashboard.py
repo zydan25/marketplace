@@ -32,7 +32,8 @@ def _base_stats():
 def operations_dashboard(request):
     q = (request.GET.get("q") or "").strip()
     status = (request.GET.get("status") or "").strip()
-    transactions = ServiceTransaction.objects.select_related("service", "customer", "provider_link").order_by("-created_at")
+    sort = (request.GET.get("sort") or "newest").strip().lower()
+    transactions = ServiceTransaction.objects.select_related("service", "customer", "provider_link").all()
     if q:
         transactions = transactions.filter(
             Q(mobile__icontains=q)
@@ -43,6 +44,15 @@ def operations_dashboard(request):
         )
     if status:
         transactions = transactions.filter(status=status)
+    if sort == "oldest":
+        transactions = transactions.order_by("created_at", "id")
+    elif sort == "amount":
+        transactions = transactions.order_by("-customer_amount", "-id")
+    elif sort == "status":
+        transactions = transactions.order_by("status", "-created_at")
+    else:
+        transactions = transactions.order_by("-created_at", "-id")
+
     tasks = ServiceTask.objects.select_related("transaction__service", "transaction__customer", "provider_link").order_by("-id")[:120]
     logs = ServiceRequestLog.objects.select_related("transaction__service", "transaction__customer").order_by("-created_at")[:120]
     return render(request, "services/operations.html", {
@@ -52,7 +62,7 @@ def operations_dashboard(request):
         "tasks": tasks,
         "request_logs": logs,
         "status_choices": ServiceTransaction.Status.choices,
-        "filters": {"q": q, "status": status},
+        "filters": {"q": q, "status": status, "sort": sort},
     })
 
 
