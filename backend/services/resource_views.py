@@ -34,7 +34,7 @@ def _scoped_service(request):
     service = get_object_or_404(Service.objects.select_related("category__main_category"), pk=request.POST.get("service"), is_active=True)
     main_id = (request.POST.get("main_category") or "").strip()
     if main_id.isdigit() and service.category.main_category_id != int(main_id):
-        raise ValueError("الخدمة لا تنتمي إلى الفئة الرئيسية المحددة.")
+        raise ValueError("الخدمة لا تنتمي إلى الشركة/الفئة الرئيسية المحددة.")
     return service
 
 
@@ -96,14 +96,13 @@ def resources(request):
                 elif action == "toggle":
                     mapping = {"plan": TelecomPlan, "denom": TelecomDenomination, "game": GameProduct, "digital": DigitalProduct}
                     model = mapping.get(request.POST.get("kind"))
-                    if model is None:
-                        raise ValueError("نوع العنصر غير معروف.")
+                    if model is None: raise ValueError("نوع العنصر غير معروف.")
                     obj = get_object_or_404(model, pk=request.POST.get("pk")); obj.is_active = not obj.is_active; obj.save(update_fields=["is_active"])
                     messages.success(request, "تم تحديث حالة العنصر.")
                 elif action == "delete":
-                    mapping = {"plan": TelecomPlan, "denom": TelecomDenomination, "game": GameProduct, "digital": DigitalProduct}; kind = request.POST.get("kind"); model = mapping.get(kind)
-                    if model is None:
-                        raise ValueError("نوع العنصر غير معروف.")
+                    mapping = {"plan": TelecomPlan, "denom": TelecomDenomination, "game": GameProduct, "digital": DigitalProduct}
+                    kind = request.POST.get("kind"); model = mapping.get(kind)
+                    if model is None: raise ValueError("نوع العنصر غير معروف.")
                     obj = get_object_or_404(model, pk=request.POST.get("pk"))
                     if has_history(kind, obj.pk):
                         obj.is_active = False; obj.save(update_fields=["is_active"]); messages.warning(request, "العنصر مستخدم في عمليات تاريخية؛ تم إيقافه بدل حذفه.")
@@ -120,11 +119,14 @@ def resources(request):
     resource_type = (request.GET.get("type") or "").strip().lower()
     q = (request.GET.get("q") or "").strip()
     sort = (request.GET.get("sort") or "name").strip().lower()
+    add_type = (request.GET.get("add") or "").strip().lower()
 
     services = Service.objects.select_related("category__main_category").filter(is_active=True)
-    if main_id.isdigit(): services = services.filter(category__main_category_id=int(main_id))
+    if main_id.isdigit():
+        services = services.filter(category__main_category_id=int(main_id))
+    if service_id.isdigit():
+        services = services.filter(pk=int(service_id))
     services = services.order_by("category__main_category__sort_order", "category__sort_order", "name", "id")
-    if service_id.isdigit(): services = services.filter(pk=int(service_id))
 
     plans = _filter_resource(TelecomPlan.objects.select_related("service__category__main_category").filter(is_active=True), main_id, service_id, q, sort, "price")
     denoms = _filter_resource(TelecomDenomination.objects.select_related("service__category__main_category").filter(is_active=True), main_id, service_id, q, sort, "sale_price")
@@ -135,5 +137,7 @@ def resources(request):
         "main_categories": MainServiceCategory.objects.filter(is_active=True).order_by("sort_order", "id"),
         "services": services,
         "plans": plans[:300], "denoms": denoms[:300], "games": games[:300], "digital": digital[:300],
-        "filters": {"main": main_id, "service": service_id, "type": resource_type, "q": q, "sort": sort},
+        "filters": {"main": main_id, "service": service_id, "type": resource_type, "q": q, "sort": sort, "add": add_type},
+        "show_form": add_type in {"plan", "denom", "game", "digital"},
+        "add_type": add_type,
     })
