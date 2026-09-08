@@ -2,26 +2,20 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from services.catalog_games import GAMES_AND_CARDS
-from services.management.commands.provision_sanaacash import provision, seed_catalog
-from services.models import Service, TelecomPlan, TelecomPlanType
-
-
-PAYMENT_TYPE_LABELS = {
-    "prepaid": "دفع مسبق",
-    "postpaid": "فوترة",
-    "paid": "مدفوع",
-}
+from services.catalog_repair import repair_hierarchy
+from services.management.commands.provision_sanaacash import provision, provision_links, seed_catalog
+from services.models import ProviderConnection
 
 
 class Command(BaseCommand):
-    help = "تهيئة كتالوج الخدمات من عقد API والبيانات المهيأة، مع تطبيع أنواع الباقات."
+    help = "تهيئة كتالوج الخدمات من عقد API، إصلاح فروع الخدمات والباقات، وربط مسارات المزود الفعالة."
 
     @transaction.atomic
     def handle(self, *args, **options):
         _, _, services = provision()
         seed_catalog(services)
-        tagged = 0
 
+        tagged = 0
         for code in GAMES_AND_CARDS:
             service = services.get(code)
             if service is None:
@@ -35,40 +29,18 @@ class Command(BaseCommand):
             service.save(update_fields=["metadata"])
             tagged += 1
 
-        type_count = 0
-        plan_services = Service.objects.filter(is_active=True, telecom_plans__is_active=True).distinct()
-        for service in plan_services:
-            groups = {}
-            for plan in TelecomPlan.objects.filter(service=service, is_active=True).order_by("sort_order", "id"):
-                payment = (plan.payment_type or "other").strip().lower() or "other"
-                line = (plan.line_type or "all").strip().lower() or "all"
-                code = f"{payment}:{line}"[:80]
-                groups.setdefault(code, []).append(plan)
+        route_count = 0
+        for provider in ProviderConnection.objects.filter(is_active=True):
+            _, _, current_services = provision()
+            links = provision_links(provider, current_services)
+            route_count += len(links)
 
-            for sort_order, (code, plans) in enumerate(groups.items()):
-                payment = (plans[0].payment_type or "other").strip().lower() or "other"
-                line = (plans[0].line_type or "all").strip()
-                label = PAYMENT_TYPE_LABELS.get(payment, "نوع باقة آخر")
-                if line and line.lower() != "all":
-                    label = f"{label} - {line}"
-                plan_type, _ = TelecomPlanType.objects.update_or_create(
-                    service=service,
-                    code=code,
-                    defaults={
-                        "name": label,
-                        "description": line,
-                        "sort_order": sort_order,
-                        "is_active": True,
-                    },
-                )
-                plan_type.plans.set(plans)
-                type_count += 1
-
+        stats = repair_hierarchy()
         self.stdout.write(
             self.style.SUCCESS(
-                f"تمت تهيئة {len(services)} خدمة، ووضع وسم المصدر على {tagged} خدمة، وتطبيع {type_count} نوع باقة."
+                f"تمت تهيئة {len(services)} خدمة، ووسم {tagged} خدمة API، وتجهيز {route_count} مسار مزود، وإصلاح {stats['plan_types']} نوع باقة."
             )
         )
         self.stdout.write(
-            "بيانات المنتج والأسعار التي لا يعرّفها عقد API تبقى من الكتالوج/النسخة الاحتياطية؛ لا يتم اختلاق خدمات مثل Netflix أو Shahid أو Canva."
+            "تم الحفاظ على خدمات وعناصر الكتالوج/النسخة الاحتياطية دون اختلاق خدمات غير موجودة في عقد API."
         )
