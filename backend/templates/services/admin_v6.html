@@ -1,0 +1,68 @@
+{% include "services/admin_v5.html" %}
+
+<style>
+/* Shabik services control-center skin: compact, RTL, mobile-first, inspired by the customer services visual language. */
+:root{
+  --shabik-bg:#f3f1f6;
+  --shabik-surface:#ffffff;
+  --shabik-ink:#202124;
+  --shabik-muted:#73757d;
+  --shabik-primary:#163a63;
+  --shabik-accent:#16a8c5;
+  --shabik-line:#e5e4e8;
+  --shabik-soft:#eef8fa;
+  --shabik-danger:#b42318;
+  --shabik-radius:18px;
+}
+html,body{background:var(--shabik-bg)!important;color:var(--shabik-ink)!important;font-family:Tahoma,"Segoe UI",Arial,sans-serif!important}
+.legacy-app{grid-template-columns:290px minmax(0,1fr)!important}
+.legacy-sidebar{background:#fbfbfc!important;border-left:1px solid var(--shabik-line)!important;box-shadow:none!important}
+.legacy-brand{background:linear-gradient(135deg,var(--shabik-primary),#1f6d8f)!important;border:0!important;border-radius:0 0 18px 18px!important;color:#fff!important;padding:17px 16px!important}
+.legacy-brand-title{color:#fff!important;font-size:19px!important}
+.legacy-brand-sub{color:#dfeaf3!important}
+.legacy-section-head{background:#17395f!important;border:0!important;font-size:15px!important;min-height:43px!important}
+.legacy-item{background:#f0f2f4!important;border-bottom:1px solid #e3e5e7!important;font-size:14px!important;min-height:44px!important}
+.legacy-item.active{background:#dff5f7!important;color:#123c5b!important;border-inline-start:4px solid var(--shabik-accent)!important}
+.legacy-item.active .menu-icon{color:var(--shabik-accent)!important}
+.legacy-main{padding:0 18px 28px!important}
+.legacy-mobilebar{background:rgba(243,241,246,.97)!important;border-bottom:1px solid var(--shabik-line)!important}
+.legacy-breadcrumb{background:rgba(243,241,246,.96)!important;border-bottom:1px solid var(--shabik-line)!important;color:var(--shabik-ink)!important;font-size:15px!important}
+.legacy-page-head h1{font-size:25px!important;color:var(--shabik-primary)!important}
+.legacy-page-head p{font-size:12px!important;color:var(--shabik-muted)!important}
+.legacy-card,.legacy-stat{background:var(--shabik-surface)!important;border:1px solid var(--shabik-line)!important;border-radius:var(--shabik-radius)!important;box-shadow:0 6px 22px rgba(25,48,70,.06)!important}
+.legacy-card{padding:16px!important}
+.legacy-title-row h2,.legacy-title-row h3{color:var(--shabik-primary)!important}
+.legacy-info{background:var(--shabik-soft)!important;border-color:#cfe9ee!important;color:#235a69!important}
+.legacy-btn{border-radius:12px!important;min-height:40px!important;padding:7px 13px!important}
+.legacy-btn.primary{background:var(--shabik-primary)!important;border-color:var(--shabik-primary)!important}
+.legacy-field label{font-size:14px!important;color:#34516b!important}
+.legacy-field input,.legacy-field select,.legacy-field textarea,.legacy-search{background:#fff!important;border:1px solid #d7d9de!important;border-radius:13px!important;min-height:48px!important}
+.legacy-field input:focus,.legacy-field select:focus,.legacy-field textarea:focus,.legacy-search:focus{border-color:var(--shabik-accent)!important;box-shadow:0 0 0 3px rgba(22,168,197,.12)!important}
+.legacy-stat b{color:var(--shabik-primary)!important}
+.legacy-table-wrap{border-radius:14px!important;border-color:var(--shabik-line)!important}
+.legacy-table th{background:#f5f7f8!important;color:#4f6274!important}
+.legacy-sticky{bottom:8px!important;background:rgba(255,255,255,.96)!important;border-color:var(--shabik-line)!important}
+
+/* Category parent selector: prevent accidental cross-main-category parent selection. */
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const main = document.querySelector('select[name="main_category"]');
+  const parent = document.querySelector('select[name="parent"]');
+  if (main && parent) {
+    const all = Array.from(parent.options).map(o => ({o:o, text:o.textContent.trim()}));
+    const apply = () => {
+      const selected = main.options[main.selectedIndex]?.textContent.trim() || '';
+      all.forEach(({o,text}) => {
+        if (!o.value) { o.hidden=false; return; }
+        const slash = text.indexOf('/');
+        const owner = slash >= 0 ? text.slice(0, slash).trim() : text;
+        o.hidden = !!selected && owner !== selected;
+      });
+      if (parent.selectedOptions[0]?.hidden) parent.value='';
+    };
+    main.addEventListener('change', apply);
+    apply();
+  }
+});
+</script>
