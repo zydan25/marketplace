@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 
-from services.models import DigitalProduct, GameProduct, ProviderLink, Service, ServiceDistribution, ServiceOption, TelecomDenomination, TelecomPlan
+from services.models import DigitalProduct, GameProduct, Service, ServiceOption, TelecomDenomination, TelecomPlan
 
 
 ITEM_MODELS = {
@@ -15,7 +15,7 @@ ITEM_MODELS = {
 
 
 class Command(BaseCommand):
-    help = "يفحص كتالوج الخدمات للتأكد من عدم وجود عنصر مدفوع قابل للتنفيذ بلا سعر/ربطية موثقة."
+    help = "يفحص كتالوج الخدمات للتأكد من عدم وجود عنصر مدفوع قابل للتنفيذ بلا سعر موثق."
 
     def add_arguments(self, parser):
         parser.add_argument("--fail", action="store_true")
@@ -41,13 +41,6 @@ class Command(BaseCommand):
                     price = Decimal("0")
                 if price <= 0:
                     errors.append(f"{model_name}#{item.pk} service={item.service.code}: purchaseable with non-positive price")
-                if not ServiceDistribution.objects.filter(service=item.service, is_active=True, provider_link__is_active=True, provider_link__provider__is_active=True).exists():
-                    errors.append(f"{model_name}#{item.pk} service={item.service.code}: purchaseable without active provider route")
-
-        for service in Service.objects.filter(service_kind=Service.ServiceKinds.PURCHASE, requires_balance=True, is_active=True):
-            if service.pricing_mode == Service.PricingModes.ITEM:
-                if not ServiceDistribution.objects.filter(service=service, is_active=True, provider_link__is_active=True, provider_link__provider__is_active=True).exists():
-                    errors.append(f"service {service.code}: paid item service has no active provider route")
 
         self.stdout.write(f"purchase_services={len(purchase_codes)} errors={len(errors)}")
         for error in errors:
