@@ -1,37 +1,36 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>دليل البيانات — الربطيات</title>{% include "services/_legacy_data_guide_style.html" %}</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>الربطيات ومزودو الخدمات</title>{% include "services/_legacy_data_guide_style.html" %}
+<style>.provider-filter{display:grid;grid-template-columns:1fr auto;gap:8px}.provider-actions{display:flex;gap:6px;flex-wrap:wrap}.provider-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.provider-grid .full{grid-column:1/-1}.provider-grid input{width:100%;min-height:40px}@media(max-width:800px){.provider-grid{grid-template-columns:1fr}.provider-grid .full{grid-column:auto}.provider-filter{grid-template-columns:1fr}}</style></head>
 <body>
-<div class="legacy-main" style="max-width:1100px;margin:auto;padding-top:0">
-  <div class="legacy-breadcrumb">دليل البيانات <span class="sep">&lt;</span> الربطيات</div>
-  {% for message in messages %}<div class="legacy-info">{{ message }}</div>{% endfor %}
-  <div class="legacy-page-head"><div><h1>الربطيات ومزودو الخدمات</h1><p>بيانات الاتصال فقط هنا. تعريفات ومسارات API القياسية تُنشأ تلقائيًا.</p></div><div class="legacy-actions"><a class="legacy-btn secondary" href="/admin/dashboard/services/">مركز الخدمات</a><a class="legacy-btn secondary" href="/admin/dashboard/services/distribution/">مبدأ التوزيع</a></div></div>
-  <div class="legacy-card">
-    <div class="legacy-title-row"><div><h2>{% if editing_provider %}تعديل الربطية{% else %}إضافة ربطية{% endif %}</h2><div class="legacy-muted">لا حاجة لنسخ مسارات العمليات إلى هنا؛ النظام يجهز التعريفات القياسية عند الحفظ.</div></div></div>
-    <form method="post"><input type="hidden" name="action" value="save">{% if editing_provider %}<input type="hidden" name="provider" value="{{ editing_provider.id }}">{% endif %}{% csrf_token %}
-      <div class="legacy-grid">
-        <div class="legacy-field"><label>اسم الربطية <span class="legacy-required">*</span></label><input name="name" required value="{{ editing_provider.name|default:'' }}" placeholder="صنعاء كاش"></div>
-        <div class="legacy-field"><label>الكود الداخلي</label><input name="code" {% if editing_provider %}readonly{% endif %} value="{{ editing_provider.code|default:'' }}" placeholder="sanaacash-main"></div>
-        <div class="legacy-field legacy-full"><label>رابط API الأساسي <span class="legacy-required">*</span></label><input name="base_url" required value="{{ editing_provider.base_url|default:'' }}" placeholder="https://example.com/api/"></div>
-        <div class="legacy-field"><label>User ID</label><input name="userid" value="{{ editing_provider.userid|default:'' }}"></div>
-        <div class="legacy-field"><label>Username</label><input name="username" value="{{ editing_provider.username|default:'' }}"></div>
-        <div class="legacy-field"><label>Password</label><input type="password" name="password" autocomplete="new-password" placeholder="فارغ = إبقاء الحالية"></div>
-        <div class="legacy-field"><label>ملاحظة</label><input name="note" value="{{ editing_provider.metadata.note|default:'' }}" placeholder="إنتاج / احتياطي"></div>
-      </div>
-      <div class="legacy-actions" style="margin-top:14px"><button class="legacy-btn primary" type="submit">{% if editing_provider %}حفظ التعديل{% else %}حفظ وإنشاء المسارات{% endif %}</button>{% if editing_provider %}<a class="legacy-btn secondary" href="/admin/dashboard/services/providers/">إلغاء</a>{% endif %}</div>
-      <div class="legacy-info" style="margin-top:13px">كلمة المرور تحفظ مشفرة ولا تظهر في القائمة. لا تعدّل مسارات API هنا؛ التعريفات القياسية تُنشأ تلقائيًا عند حفظ الربطية.</div>
-    </form>
-  </div>
-  <div class="legacy-card"><div class="legacy-title-row"><div><h2>الربطيات الحالية</h2><div class="legacy-muted">كل مزود في بطاقة واضحة مع مساراته وحالته.</div></div></div>
-    {% for p in providers %}
-    <div class="legacy-provider">
-      <div class="legacy-provider-head"><div><b>{{ p.name }}</b><div class="legacy-muted">{{ p.code }} · <span class="legacy-code">{{ p.base_url }}</span></div></div><span class="legacy-pill {% if p.is_active %}ok{% else %}off{% endif %}">{% if p.is_active %}فعالة{% else %}متوقفة{% endif %}</span></div>
-      <div class="legacy-provider-body">
-        <div class="legacy-chip-row">{% for l in p.links.all|slice:":8" %}<span class="legacy-chip">{{ l.name }}</span>{% empty %}<span class="legacy-muted">لا توجد مسارات مرتبطة.</span>{% endfor %}</div>
-        <details class="legacy-accordion" style="margin-top:10px"><summary>عرض مسارات API (قراءة فقط)</summary><div class="inside">{% for l in p.links.all %}<div class="legacy-path-row"><span>{{ l.name }} · {{ l.operation }} · {{ l.http_method }}</span><span class="legacy-code">{{ l.path_template }}</span></div>{% empty %}<div class="legacy-empty">لا توجد مسارات.</div>{% endfor %}</div></details>
-        <div class="legacy-provider-actions"><a class="legacy-btn small secondary" href="?edit={{ p.id }}">تعديل</a>{% if p.is_active %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="balance"><input type="hidden" name="provider" value="{{ p.id }}"><button class="legacy-btn small primary">فحص الرصيد</button></form><form method="post">{% csrf_token %}<input type="hidden" name="action" value="archive"><input type="hidden" name="provider" value="{{ p.id }}"><button class="legacy-btn small danger">إيقاف</button></form>{% else %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="activate"><input type="hidden" name="provider" value="{{ p.id }}"><button class="legacy-btn small primary">تفعيل</button></form>{% endif %}<form method="post" onsubmit="return confirm('سيتم حذف الربطية فقط دون سجل تاريخي، وإلا ستتم أرشفتها. متابعة؟')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="provider" value="{{ p.id }}"><button class="legacy-btn small danger">حذف</button></form></div>
-      </div>
-    </div>
-    {% empty %}<div class="legacy-empty">لا توجد ربطيات بعد.</div>{% endfor %}
-  </div>
+<div class="legacy-main" style="max-width:1180px;margin:auto;padding-top:0">
+<div class="legacy-breadcrumb"><a href="/admin/dashboard/services/">مركز الخدمات</a><span class="sep">›</span><b>الربطيات</b></div>
+{% for message in messages %}<div class="legacy-info">{{ message }}</div>{% endfor %}
+<div class="legacy-page-head"><div><h1>الربطيات ومزودو الخدمات</h1><p>عرض الربطيات ومساراتها أولًا؛ نموذج الإضافة لا يظهر إلا عند الطلب.</p></div><div class="legacy-actions"><a class="legacy-btn secondary" href="/admin/dashboard/services/">مركز الخدمات</a><a class="legacy-btn primary" href="?add=1">+ إضافة ربطية</a></div></div>
+
+{% if show_form %}
+<div class="legacy-card"><div class="legacy-title-row"><div><h2>{% if editing_provider %}تعديل الربطية{% else %}إضافة ربطية{% endif %}</h2><div class="legacy-muted">التعريفات القياسية ومسارات API تُنشأ تلقائيًا بعد الحفظ.</div></div></div>
+<form method="post"><input type="hidden" name="action" value="save">{% if editing_provider %}<input type="hidden" name="provider" value="{{ editing_provider.id }}">{% endif %}{% csrf_token %}
+<div class="provider-grid">
+<div class="legacy-field"><label>اسم الربطية <span class="legacy-required">*</span></label><input name="name" required value="{{ editing_provider.name|default:'' }}" placeholder="صنعاء كاش"></div>
+<div class="legacy-field"><label>الكود الداخلي</label><input name="code" {% if editing_provider %}readonly{% endif %} value="{{ editing_provider.code|default:'' }}"></div>
+<div class="legacy-field"><label>User ID</label><input name="userid" value="{{ editing_provider.userid|default:'' }}"></div>
+<div class="legacy-field"><label>Username</label><input name="username" value="{{ editing_provider.username|default:'' }}"></div>
+<div class="legacy-field"><label>Password</label><input type="password" name="password" autocomplete="new-password" placeholder="فارغ = إبقاء الحالية"></div>
+<div class="legacy-field full"><label>رابط API الأساسي <span class="legacy-required">*</span></label><input name="base_url" required value="{{ editing_provider.base_url|default:'' }}" placeholder="https://example.com/api/"></div>
+<div class="legacy-field full"><label>ملاحظة</label><input name="note" value="{{ editing_provider.metadata.note|default:'' }}" placeholder="إنتاج / احتياطي"></div>
+</div>
+<div class="legacy-actions" style="margin-top:12px"><button class="legacy-btn primary" type="submit">{% if editing_provider %}حفظ التعديل{% else %}حفظ وإنشاء المسارات{% endif %}</button><a class="legacy-btn secondary" href="/admin/dashboard/services/providers/">إلغاء</a></div>
+<div class="legacy-info" style="margin-top:12px">كلمة المرور تحفظ مشفرة ولا تعرض في القائمة. فحص الرصيد يستخدم ربطية <b>info</b> الفعلية للمزود.</div>
+</form></div>
+{% endif %}
+
+<div class="legacy-card"><div class="legacy-title-row"><div><h2>الربطيات الحالية</h2><div class="legacy-muted">ابحث عن المزود قبل فتح أي إجراء.</div></div></div>
+<form class="provider-filter" method="get"><div class="legacy-field"><label>بحث</label><input name="q" value="{{ request.GET.q|default:'' }}" placeholder="اسم المزود أو الكود أو رابط API"></div><button class="legacy-btn secondary" type="submit">بحث</button></form>
+<div style="margin-top:10px">{% for p in providers %}<div class="legacy-provider" data-provider-search="{{ p.name }} {{ p.code }} {{ p.base_url }}">
+<div class="legacy-provider-head"><div><b>{{ p.name }}</b><div class="legacy-muted">{{ p.code }} · <span class="legacy-code">{{ p.base_url }}</span></div></div><span class="legacy-pill {% if p.is_active %}ok{% else %}off{% endif %}">{% if p.is_active %}فعالة{% else %}متوقفة{% endif %}</span></div>
+<div class="legacy-provider-body"><div class="legacy-chip-row">{% for l in p.links.all|slice:":10" %}<span class="legacy-chip">{{ l.name }}</span>{% empty %}<span class="legacy-muted">لا توجد مسارات.</span>{% endfor %}</div>
+<details class="legacy-accordion" style="margin-top:10px"><summary>مسارات API (قراءة فقط)</summary><div class="inside">{% for l in p.links.all %}<div class="legacy-path-row"><span>{{ l.name }} · {{ l.operation }} · {{ l.http_method }}</span><span class="legacy-code">{{ l.path_template }}</span></div>{% endfor %}</div></details>
+<div class="provider-actions"><a class="legacy-btn small secondary" href="?edit={{ p.id }}">تعديل</a>{% if p.is_active %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="balance"><input type="hidden" name="provider" value="{{ p.id }}"><button class="legacy-btn small primary" type="submit">فحص الرصيد</button></form><form method="post">{% csrf_token %}<input type="hidden" name="action" value="archive"><input type="hidden" name="provider" value="{{ p.id }}"><button class="legacy-btn small danger" type="submit">إيقاف</button></form>{% else %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="activate"><input type="hidden" name="provider" value="{{ p.id }}"><button class="legacy-btn small primary" type="submit">تفعيل</button></form>{% endif %}<form method="post" onsubmit="return confirm('حذف الربطية؟ إذا كان لها تاريخ عمليات سيتم أرشفتها بدل حذفها.')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="provider" value="{{ p.id }}"><button class="legacy-btn small danger" type="submit">حذف</button></form></div>
+</div></div>{% empty %}<div class="legacy-empty">لا توجد ربطيات مطابقة.</div>{% endfor %}</div></div>
 </div></body></html>
