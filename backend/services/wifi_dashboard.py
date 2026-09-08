@@ -1,13 +1,13 @@
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.text import slugify
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from .wifi_networks import WifiNetwork
-from .wifi_denominations import WifiDenomination
+
 from .wifi_cards import WifiCard
+from .wifi_denominations import WifiDenomination
+from .wifi_networks import WifiNetwork
 
 
 def staff_only(user):
@@ -69,17 +69,43 @@ def wifi_management(request):
                         WifiCard.objects.get_or_create(denomination=denomination, card_number=raw[0], defaults={"pin": raw[1], "status": WifiCard.Status.AVAILABLE})
                         created += 1
                     messages.success(request, f"تمت معالجة {created} كرت رقمي.")
-                elif action == "toggle":
+                elif action == "toggle_network":
                     network = get_object_or_404(WifiNetwork, pk=request.POST.get("pk"))
                     network.is_active = not network.is_active
                     network.save(update_fields=["is_active", "updated_at"])
                     messages.success(request, "تم تحديث حالة الشبكة.")
+                elif action == "toggle_denomination":
+                    denomination = get_object_or_404(WifiDenomination, pk=request.POST.get("pk"))
+                    denomination.is_active = not denomination.is_active
+                    denomination.save(update_fields=["is_active"])
+                    messages.success(request, "تم تحديث حالة فئة الوايفاي.")
+                elif action == "toggle_card":
+                    card = get_object_or_404(WifiCard, pk=request.POST.get("pk"))
+                    if card.status == WifiCard.Status.AVAILABLE:
+                        card.status = WifiCard.Status.DISABLED
+                    elif card.status == WifiCard.Status.DISABLED:
+                        card.status = WifiCard.Status.AVAILABLE
+                    card.save(update_fields=["status"])
+                    messages.success(request, "تم تحديث حالة الكرت.")
         except Exception as exc:
             messages.error(request, f"تعذر الحفظ: {exc}")
         return redirect(request.path)
 
     owners = get_user_model().objects.filter(is_active=True).order_by("first_name", "last_name", "phone")
     networks = WifiNetwork.objects.select_related("owner").prefetch_related("denominations__cards").order_by("name")
-    denominations = WifiDenomination.objects.select_related("network", "network__owner").order_by("network__name", "face_value")
+    denominations = WifiDenomination.objects.select_related("network", "network__owner").prefetch_related("cards").order_by("network__name", "face_value")
     cards = WifiCard.objects.select_related("denomination__network", "sold_to").order_by("status", "denomination__network__name", "id")[:500]
-    return render(request, "services/wifi_management.html", {"owners": owners, "networks": networks, "denominations": denominations, "cards": cards})
+
+    edit_network = WifiNetwork.objects.select_related("owner").filter(pk=request.GET.get("edit_network") or 0).first()
+    edit_denomination = WifiDenomination.objects.select_related("network").filter(pk=request.GET.get("edit_denomination") or 0).first()
+    edit_card = WifiCard.objects.select_related("denomination__network").filter(pk=request.GET.get("edit_card") or 0).first()
+
+    return render(request, "services/wifi_management.html", {
+        "owners": owners,
+        "networks": networks,
+        "denominations": denominations,
+        "cards": cards,
+        "edit_network": edit_network,
+        "edit_denomination": edit_denomination,
+        "edit_card": edit_card,
+    })
