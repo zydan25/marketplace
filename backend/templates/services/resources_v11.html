@@ -1,0 +1,165 @@
+{% include "services/_legacy_data_guide_style.html" %}
+
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{% if mode == 'plan' %}الباقات{% elif mode == 'denom' %}فئات التسديدات{% else %}البطاقات والألعاب{% endif %} — دليل البيانات</title>
+<style>
+.resource-page{max-width:1500px;margin:0 auto;padding-bottom:30px}
+.resource-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:14px}
+.resource-hero h1{margin:0;color:#116fa8;font-size:28px;line-height:1.35}.resource-hero p{margin:5px 0 0;color:#758596;font-size:13px}
+.resource-actions{display:flex;gap:8px;flex-wrap:wrap}.resource-actions a,.resource-actions button{border:1px solid #aebdcc;background:#fff;border-radius:11px;padding:9px 13px;font-weight:900;color:#26384a;cursor:pointer}.resource-actions .primary{background:#267fb2;color:#fff;border-color:#267fb2}
+.resource-layout{display:grid;grid-template-columns:290px minmax(0,1fr);gap:15px}.resource-side{background:#fff;border:1px solid #cbd6df;border-radius:14px;box-shadow:0 2px 9px rgba(38,56,74,.10);padding:12px;align-self:start;position:sticky;top:72px}.resource-side h2{margin:2px 4px 11px;color:#116fa8;font-size:18px}.resource-side .group{margin:14px 4px 6px;color:#758596;font-size:11px;font-weight:900}.resource-side a{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:9px 10px;border-radius:9px;background:#eef1f3;border:1px solid #d2dae1;margin-bottom:5px;font-size:12px;font-weight:800}.resource-side a:hover,.resource-side a.active{background:#dff1f8;border-color:#a9cfdf;color:#126e9e}.resource-side .num{border-radius:999px;background:#d7e2eb;padding:2px 7px;font-size:10px}
+.resource-main{min-width:0}.resource-card{background:#fff;border:1px solid #cbd6df;border-radius:14px;box-shadow:0 2px 9px rgba(38,56,74,.10);padding:17px;margin-bottom:14px}.resource-card h2{margin:0;color:#116fa8;font-size:20px}.resource-sub{color:#758596;font-size:12px;margin:4px 0 13px}.resource-info{padding:12px 14px;border:1px solid #bddbe8;background:#dff1f8;color:#2e5d70;border-radius:10px;font-size:13px;margin-bottom:12px}
+.resource-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.resource-field label{display:block;margin-bottom:5px;color:#34516b;font-size:13px;font-weight:900}.resource-field input,.resource-field select,.resource-field textarea{width:100%;min-height:48px;border:1px solid #c7d3dc;border-radius:13px;background:#fff;padding:8px 11px;color:#26384a;outline:none}.resource-field textarea{min-height:90px;resize:vertical}.resource-field input:focus,.resource-field select:focus,.resource-field textarea:focus{border-color:#16a8c5;box-shadow:0 0 0 3px rgba(22,168,197,.12)}.resource-full{grid-column:1/-1}.resource-checkbox{display:flex;align-items:center;gap:8px;min-height:48px;padding:7px 10px;border:1px solid #d2dbe2;border-radius:11px}.resource-checkbox input{width:19px;height:19px;accent-color:#1684b6}
+.resource-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:11px}.resource-toolbar .search{flex:1;min-width:210px}.search{min-height:48px;border:1px solid #c7d3dc;border-radius:13px;padding:8px 11px}.resource-btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:7px 12px;border:1px solid #aebdcc;border-radius:11px;background:#fff;font-weight:900;cursor:pointer}.resource-btn.primary{background:#267fb2;border-color:#267fb2;color:#fff}.resource-btn.secondary{background:#e8eef3}.resource-btn.danger{background:#fff1ef;border-color:#efc5bf;color:#ae291d}
+.resource-types{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}.resource-type{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #d5dee5;border-radius:999px;background:#f4f7f9;font-size:11px;font-weight:900}.resource-type.active{background:#dff5f7;border-color:#81c9d1;color:#116b77}.resource-type small{opacity:.7}
+.resource-table-wrap{overflow:auto;border:1px solid #cbd6df;border-radius:11px}.resource-table{width:100%;min-width:980px;border-collapse:collapse}.resource-table th,.resource-table td{padding:10px 9px;text-align:right;border-bottom:1px solid #e7edf1;vertical-align:middle;font-size:12px}.resource-table th{background:#eef3f6;color:#4c657a;font-size:11px;white-space:nowrap}.resource-table tr:last-child td{border-bottom:0}.pill{display:inline-flex;align-items:center;justify-content:center;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900}.pill.ok{background:#e5f6ef;color:#168160}.pill.off{background:#f8e8e6;color:#ad2d23}.pill.blue{background:#e8f3fa;color:#116fa8}.pill.teal{background:#dff5f7;color:#116b77}.pill.gray{background:#eef2f5;color:#566b7e}.code{direction:ltr;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#eef2f5;border-radius:7px;padding:3px 6px;font-size:10px;display:inline-block}.muted{color:#758596;font-size:11px}.empty{padding:27px;text-align:center;color:#758596}.inline-form{display:inline}.filters-note{font-size:11px;color:#758596;margin-top:6px}
+@media(max-width:1050px){.resource-layout{grid-template-columns:1fr}.resource-side{position:relative;top:auto}.resource-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.resource-page{padding:0 0 20px}.resource-hero{display:block}.resource-hero h1{font-size:23px}.resource-actions{margin-top:10px}.resource-actions a,.resource-actions button{flex:1}.resource-grid{grid-template-columns:1fr}.resource-full{grid-column:auto}.resource-card{padding:12px;border-radius:11px}.resource-side{padding:9px}.resource-side a{font-size:11px}.resource-table{min-width:920px}}
+</style>
+</head>
+<body>
+<div class="resource-page">
+  <div class="legacy-breadcrumb">دليل البيانات <span class="sep">&lt;</span> {% if mode == 'plan' %}الباقات{% elif mode == 'denom' %}فئات التسديدات{% else %}الألعاب والبطائق{% endif %}</div>
+
+  <div class="resource-hero">
+    <div><h1>{% if mode == 'plan' %}الباقات{% elif mode == 'denom' %}فئات التسديدات{% else %}الألعاب والبطائق والبرامج{% endif %}</h1><p>كتالوج موحد للخدمات المرتبطة بالـAPI. لا توجد شاشة قديمة منفصلة لكل شركة.</p></div>
+    <div class="resource-actions">
+      <a href="/admin/dashboard/services/">الخدمات</a>
+      <a class="primary" href="/admin/dashboard/services/resources/?type={{ mode }}">هذا الكتالوج</a>
+      <a href="/admin/dashboard/services/providers/">الربطيات</a>
+    </div>
+  </div>
+
+  {% for message in messages %}<div class="legacy-info">{{ message }}</div>{% endfor %}
+
+  <div class="resource-layout">
+    <aside class="resource-side">
+      <h2>فئات التسديدات</h2>
+      <div class="group">الباقات</div>
+      {% for s in telecom_services %}
+        <a class="{% if mode == 'plan' and selected_service_id == s.id|stringformat:'s' %}active{% endif %}" href="?type=plan&service={{s.id}}"><span>📦 {{s.short_name}}</span><span class="num">{{s.plan_count}}</span></a>
+      {% empty %}<div class="muted">لا توجد خدمات اتصالات.</div>{% endfor %}
+      <div class="group">الفئات / البطاقات</div>
+      {% for s in telecom_services %}
+        <a class="{% if mode == 'denom' and selected_service_id == s.id|stringformat:'s' %}active{% endif %}" href="?type=denom&service={{s.id}}"><span>▣ {{s.short_name}}</span><span class="num">{{s.denom_count}}</span></a>
+      {% endfor %}
+      <div class="group">الألعاب والبطائق</div>
+      <a class="{% if mode == 'entertainment' %}active{% endif %}" href="?type=entertainment">🎮 الألعاب والبطائق</a>
+      <div class="group">روابط موحدة</div>
+      <a href="/admin/dashboard/services/main/">الفئات الرئيسية</a>
+      <a href="/admin/dashboard/services/categories/">فئات الخدمات</a>
+      <a href="/admin/dashboard/services/services/">الخدمات</a>
+      <a href="/admin/dashboard/services/fields/">حقول الطلب</a>
+      <a href="/admin/dashboard/services/providers/">الربطيات</a>
+      <a href="/admin/dashboard/services/distribution/">مبدأ التوزيع</a>
+    </aside>
+
+    <main class="resource-main">
+      {% if mode == 'plan' or mode == 'denom' %}
+        <section class="resource-card">
+          <h2>اختيار الشركة والخدمة</h2>
+          <div class="resource-sub">الشركة تُحدد من فئة التسديدات، والخدمة تحدد نوع العملية. بعدها تُعرض جميع الباقات أو الفئات في نفس الشاشة.</div>
+          <div class="resource-toolbar">
+            {% for s in telecom_services %}<a class="resource-type {% if selected_service_id == s.id|stringformat:'s' %}active{% endif %}" href="?type={{mode}}&service={{s.id}}">{{s.short_name}} <small>{{s.plan_count|add:s.denom_count}}</small></a>{% endfor %}
+          </div>
+        </section>
+
+        {% if mode == 'plan' and selected_service %}
+        <section class="resource-card">
+          <h2>أنواع الباقات</h2>
+          <div class="resource-sub">تصنيف مستقل عن طريقة الدفع ونوع الخط. يمكن إنشاء أي نوع جديد لكل شركة/خدمة.</div>
+          <div class="resource-types">
+            {% for t in plan_types %}
+              <a class="resource-type {% if selected_type_id == t.id|stringformat:'s' %}active{% endif %}" href="?type=plan&service={{selected_service.id}}&plan_type={{t.id}}{% if payment_filter %}&payment_type={{payment_filter}}{% endif %}{% if line_filter %}&line_type={{line_filter}}{% endif %}">{{t.name}}</a>
+            {% empty %}<span class="muted">سيتم إنشاء الأنواع الافتراضية عند فتح الخدمة.</span>{% endfor %}
+          </div>
+          <form method="post" style="margin-top:12px">
+            {% csrf_token %}<input type="hidden" name="action" value="create_type"><input type="hidden" name="service" value="{{selected_service.id}}">
+            <div class="resource-grid"><div class="resource-field"><label>إضافة نوع باقة جديد</label><input name="type_name" required placeholder="مثال: باقات الشركات"></div><div class="resource-field" style="display:flex;align-items:end"><button class="resource-btn primary" type="submit">+ إضافة النوع</button></div></div>
+          </form>
+        </section>
+        {% endif %}
+
+        <section class="resource-card">
+          <h2>{% if mode == 'plan' %}إضافة / تعديل باقة{% else %}إضافة / تعديل فئة تسديد{% endif %}</h2>
+          <div class="resource-sub">البيانات هنا هي التي تُستخدم في كتالوج API؛ المسارات السرية والربطيات تُدار من قسم الربطيات.</div>
+          {% if selected_service %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="type" value="{{mode}}"><input type="hidden" name="service" value="{{selected_service.id}}"><input type="hidden" name="pk" value="{% if edit_obj %}{{edit_obj.id}}{% endif %}">
+            <div class="resource-grid">
+              <div class="resource-field"><label>اسم العنصر *</label><input name="name" required value="{% if edit_obj %}{{edit_obj.name}}{% endif %}" placeholder="اسم الباقة أو الفئة"></div>
+              <div class="resource-field"><label>الكود الخارجي *</label><input name="external_code" required value="{% if edit_obj %}{{edit_obj.external_code}}{% endif %}" placeholder="كود المزود"></div>
+              {% if mode == 'plan' %}
+                <div class="resource-field"><label>نوع الباقة</label><select name="plan_type"><option value="">بدون تصنيف إضافي</option>{% for t in plan_types %}<option value="{{t.id}}" {% if selected_type_id == t.id|stringformat:'s' %}selected{% elif edit_obj and edit_obj.plan_types.all and t in edit_obj.plan_types.all %}selected{% endif %}>{{t.name}}</option>{% endfor %}</select></div>
+                <div class="resource-field"><label>السعر</label><input name="price" type="number" min="0" step="0.01" value="{% if edit_obj %}{{edit_obj.price}}{% else %}0{% endif %}"></div>
+                <div class="resource-field"><label>الوحدات / الحصة</label><input name="quota" type="number" min="0" step="0.001" value="{% if edit_obj %}{{edit_obj.quota|default:''}}{% endif %}"></div>
+                <div class="resource-field"><label>وحدة الحصة</label><input name="quota_unit" value="{% if edit_obj %}{{edit_obj.quota_unit}}{% endif %}" placeholder="MB / GB / وحدة"></div>
+                <div class="resource-field"><label>مدة الصلاحية بالأيام</label><input name="validity_days" type="number" min="0" value="{% if edit_obj %}{{edit_obj.validity_days|default:''}}{% endif %}"></div>
+              {% else %}
+                <div class="resource-field"><label>القيمة الاسمية</label><input name="face_value" type="number" min="0" step="0.01" value="{% if edit_obj %}{{edit_obj.face_value}}{% else %}0{% endif %}"></div>
+                <div class="resource-field"><label>سعر البيع</label><input name="sale_price" type="number" min="0" step="0.01" value="{% if edit_obj %}{{edit_obj.sale_price}}{% else %}0{% endif %}"></div>
+              {% endif %}
+              <div class="resource-field"><label>طريقة الدفع</label><select name="payment_type">{% for value,label in payment_choices %}<option value="{{value}}" {% if edit_obj and edit_obj.payment_type == value %}selected{% elif not edit_obj and value == 'prepaid' %}selected{% endif %}>{{label}}</option>{% endfor %}</select><div class="filters-note">دفع مسبق / فوترة / كليهما.</div></div>
+              <div class="resource-field"><label>نوع الخط</label><select name="line_type"><option value="">غير محدد</option>{% for value,label in line_choices %}{% if value %}<option value="{{value}}" {% if edit_obj and edit_obj.line_type == value %}selected{% endif %}>{{label}}</option>{% endif %}{% endfor %}</select><div class="filters-note">شريحة / برمجة / شريحة + برمجة.</div></div>
+              <div class="resource-field"><label>رقم المزود</label><input name="provider_num" value="{% if edit_obj %}{{edit_obj.metadata.provider_num|default:''}}{% endif %}"></div>
+              <div class="resource-field"><label>سعر الموظف</label><input name="employee_price" value="{% if edit_obj %}{{edit_obj.metadata.employee_price|default:''}}{% endif %}"></div>
+              <div class="resource-field"><label>الترتيب</label><input name="sort_order" type="number" min="0" value="{% if edit_obj %}{{edit_obj.sort_order}}{% else %}0{% endif %}"></div>
+            </div>
+            <div class="legacy-sticky"><button class="legacy-btn primary" type="submit">{% if edit_obj %}حفظ التعديل{% else %}إضافة{% endif %}</button>{% if edit_obj %}<a class="legacy-btn" href="?type={{mode}}&service={{selected_service.id}}">إلغاء</a>{% endif %}</div>
+          </form>
+          {% else %}<div class="empty">اختر شركة / خدمة من الأعلى أولًا.</div>{% endif %}
+        </section>
+
+        <section class="resource-card">
+          <h2>بحث وفرز</h2>
+          <form method="get"><input type="hidden" name="type" value="{{mode}}">{% if selected_service %}<input type="hidden" name="service" value="{{selected_service.id}}">{% endif %}
+            <div class="resource-grid">
+              <div class="resource-field"><label>بحث</label><input name="q" value="{{query}}" placeholder="اسم الباقة أو الكود"></div>
+              {% if mode == 'plan' %}<div class="resource-field"><label>نوع الباقة</label><select name="plan_type"><option value="">كل الأنواع</option>{% for t in plan_types %}<option value="{{t.id}}" {% if selected_type_id == t.id|stringformat:'s' %}selected{% endif %}>{{t.name}}</option>{% endfor %}</select></div>{% endif %}
+              <div class="resource-field"><label>طريقة الدفع</label><select name="payment_type"><option value="">الكل</option>{% for value,label in payment_choices %}{% if value %}<option value="{{value}}" {% if payment_filter == value %}selected{% endif %}>{{label}}</option>{% endif %}{% endfor %}</select></div>
+              <div class="resource-field"><label>نوع الخط</label><select name="line_type"><option value="">الكل</option>{% for value,label in line_choices %}{% if value %}<option value="{{value}}" {% if line_filter == value %}selected{% endif %}>{{label}}</option>{% endif %}{% endfor %}</select></div>
+              <div class="resource-field" style="display:flex;align-items:end;gap:7px"><button class="resource-btn primary" type="submit">تصفية</button><a class="resource-btn" href="?type={{mode}}{% if selected_service %}&service={{selected_service.id}}{% endif %}">مسح</a></div>
+            </div>
+          </form>
+        </section>
+
+        <section class="resource-card">
+          <div class="legacy-title-row"><h2>العناصر الحالية</h2><span class="legacy-muted">{{items|length}} عنصر</span></div>
+          <div class="resource-table-wrap"><table class="resource-table">
+            <tr>{% if mode == 'plan' %}<th>نوع الباقة</th>{% endif %}<th>الشركة / الخدمة</th><th>العنصر</th><th>الكود</th><th>{% if mode == 'plan' %}السعر{% else %}سعر البيع{% endif %}</th><th>الدفع</th><th>الخط</th><th>الحالة</th><th>الإجراء</th></tr>
+            {% for x in items %}
+            <tr>
+              {% if mode == 'plan' %}<td>{% for t in x.plan_types.all %}{% if t.code|slice:':7' == 'bundle-' %}<span class="pill teal">{{t.name}}</span> {% endif %}{% empty %}<span class="pill gray">عام</span>{% endfor %}</td>{% endif %}
+              <td>{{x.service.name}}</td><td><b>{{x.name}}</b></td><td><span class="code">{{x.external_code}}</span></td><td>{% if mode == 'plan' %}{{x.price}}{% else %}{{x.sale_price}}{% endif %} YER</td>
+              <td>{% if x.payment_type == 'prepaid' %}<span class="pill blue">دفع مسبق</span>{% elif x.payment_type == 'postpaid' %}<span class="pill teal">فوترة</span>{% elif x.payment_type == 'both' %}<span class="pill blue">كليهما</span>{% elif x.payment_type == 'paid' %}<span class="pill gray">مدفوع</span>{% else %}—{% endif %}</td>
+              <td>{{x.line_type|default:'—'}}</td><td><span class="pill ok">فعالة</span></td>
+              <td><div class="resource-actions"><a class="resource-btn" href="?type={{mode}}&edit={{x.id}}&edit_kind={{mode}}&service={{x.service.id}}{% if mode == 'plan' %}&plan_type={{selected_type_id}}{% endif %}">تعديل</a><form class="inline-form" method="post">{% csrf_token %}<input type="hidden" name="type" value="{{mode}}"><input type="hidden" name="action" value="toggle"><input type="hidden" name="subtype" value="{{mode}}"><input type="hidden" name="pk" value="{{x.id}}"><input type="hidden" name="service" value="{{x.service.id}}"><button class="resource-btn">إيقاف</button></form></div></td>
+            </tr>
+            {% empty %}<tr><td colspan="9" class="empty">لا توجد عناصر حسب الفلاتر الحالية.</td></tr>{% endfor %}
+          </table></div>
+        </section>
+
+      {% else %}
+        <section class="resource-card">
+          <h2>البطاقات والألعاب والبرامج</h2><div class="resource-sub">فئات موحدة لأي لعبة أو بطاقة رقمية، مرتبطة مباشرة بخدمة API.</div>
+          <form method="get"><input type="hidden" name="type" value="entertainment"><div class="resource-grid"><div class="resource-field"><label>بحث</label><input name="q" value="{{query}}" placeholder="اسم البطاقة أو اللعبة أو الكود"></div><div class="resource-field"><label>الخدمة</label><select name="service"><option value="">كل الخدمات</option>{% for s in entertainment_services %}<option value="{{s.id}}" {% if selected_service_id == s.id|stringformat:'s' %}selected{% endif %}>{{s.full_name}}</option>{% endfor %}</select></div><div class="resource-field" style="display:flex;align-items:end;gap:7px"><button class="resource-btn primary">تصفية</button><a class="resource-btn" href="?type=entertainment">مسح</a></div></div></form>
+        </section>
+        <section class="resource-card">
+          <h2>إضافة بطاقة / لعبة / برنامج</h2>
+          <form method="post">{% csrf_token %}<input type="hidden" name="type" value="entertainment">
+            <div class="resource-grid"><div class="resource-field"><label>نوع العنصر</label><select name="subtype"><option value="game">فئة لعبة</option><option value="digital">بطاقة / برنامج رقمي</option><option value="option">فئة / خيار</option></select></div><div class="resource-field"><label>الخدمة *</label><select name="service" required><option value="">اختر الخدمة</option>{% for s in entertainment_services %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></div><div class="resource-field"><label>اسم الفئة *</label><input name="name" required></div><div class="resource-field"><label>الكود الخارجي</label><input name="external_code"></div><div class="resource-field"><label>السعر</label><input name="price" type="number" min="0" step="0.01" value="0"></div><div class="resource-field"><label>العملة</label><input name="currency" value="YER"></div><div class="resource-field"><label>رقم المزود</label><input name="provider_num"></div><div class="resource-field"><label>سعر الموظف</label><input name="employee_price"></div><div class="resource-field"><label>الترتيب</label><input name="sort_order" type="number" min="0" value="0"></div></div>
+            <div class="legacy-sticky"><button class="legacy-btn primary" type="submit">إضافة العنصر</button></div>
+          </form>
+        </section>
+        <section class="resource-card"><div class="legacy-title-row"><h2>العناصر الحالية</h2><span class="legacy-muted">{{entertainment_items|length}}</span></div><div class="resource-table-wrap"><table class="resource-table"><tr><th>النوع</th><th>الخدمة</th><th>العنصر</th><th>الكود</th><th>السعر</th><th>الحالة</th><th>الإجراء</th></tr>{% for row in entertainment_items %}<tr><td><span class="pill {% if row.kind == 'game' %}teal{% elif row.kind == 'digital' %}blue{% else %}gray{% endif %}">{{row.kind_label}}</span></td><td>{{row.obj.service.name}}</td><td><b>{{row.obj.name}}</b></td><td><span class="code">{{row.obj.external_code}}</span></td><td>{{row.obj.price}} {{row.obj.currency}}</td><td>{% if row.obj.is_active %}<span class="pill ok">فعالة</span>{% else %}<span class="pill off">متوقفة</span>{% endif %}</td><td><div class="resource-actions"><a class="resource-btn" href="?type=entertainment&edit={{row.obj.id}}&edit_kind={{row.kind}}&service={{row.obj.service.id}}">تعديل</a><form class="inline-form" method="post">{% csrf_token %}<input type="hidden" name="type" value="entertainment"><input type="hidden" name="action" value="toggle"><input type="hidden" name="subtype" value="{{row.kind}}"><input type="hidden" name="pk" value="{{row.obj.id}}"><button class="resource-btn">إيقاف</button></form></div></td></tr>{% empty %}<tr><td colspan="7" class="empty">لا توجد بيانات.</td></tr>{% endfor %}</table></div></section>
+      {% endif %}
+    </main>
+  </div>
+</div>
+</body>
+</html>
