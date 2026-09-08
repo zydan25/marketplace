@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.db import models
-from django.utils import timezone
+
 from .wifi_denominations import WifiDenomination
 
 
@@ -11,8 +11,10 @@ class WifiCard(models.Model):
         BLOCKED = "blocked", "موقوف"
 
     denomination = models.ForeignKey(WifiDenomination, on_delete=models.PROTECT, related_name="cards")
+    # The first credential is the username/card number. Password is optional because
+    # some network cards are username-only.
     card_number = models.CharField(max_length=120, unique=True)
-    pin = models.CharField(max_length=120)
+    pin = models.CharField(max_length=120, blank=True, default="")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.AVAILABLE)
     sold_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="purchased_wifi_cards")
     sold_at = models.DateTimeField(null=True, blank=True)
