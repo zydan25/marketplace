@@ -30,12 +30,8 @@ class FlexibleMapAdapter {
                             val num = reader.nextDouble()
                             map[key] = if (num % 1.0 == 0.0) num.toLong().toString() else num.toString()
                         }
-                        JsonReader.Token.BOOLEAN -> {
-                            map[key] = if (reader.nextBoolean()) "نعم" else "لا"
-                        }
-                        JsonReader.Token.NULL -> {
-                            reader.nextNull<Unit>()
-                        }
+                        JsonReader.Token.BOOLEAN -> map[key] = if (reader.nextBoolean()) "نعم" else "لا"
+                        JsonReader.Token.NULL -> reader.nextNull<Unit>()
                         else -> reader.skipValue()
                     }
                 }
@@ -45,9 +41,7 @@ class FlexibleMapAdapter {
                 val str = reader.nextString()
                 if (str.isNotBlank()) map["تفاصيل"] = str
             }
-            JsonReader.Token.NULL -> {
-                reader.nextNull<Unit>()
-            }
+            JsonReader.Token.NULL -> reader.nextNull<Unit>()
             else -> reader.skipValue()
         }
         return map
@@ -55,13 +49,10 @@ class FlexibleMapAdapter {
 
     @ToJson
     fun toJson(writer: JsonWriter, value: Map<String, String>?) {
-        if (value == null) {
-            writer.nullValue()
-        } else {
+        if (value == null) writer.nullValue()
+        else {
             writer.beginObject()
-            value.forEach { (k, v) ->
-                writer.name(k).value(v)
-            }
+            value.forEach { (k, v) -> writer.name(k).value(v) }
             writer.endObject()
         }
     }
@@ -72,16 +63,13 @@ object NetworkClient {
     private var cachedService: DjangoApiService? = null
 
     private val moshi: Moshi by lazy {
-        Moshi.Builder()
-            .add(FlexibleMapAdapter())
-            .addLast(KotlinJsonAdapterFactory())
-            .build()
+        Moshi.Builder().add(FlexibleMapAdapter()).addLast(KotlinJsonAdapterFactory()).build()
     }
 
+    fun moshi(): Moshi = moshi
+
     private val okHttpClient: OkHttpClient by lazy {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
+        val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
         OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
@@ -90,12 +78,7 @@ object NetworkClient {
             .build()
     }
 
-    /**
-     * Retrofit annotations in DjangoApiService already contain the `v2/` prefix
-     * for service endpoints. Older screens were passing `/api/v2/`, which created
-     * `/api/v2/v2/...` and resulted in 404 responses. Normalize that legacy input
-     * back to the API root before constructing Retrofit.
-     */
+    /** Normalize legacy /api/v2/ inputs because service annotations already include v2/. */
     private fun normalizeBaseUrl(baseUrl: String): String {
         var normalized = baseUrl.trim()
         if (!normalized.endsWith("/")) normalized += "/"
@@ -106,19 +89,13 @@ object NetworkClient {
     @Synchronized
     fun getApiService(baseUrl: String = currentBaseUrl): DjangoApiService {
         val normalizedUrl = normalizeBaseUrl(baseUrl)
-        if (cachedService != null && currentBaseUrl == normalizedUrl) {
-            return cachedService!!
-        }
-
+        if (cachedService != null && currentBaseUrl == normalizedUrl) return cachedService!!
         currentBaseUrl = normalizedUrl
         val retrofit = Retrofit.Builder()
             .baseUrl(normalizedUrl)
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
-
-        val service = retrofit.create(DjangoApiService::class.java)
-        cachedService = service
-        return service
+        return retrofit.create(DjangoApiService::class.java).also { cachedService = it }
     }
 }
