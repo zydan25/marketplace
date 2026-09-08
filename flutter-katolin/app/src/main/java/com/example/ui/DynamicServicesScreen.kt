@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.example.ui
 
 import androidx.compose.foundation.background
@@ -46,12 +48,12 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -61,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.UserSession
+import com.example.data.remote.NetworkClient
 import com.example.data.remote.ServiceCategoryDto
 import com.example.data.remote.ServiceDto
 import com.example.data.remote.ServiceFieldDto
@@ -68,7 +71,6 @@ import com.example.data.remote.ServiceItemDto
 import com.example.data.remote.ServiceMainCategoryDto
 import com.example.data.remote.ServiceRequestPayload
 import com.example.data.remote.ServiceTransactionDto
-import com.example.data.remote.NetworkClient
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -208,6 +210,7 @@ fun DynamicServicesScreen(
                 for (attempt in 0 until 20) {
                     transaction = latest
                     if (isTerminal(latest.status) || !latest.result.isNullOrEmpty()) break
+                    if (attempt == 19) break
                     delay(900)
                     val next = NetworkClient.getApiService(apiBase).getServiceTransaction("Token $token", latest.id)
                     if (next.isSuccessful && next.body() != null) latest = next.body()!!
@@ -285,7 +288,7 @@ fun DynamicServicesScreen(
                     if (visibleServices.isNotEmpty()) {
                         item { Text("الخدمات", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
                         items(visibleServices) { service ->
-                            Card(onClick = { chooseService(service) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (selectedService?.id == service.id) MaterialTheme.colorScheme.secondaryContainer else Color.White)) {
+                            Card(onClick = { chooseService(service) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (selectedService?.id == service.id) MaterialTheme.colorScheme.secondaryContainer else Color.White)) {
                                 Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) { Text(service.name, fontWeight = FontWeight.Bold); Text(if (service.items.isNotEmpty()) "${service.items.size} فئة/باقة" else if (service.serviceKind == "query") "استعلام بدون خصم" else "خدمة حسب المبلغ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                     Icon(Icons.Default.ChevronLeft, null)
@@ -295,13 +298,13 @@ fun DynamicServicesScreen(
                     }
                     selectedService?.let { service ->
                         item {
-                            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(3.dp)) {
+                            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(3.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text(service.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                     if (service.items.isNotEmpty()) {
                                         Text("اختر الفئة / الباقة", fontWeight = FontWeight.Bold)
                                         service.items.forEach { item ->
-                                            Card(onClick = { selectedItem = item }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = if (selectedItem?.id == item.id) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF7F8FB))) {
+                                            Card(onClick = { selectedItem = item }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = if (selectedItem?.id == item.id) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF7F8FB))) {
                                                 Row(Modifier.fillMaxWidth().padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                                                     Column(Modifier.weight(1f)) { Text(item.name, fontWeight = FontWeight.Medium); Text(item.metadata["detail"] ?: "${item.currency}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                                     Text(item.price?.let { "${it} ${item.currency}" } ?: "حسب الخدمة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
@@ -311,7 +314,7 @@ fun DynamicServicesScreen(
                                     }
                                     service.fields.forEach { field -> ServiceInput(field, values[field.key].orEmpty()) { values[field.key] = it } }
                                     if (service.serviceKind == "query") Text("هذا استعلام: لا يتم خصم الرصيد.", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
-                                    Button(onClick = { submitService() }, enabled = !submitting, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { if (submitting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(if (service.serviceKind == "query") "استعلام" else "تنفيذ وخصم الرصيد", fontWeight = FontWeight.Bold) }
+                                    Button(onClick = { submitService() }, enabled = !submitting, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { if (submitting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(if (service.serviceKind == "query") "استعلام" else "تنفيذ وخصم الرصيد", fontWeight = FontWeight.Bold) }
                                     error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
                                     transaction?.let { tx ->
                                         Card(colors = CardDefaults.cardColors(containerColor = when {
