@@ -1,0 +1,111 @@
+name: Katolin Android CI
+
+on:
+  push:
+    branches: ["feat/**", "work/**", "refactor/**", "main"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Build Katolin Android
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter-katolin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Normalize and validate payment screen
+        working-directory: .
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt")
+          s = p.read_text(encoding="utf-8")
+
+          # Remove accidental duplicate declarations while preserving one canonical declaration.
+          targets = {
+              '    val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }',
+              '    val denominationPurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.INSTANT, true) }',
+          }
+          lines = s.splitlines()
+          out = []
+          seen = {k: False for k in targets}
+          for line in lines:
+              if line in targets:
+                  if seen[line]:
+                      continue
+                  seen[line] = True
+              out.append(line)
+          s = "\n".join(out) + "\n"
+
+          required_snippets = [
+              'code("yem-balance")',
+              'code("yem-denomination")',
+              'code("yem-bill-offer")',
+              'code("yem-query-offers")',
+              'code("post-query")',
+              'code("yem4g-query")',
+              'private fun DenominationPurchaseCard',
+              'تجديد / تفعيل',
+              'LaunchedEffect(baseUrl, session.token)',
+              'if (session.token != null) syncCatalog()',
+              'listOfNotNull(packageCatalogService, packagePurchase).flatMap { it.items }',
+          ]
+          missing = [x for x in required_snippets if x not in s]
+          if missing:
+              raise SystemExit("PaymentNetworkScreen validation failed: " + ", ".join(missing))
+
+          if s.count('    val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }') != 1:
+              raise SystemExit("PaymentNetworkScreen validation failed: packageCatalogService must appear exactly once")
+          if s.count('    val denominationPurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.INSTANT, true) }') != 1:
+              raise SystemExit("PaymentNetworkScreen validation failed: denominationPurchase must appear exactly once")
+
+          p.write_text(s, encoding="utf-8")
+          PY
+
+          if ! git diff --quiet -- flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt
+            git commit -m "fix(katolin): normalize payment screen source"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Verify toolchain
+        run: |
+          java -version
+          gradle --version
+
+      - name: Compile debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: katolin-debug-apk
+          path: flutter-katolin/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
