@@ -529,6 +529,34 @@ private fun AmountCard(amount: String, onAmountChange: (String) -> Unit, provide
 }
 
 @Composable
+private fun DenominationPurchaseCard(item: ServiceItemDto, provider: ProviderUi, onClick: () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(17.dp),
+        colors = CardDefaults.cardColors(Color(0xFFFFDEAF)),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = CircleShape, color = White, modifier = Modifier.size(58.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text(provider.mark, color = provider.color, fontWeight = FontWeight.Black, fontSize = 13.sp) }
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp), horizontalAlignment = Alignment.End) {
+                Text(item.name, color = provider.color, fontWeight = FontWeight.Black, fontSize = 16.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+                Text("بطاقة شحن", color = TextDark, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+            }
+            Text(
+                item.price?.let { formatYemeni(it.toDoubleOrNull() ?: 0.0) } ?: "—",
+                color = TextDark,
+                fontWeight = FontWeight.Black,
+                fontSize = 27.sp,
+                modifier = Modifier.width(82.dp),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
 private fun PackagePurchaseCard(item: ServiceItemDto, provider: ProviderUi, onClick: () -> Unit) {
     val metadata = item.metadata
     fun meta(vararg keys: String): String? = keys.firstNotNullOfOrNull { key -> metadata[key] ?: metadata[key.lowercase()] }?.takeIf { it.isNotBlank() }
@@ -653,6 +681,7 @@ fun PaymentNetworkScreen(
     val balancePurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.BALANCE, true) }
     val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }
     val packagePurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.PACKAGES, true) }
+    val denominationPurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.INSTANT, true) }
 
     fun restoreCatalog() {
         SessionStore.loadLocalString("service_catalog_${baseUrl.trimEnd('/')}")?.let { raw ->
@@ -677,7 +706,10 @@ fun PaymentNetworkScreen(
         }
     }
 
-    LaunchedEffect(baseUrl, session.token) { restoreCatalog() }
+    LaunchedEffect(baseUrl, session.token) {
+        restoreCatalog()
+        if (session.token != null) syncCatalog()
+    }
 
     fun runBalanceQuery() {
         val token = session.token ?: return
@@ -808,7 +840,7 @@ fun PaymentNetworkScreen(
                     }
                 }
                 if (queryResult != null) item { ResultSummary(provider, queryResult, null, packageMode = true) }
-                val purchaseItems = (packageCatalogService?.items.orEmpty()).ifEmpty { packagePurchase?.items.orEmpty() }.distinctBy { it.id }.take(30)
+                val purchaseItems = (listOfNotNull(packageCatalogService, packagePurchase).flatMap { it.items }).distinctBy { it.id }.take(30)
                 if (purchaseItems.isNotEmpty()) {
                     item {
                         Text("باقات يمن موبايل", color = provider.color, fontWeight = FontWeight.Black, fontSize = 19.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
@@ -821,10 +853,29 @@ fun PaymentNetworkScreen(
                 }
             }
 
-            if (action == PaymentAction.INSTANT || action == PaymentAction.WHOLESALE || action == PaymentAction.POSTPAID) {
+            if (action == PaymentAction.INSTANT) {
+                val instantItems = denominationPurchase?.items.orEmpty().distinctBy { it.id }.take(30)
+                if (instantItems.isNotEmpty()) {
+                    item {
+                        Text("بطاقات يمن موبايل", color = provider.color, fontWeight = FontWeight.Black, fontSize = 19.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+                    }
+                    instantItems.forEach { itemDto ->
+                        item { DenominationPurchaseCard(itemDto, provider) { selectedItem = itemDto; selectedPurchaseService = denominationPurchase; showConfirm = true } }
+                    }
+                } else {
+                    item { AmountCard(amount, { amount = it }, provider) }
+                    item {
+                        Button(onClick = { selectedPurchaseService = denominationPurchase; showConfirm = true }, enabled = denominationPurchase != null && !loading, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = provider.color), shape = RoundedCornerShape(13.dp)) {
+                            Text("تسديد", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        }
+                    }
+                }
+            } else if (action == PaymentAction.WHOLESALE || action == PaymentAction.POSTPAID) {
                 item { AmountCard(amount, { amount = it }, provider) }
                 item {
-                    Button(onClick = { selectedPurchaseService = detectedKind?.let { providerService(allServices, it, action, true) }; showConfirm = true }, enabled = selectedPurchaseService != null && !loading, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = provider.color), shape = RoundedCornerShape(13.dp)) { Text("تسديد", fontWeight = FontWeight.Black, fontSize = 16.sp) }
+                    Button(onClick = { selectedPurchaseService = detectedKind?.let { providerService(allServices, it, action, true) }; showConfirm = true }, enabled = selectedPurchaseService != null && !loading, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = provider.color), shape = RoundedCornerShape(13.dp)) {
+                        Text("تسديد", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                    }
                 }
             }
 
