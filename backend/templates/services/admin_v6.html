@@ -66,3 +66,23 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 });
 </script>
+<script>
+// Keep legacy sidebar shortcuts on the canonical services screens rather than old resource pages.
+document.addEventListener('DOMContentLoaded', function(){
+  const canonical = '/admin/dashboard/services/';
+  document.querySelectorAll('.legacy-sidebar .legacy-item').forEach(function(item){
+    const label = item.querySelector('.menu-label')?.textContent.trim();
+    if (label === 'كروت الشبكات') {
+      if (item.tagName.toLowerCase() === 'a') {
+        item.href = canonical + 'wifi/';
+      } else {
+        const a = document.createElement('a');
+        a.className = item.className;
+        a.href = canonical + 'wifi/';
+        while (item.firstChild) a.appendChild(item.firstChild);
+        item.replaceWith(a);
+      }
+    }
+  });
+});
+</script>
