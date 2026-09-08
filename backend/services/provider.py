@@ -149,26 +149,61 @@ class ProviderClient:
     def check_balance(self):
         if self.connection.connection_type != "sanaacash":
             return ProviderResult(code="UNSUPPORTED", description="فحص رصيد المزود غير مهيأ لهذا النوع من الربط.")
+
+        link = (
+            self.connection.links.filter(is_active=True)
+            .filter(operation__iexact="info")
+            .order_by("priority", "id")
+            .first()
+        )
+        if link is None:
+            link = (
+                self.connection.links.filter(is_active=True)
+                .filter(code__iexact="info")
+                .order_by("priority", "id")
+                .first()
+            )
+        if link is None:
+            return ProviderResult(code="CONFIG", description="لا توجد ربطية info فعالة لهذا المزود لفحص الرصيد.")
+
         transid = self.new_numeric_transid(self.connection, request_kind="balance")
         mobile = "0"
         try:
             password = self.connection.get_password()
             if not self.connection.userid or not self.connection.username or not password:
                 return ProviderResult(code="CONFIG", description="بيانات اعتماد المزود غير مكتملة.")
-            params = {
-                "userid": self.connection.userid, "mobile": mobile, "transid": str(transid),
-                "token": self.sanaacash_token(password, transid, self.connection.username, mobile),
-                "action": "balance",
-            }
+
+            context = {"userid": self.connection.userid, "mobile": mobile, "transid": str(transid), "provider_transid": str(transid)}
+            params = {key: self._render(value, context) for key, value in (link.fixed_params or {}).items()}
+            for target, source in (link.field_map or {}).items():
+                if isinstance(source, str) and source.startswith("{{") and source.endswith("}}"):
+                    params[target] = self._render(source, context)
+                elif isinstance(source, str):
+                    params[target] = context.get(source, source)
+                else:
+                    params[target] = source
+            params.setdefault("userid", self.connection.userid)
+            params.setdefault("mobile", mobile)
+            params.setdefault("transid", str(transid))
+            params.setdefault("token", self.sanaacash_token(password, transid, self.connection.username, mobile))
+            params.setdefault("action", "balance")
+
             headers = dict(self.connection.headers or {})
+            headers.update(link.headers or {})
             timeout = max(1, int(self.connection.timeout_seconds or 20))
-            response = requests.get(self._url("info"), params=params, headers=headers, timeout=timeout)
+            response = self._request(link, self._url(link.path_template), params, headers, timeout)
             data, raw_text, code, desc, parsed = self._decode(response)
             if not 200 <= response.status_code < 300:
                 return ProviderResult(code=f"HTTP_{response.status_code}", description=desc or "فشل رد المزود HTTP.", ambiguous=response.status_code >= 500, response=data, raw_text=raw_text)
             success = str(code) == "0" and "balance" in data
-            ambiguous = not parsed
-            return ProviderResult(code=code if parsed else "INVALID_RESPONSE", description=desc or ("تم جلب رصيد المزود بنجاح." if success else "رد المزود غير صالح."), success=success, ambiguous=ambiguous, response=data, raw_text=raw_text)
+            return ProviderResult(
+                code=code if parsed else "INVALID_RESPONSE",
+                description=desc or ("تم جلب رصيد المزود بنجاح." if success else "رد المزود غير صالح."),
+                success=success,
+                ambiguous=not parsed,
+                response=data,
+                raw_text=raw_text,
+            )
         except (requests.RequestException, ValueError, RuntimeError) as exc:
             return ProviderResult(code="NETWORK" if isinstance(exc, requests.RequestException) else "CONFIG", description=str(exc), success=False, response={"error": str(exc)})
 
@@ -185,13 +220,7 @@ class ProviderClient:
             response = self._request(link, self._url(path), params, headers, timeout)
             data, raw_text, code, desc, parsed = self._decode(response)
             if not 200 <= response.status_code < 300:
-                return ProviderResult(
-                    code=f"HTTP_{response.status_code}",
-                    description=desc or "فشل رد المزود HTTP.",
-                    ambiguous=response.status_code >= 500,
-                    response=data,
-                    raw_text=raw_text,
-                )
+                return ProviderResult(code=f"HTTP_{response.status_code}", description=desc or "فشل رد المزود HTTP.", ambiguous=response.status_code >= 500, response=data, raw_text=raw_text)
             success_codes = {str(x) for x in (link.success_codes or ["0"])}
             pending_codes = {str(x) for x in (link.pending_codes or ["-2"])}
             pending = str(code) in pending_codes or "under process" in str(desc).lower() or "under proccess" in str(desc).lower()
