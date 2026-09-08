@@ -8,14 +8,14 @@ from .models import MainServiceCategory, Service, TelecomPlanType
 
 _PUBLIC_METADATA_KEYS = {
     "quota", "quota_unit", "validity_days", "payment_type", "line_type", "catalog_only",
-    "description", "country", "region", "currency_name", "unit_detail",
+    "description", "country", "region", "currency_name", "unit_detail", "detail",
 }
 _GENERATED_KEYS = {"external_code", "num", "packageid", "uniqcode"}
 
 
 def _public_metadata(item):
     metadata = getattr(item, "metadata", {}) or {}
-    return {key: metadata[key] for key in _PUBLIC_METADATA_KEYS if key in metadata}
+    return {key: str(metadata[key]) for key in _PUBLIC_METADATA_KEYS if key in metadata and metadata[key] is not None}
 
 
 def _field_is_generated(service, field):
@@ -31,21 +31,22 @@ def _field_is_generated(service, field):
 def _availability(item, service):
     metadata = getattr(item, "metadata", {}) or {}
     if metadata.get("purchaseable", True) is False:
-        return {"available": False, "reason": "غير متاح حاليًا"}
+        return {"available": "false", "reason": "غير متاح حاليًا"}
     quantity = metadata.get("provider_quantity")
     if quantity not in (None, ""):
         try:
-            return {"available": float(quantity) > 0, "quantity": str(quantity)}
+            value = float(quantity)
+            return {"available": "true" if value > 0 else "false", "quantity": str(quantity)}
         except (ValueError, TypeError):
             pass
     price = getattr(item, "sale_price", getattr(item, "price", 0))
     if service.service_kind == Service.ServiceKinds.PURCHASE and service.requires_balance:
         try:
             if float(price) <= 0:
-                return {"available": False, "reason": "السعر غير مهيأ"}
+                return {"available": "false", "reason": "السعر غير مهيأ"}
         except (TypeError, ValueError):
-            return {"available": False, "reason": "السعر غير صالح"}
-    return {"available": bool(getattr(item, "is_active", True))}
+            return {"available": "false", "reason": "السعر غير صالح"}
+    return {"available": "true" if getattr(item, "is_active", True) else "false"}
 
 
 def _service_data(service):
