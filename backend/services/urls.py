@@ -2,6 +2,7 @@ from django.urls import path
 
 from .catalog_admin_api import CatalogAdminAPIView
 from .catalog_admin_safe import SafeCatalogAdminEntityAPIView
+from .customer_reports_api import CustomerServiceProviderCheckAPIView, CustomerServiceReportsAPIView
 from .secure_catalog import SecureServiceCatalogAPIView, SecureServiceDetailAPIView
 from .secure_api import SecureServiceRequestAPIView, SecureServiceTransactionDetailAPIView
 from .webhook import SanaacashWebhookAPIView
@@ -12,6 +13,8 @@ urlpatterns = [
     path("services/<int:pk>/", SecureServiceDetailAPIView.as_view(), name="service-detail"),
     path("requests/", SecureServiceRequestAPIView.as_view(), name="service-request"),
     path("requests/<uuid:pk>/", SecureServiceTransactionDetailAPIView.as_view(), name="service-request-detail"),
+    path("requests/<uuid:pk>/provider-check/", CustomerServiceProviderCheckAPIView.as_view(), name="service-request-provider-check"),
+    path("reports/", CustomerServiceReportsAPIView.as_view(), name="customer-service-reports"),
     path("webhook/sanaacash/", SanaacashWebhookAPIView.as_view(), name="sanaacash-webhook"),
     path("wifi/networks/", WifiNetworksAPIView.as_view(), name="wifi-networks"),
     path("wifi/purchase/", WifiPurchaseAPIView.as_view(), name="wifi-purchase"),
