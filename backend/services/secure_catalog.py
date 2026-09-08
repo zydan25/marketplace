@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import MainServiceCategory, Service
+from .models import MainServiceCategory, Service, TelecomPlanType
 
 
 _PUBLIC_METADATA_KEYS = {
@@ -72,10 +72,22 @@ def _service_data(service):
             elif hasattr(item, "price"):
                 item_data["price"] = str(item.price)
             items.append(item_data)
+
+    plan_types = []
+    for plan_type in TelecomPlanType.objects.filter(service=service, is_active=True).prefetch_related("plans").order_by("sort_order", "id"):
+        plan_types.append({
+            "id": plan_type.id,
+            "code": plan_type.code,
+            "name": plan_type.name,
+            "description": plan_type.description,
+            "plan_ids": [plan.id for plan in plan_type.plans.filter(is_active=True)],
+        })
+
     return {
         "id": service.id,
         "code": service.code,
         "name": service.name,
+        "icon": service.icon,
         "description": service.description,
         "service_kind": service.service_kind,
         "requires_balance": service.requires_balance,
@@ -92,6 +104,7 @@ def _service_data(service):
             if not _field_is_generated(service, field)
         ],
         "items": items,
+        "plan_types": plan_types,
     }
 
 
@@ -100,6 +113,7 @@ def _category_data(category):
         "id": category.id,
         "name": category.name,
         "slug": category.slug,
+        "icon": category.icon,
         "parent_id": category.parent_id,
         "services": [_service_data(service) for service in category.services.filter(is_active=True)],
         "children": [_category_data(child) for child in category.children.filter(is_active=True).order_by("sort_order", "id")],
@@ -109,7 +123,7 @@ def _category_data(category):
 def _games_as_children(category):
     result = []
     for service in category.services.filter(is_active=True).order_by("sort_order", "id"):
-        result.append({"id": -service.id, "name": service.name, "slug": service.code, "parent_id": category.id, "services": [_service_data(service)], "children": []})
+        result.append({"id": -service.id, "name": service.name, "slug": service.code, "icon": service.icon or "gamepad", "parent_id": category.id, "services": [_service_data(service)], "children": []})
     for child in category.children.filter(is_active=True).order_by("sort_order", "id"):
         result.append(_category_data(child))
     return result
@@ -124,11 +138,11 @@ class SecureServiceCatalogAPIView(APIView):
             categories = []
             for category in main.categories.filter(is_active=True, parent=None).order_by("sort_order", "id"):
                 if main.slug == "games" and category.slug == "games":
-                    categories.append({"id": category.id, "name": category.name, "slug": category.slug, "parent_id": None, "services": [], "children": _games_as_children(category)})
+                    categories.append({"id": category.id, "name": category.name, "slug": category.slug, "icon": category.icon, "parent_id": None, "services": [], "children": _games_as_children(category)})
                 else:
                     categories.append(_category_data(category))
             roots.append({"id": main.id, "name": main.name, "slug": main.slug, "icon": main.icon, "categories": categories})
-        return Response({"version": "4", "categories": roots})
+        return Response({"version": "5", "categories": roots})
 
 
 class SecureServiceDetailAPIView(APIView):
