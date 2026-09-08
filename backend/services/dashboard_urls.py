@@ -3,11 +3,12 @@ from django.urls import path
 from .admin_v4 import center, distribution
 from .dashboard_resource_catalog import dashboard_resources
 from .provider_setup_v3 import provider_setup
+from .service_dashboard_home import modern_home
 from .views import section_view
 from .wifi_dashboard import wifi_management
 
 urlpatterns = [
-    path("", center, {"section": "overview"}, name="admin-dashboard-services"),
+    path("", modern_home, name="admin-dashboard-services"),
     path("main/", center, {"section": "main"}, name="admin-services-main-categories"),
     path("categories/", center, {"section": "categories"}, name="admin-services-categories"),
     path("categories/main/", center, {"section": "main"}, name="admin-services-categories-main-alias"),
