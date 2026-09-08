@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.example.ui
 
 import androidx.compose.foundation.background
@@ -46,12 +48,12 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -164,7 +166,7 @@ private fun ServerProductsScreen(
     val visible = services.filter { it.name.contains(search, true) || it.code.contains(search, true) }
     val accent = if (games) Color(0xFF1565C0) else Color(0xFF6A1B9A)
 
-    Scaffold(modifier.fillMaxSize(), topBar = {
+    Scaffold(modifier = modifier.fillMaxSize(), topBar = {
         TopAppBar(title = { Text(title, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBackClick) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = { IconButton(onClick = { reload() }) { Icon(Icons.Default.Refresh, "تحديث") } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = accent, titleContentColor = Color.White, navigationIconContentColor = Color.White, actionIconContentColor = Color.White))
     }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).background(Color(0xFFF6F7FA)), contentPadding = PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -184,7 +186,7 @@ private fun ServerProductsScreen(
                 visible.isEmpty() -> item { Card(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) { Text(emptyMessage, Modifier.padding(18.dp)) } }
                 else -> {
                     items(visible) { service ->
-                        Card(onClick = { selectService(service) }, Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (selectedService?.id == service.id) accent.copy(alpha = .10f) else Color.White)) {
+                        Card(onClick = { selectService(service) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (selectedService?.id == service.id) accent.copy(alpha = .10f) else Color.White)) {
                             Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Surface(shape = CircleShape, color = accent.copy(alpha = .10f), modifier = Modifier.size(42.dp)) { Box(contentAlignment = Alignment.Center) { Icon(serviceIcon(service.code, games), null, tint = accent, modifier = Modifier.size(21.dp)) } }
                                 Spacer(Modifier.width(10.dp))
@@ -194,13 +196,13 @@ private fun ServerProductsScreen(
                     }
                     selectedService?.let { service ->
                         item {
-                            Card(Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(3.dp)) {
+                            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(3.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                                     Text(service.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                     if (service.items.isNotEmpty()) {
                                         Text("اختر الفئة / القيمة", fontWeight = FontWeight.Bold)
                                         service.items.forEach { item ->
-                                            Card(onClick = { selectedItem = item }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = if (selectedItem?.id == item.id) accent.copy(alpha = .13f) else Color(0xFFF7F8FB))) {
+                                            Card(onClick = { selectedItem = item }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = if (selectedItem?.id == item.id) accent.copy(alpha = .13f) else Color(0xFFF7F8FB))) {
                                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                                     Column(Modifier.weight(1f)) { Text(item.name, fontWeight = FontWeight.Medium); Text(item.metadata["detail"] ?: "${item.currency}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                                     Text(item.price?.let { formatMoney(it.toDoubleOrNull() ?: 0.0) + " " + item.currency } ?: "—", color = accent, fontWeight = FontWeight.Bold)
@@ -209,7 +211,7 @@ private fun ServerProductsScreen(
                                         }
                                     }
                                     service.fields.filterNot { hideServerGeneratedField(it.key) }.forEach { field -> CatalogInput(field, values[field.key].orEmpty()) { values[field.key] = it } }
-                                    Button(onClick = { submit() }, enabled = !submitting, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { if (submitting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("شراء وخصم الرصيد", fontWeight = FontWeight.Bold) }
+                                    Button(onClick = { submit() }, enabled = !submitting, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { if (submitting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("شراء وخصم الرصيد", fontWeight = FontWeight.Bold) }
                                     transaction?.let { tx ->
                                         Card(colors = CardDefaults.cardColors(containerColor = if (tx.status == "success") Color(0xFFE8F5E9) else Color(0xFFFFF8E1)), shape = RoundedCornerShape(13.dp)) { Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(if (tx.status == "success") Icons.Default.CheckCircle else Icons.Default.Refresh, null, tint = accent); Spacer(Modifier.width(6.dp)); Text(if (tx.status == "success") "تم التنفيذ بنجاح" else "حالة العملية: ${tx.status ?: "قيد المعالجة"}", fontWeight = FontWeight.Bold) } ; tx.result?.forEach { (k,v) -> if (v != null) Text("$k: $v", fontSize = 12.sp) }; tx.errorMessage?.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.error) } } }
                                     }
@@ -226,7 +228,7 @@ private fun ServerProductsScreen(
 @Composable
 private fun CatalogInput(field: ServiceFieldDto, value: String, onValueChange: (String) -> Unit) {
     val keyboard = when (field.type) { "number", "decimal" -> KeyboardType.Number; "phone" -> KeyboardType.Phone; "email" -> KeyboardType.Email; else -> KeyboardType.Text }
-    OutlinedTextField(value = value, onValueChange = onValueChange, Modifier.fillMaxWidth(), label = { Text(field.label + if (field.required) " *" else "") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = keyboard), shape = RoundedCornerShape(11.dp))
+    OutlinedTextField(value = value, onValueChange = onValueChange, modifier = Modifier.fillMaxWidth(), label = { Text(field.label + if (field.required) " *" else "") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = keyboard), shape = RoundedCornerShape(11.dp))
 }
 
 @Composable
