@@ -220,13 +220,7 @@ private fun purchaseService(services: List<ServiceDto>, action: PaymentAction): 
     services.firstOrNull { it.serviceKind == "purchase" && actionFromService(it) == action }
 
 private fun actionLabel(action: PaymentAction, provider: ServiceCategoryDto?): String {
-    if (providerMatches(provider ?: return when (action) {
-            PaymentAction.BALANCE -> "الرصيد"
-            PaymentAction.INSTANT -> "فوري"
-            PaymentAction.PACKAGES -> "باقات"
-            PaymentAction.WHOLESALE -> "جملة"
-            PaymentAction.POSTPAID -> "فوترة"
-        }, ProviderKind.FOUR_G)) {
+    if (provider != null && providerMatches(provider, ProviderKind.FOUR_G)) {
         return when (action) {
             PaymentAction.PACKAGES -> "باقة يمن 4G"
             PaymentAction.BALANCE -> "رصيد يمن 4G"
