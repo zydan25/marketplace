@@ -151,41 +151,50 @@ private fun providerMatches(provider: ServiceCategoryDto, kind: ProviderKind): B
 private fun findProviderByPhone(phone: String, providers: List<ServiceCategoryDto>): ServiceCategoryDto? =
     detectProviderKind(phone)?.let { kind -> providers.firstOrNull { providerMatches(it, kind) } }
 
-private fun providerColor(provider: ServiceCategoryDto?): Color = when {
-    providerMatches(provider ?: return YemenMobilePink, ProviderKind.YEMEN_MOBILE) -> YemenMobilePink
-    providerMatches(provider, ProviderKind.SABAFON) -> SabafonBlue
-    providerMatches(provider, ProviderKind.YOU) -> YouYellow
-    providerMatches(provider, ProviderKind.WHY) -> WhyPurple
-    providerMatches(provider, ProviderKind.FOUR_G) -> FourGBlue
-    providerMatches(provider, ProviderKind.YEMEN_NET) -> YemenNetPurple
-    else -> ControlBlue
+private fun providerColor(provider: ServiceCategoryDto?): Color {
+    if (provider == null) return ControlBlue
+    return when {
+        providerMatches(provider, ProviderKind.YEMEN_MOBILE) -> YemenMobilePink
+        providerMatches(provider, ProviderKind.SABAFON) -> SabafonBlue
+        providerMatches(provider, ProviderKind.YOU) -> YouYellow
+        providerMatches(provider, ProviderKind.WHY) -> WhyPurple
+        providerMatches(provider, ProviderKind.FOUR_G) -> FourGBlue
+        providerMatches(provider, ProviderKind.YEMEN_NET) -> YemenNetPurple
+        else -> ControlBlue
+    }
 }
 
-private fun providerTitle(provider: ServiceCategoryDto?): String = when {
-    providerMatches(provider ?: return "شبكة السداد", ProviderKind.YEMEN_MOBILE) -> "Yemen Mobile"
-    providerMatches(provider, ProviderKind.SABAFON) -> "سبأفون"
-    providerMatches(provider, ProviderKind.YOU) -> "YOU"
-    providerMatches(provider, ProviderKind.WHY) -> "WHY"
-    providerMatches(provider, ProviderKind.FOUR_G) -> "Yemen 4G"
-    providerMatches(provider, ProviderKind.YEMEN_NET) -> "Yemen Net"
-    else -> provider.name.ifBlank { "شبكة السداد" }
+private fun providerTitle(provider: ServiceCategoryDto?): String {
+    if (provider == null) return "شبكة السداد"
+    return when {
+        providerMatches(provider, ProviderKind.YEMEN_MOBILE) -> "Yemen Mobile"
+        providerMatches(provider, ProviderKind.SABAFON) -> "سبأفون"
+        providerMatches(provider, ProviderKind.YOU) -> "YOU"
+        providerMatches(provider, ProviderKind.WHY) -> "WHY"
+        providerMatches(provider, ProviderKind.FOUR_G) -> "Yemen 4G"
+        providerMatches(provider, ProviderKind.YEMEN_NET) -> "Yemen Net"
+        else -> provider.name.ifBlank { "شبكة السداد" }
+    }
 }
 
-private fun providerMark(provider: ServiceCategoryDto?): String = when {
-    providerMatches(provider ?: return "K", ProviderKind.YEMEN_MOBILE) -> "YM"
-    providerMatches(provider, ProviderKind.SABAFON) -> "S"
-    providerMatches(provider, ProviderKind.YOU) -> "YOU"
-    providerMatches(provider, ProviderKind.WHY) -> "WHY"
-    providerMatches(provider, ProviderKind.FOUR_G) -> "4G"
-    providerMatches(provider, ProviderKind.YEMEN_NET) -> "YN"
-    else -> "K"
+private fun providerMark(provider: ServiceCategoryDto?): String {
+    if (provider == null) return "K"
+    return when {
+        providerMatches(provider, ProviderKind.YEMEN_MOBILE) -> "YM"
+        providerMatches(provider, ProviderKind.SABAFON) -> "S"
+        providerMatches(provider, ProviderKind.YOU) -> "YOU"
+        providerMatches(provider, ProviderKind.WHY) -> "WHY"
+        providerMatches(provider, ProviderKind.FOUR_G) -> "4G"
+        providerMatches(provider, ProviderKind.YEMEN_NET) -> "YN"
+        else -> "K"
+    }
 }
 
 private fun isYemenNet(provider: ServiceCategoryDto?): Boolean =
-    providerMatches(provider ?: return false, ProviderKind.YEMEN_NET)
+    providerMatches(provider, ProviderKind.YEMEN_NET)
 
 private fun isYemenMobile(provider: ServiceCategoryDto?): Boolean =
-    providerMatches(provider ?: return false, ProviderKind.YEMEN_MOBILE)
+    providerMatches(provider, ProviderKind.YEMEN_MOBILE)
 
 private fun flatten(category: ServiceCategoryDto): List<ServiceDto> =
     category.services + category.children.flatMap(::flatten)
