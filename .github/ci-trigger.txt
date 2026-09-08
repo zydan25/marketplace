@@ -1,2 +1,3 @@
 CI trigger commit for feat/api-legacy-integration-cleanup.
 This file intentionally has no runtime effect; it exists only to create a new commit and start the configured CI workflows.
+Build trigger after PaymentNetworkScreen fix: 2026-09-08.
