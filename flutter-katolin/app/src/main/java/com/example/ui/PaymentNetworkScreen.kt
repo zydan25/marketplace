@@ -652,6 +652,7 @@ fun PaymentNetworkScreen(
     val loanQuery = detectedKind?.let { providerService(allServices, it, PaymentAction.POSTPAID, false) }
     val balancePurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.BALANCE, true) }
     val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }
+    val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }
     val packagePurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.PACKAGES, true) }
 
     fun restoreCatalog() {
