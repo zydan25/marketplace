@@ -7,9 +7,12 @@ module.exports = {
       cwd: "/home/root/projects/shabik/backend",
       interpreter: "none",
       env: {
-        // PM2 will also load .env.production if dotenv is used, but we pass it explicitly
+        // The service queue worker now runs inside Django; the process lock
+        // guarantees only one Gunicorn worker executes queued tasks.
         DJANGO_DEBUG: "0",
-        PYTHONUNBUFFERED: "1"
+        PYTHONUNBUFFERED: "1",
+        SERVICES_EMBEDDED_WORKER: "1",
+        SERVICES_WORKER_LOCK_PATH: "/tmp/shabik-services-worker.lock"
       }
     }
   ]
