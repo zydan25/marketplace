@@ -1,7 +1,5 @@
 package com.example.ui
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -18,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,7 +38,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -81,6 +77,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+private val ServicesBackground = Color(0xFFF4F3F8)
+private val ServicesCard = Color.White
+
 private fun flattenServices(categories: List<ServiceCategoryDto>): List<ServiceDto> = buildList {
     categories.forEach { category ->
         addAll(category.services)
@@ -88,49 +87,117 @@ private fun flattenServices(categories: List<ServiceCategoryDto>): List<ServiceD
     }
 }
 
-private fun providerColor(slug: String, name: String): Color {
+private fun providerAccent(slug: String, name: String): Color {
     val key = "$slug $name".lowercase()
     return when {
-        "yemen-mobile" in key || "يمن موبايل" in key -> Color(0xFFC62828)
-        "sabafon" in key || "سبأفون" in key -> Color(0xFF0288D1)
-        "you" in key || "يو" in key -> Color(0xFFF9A825)
-        "why" in key || "واي" in key -> Color(0xFF7B1FA2)
-        "yemen-net" in key || "يمن نت" in key -> Color(0xFF0D47A1)
-        "adenet" in key || "عدن نت" in key -> Color(0xFF00838F)
-        "electric" in key || "كهرب" in key -> Color(0xFFFF8F00)
-        "water" in key || "ماء" in key -> Color(0xFF0277BD)
-        else -> Color(0xFF1565C0)
+        "yemen-mobile" in key || "يمن موبايل" in key -> Color(0xFFB31946)
+        "sabafon" in key || "سبأفون" in key -> Color(0xFF1476B8)
+        "you" in key || "يو" in key -> Color(0xFFD08A00)
+        "why" in key || "واي" in key -> Color(0xFF5A2A86)
+        "4g" in key || "فورجي" in key -> Color(0xFF087C7D)
+        "yemen-net" in key || "يمن نت" in key -> Color(0xFF245394)
+        "adenet" in key || "عدن نت" in key -> Color(0xFF087F8C)
+        else -> Color(0xFF27364A)
     }
 }
 
-private fun serviceTabLabel(service: ServiceDto): String {
-    val text = service.name.lowercase()
+private fun providerMark(slug: String, name: String): String {
+    val key = "$slug $name".lowercase()
     return when {
-        "استعلام" in text || service.serviceKind == "query" -> "استعلام"
-        "جملة" in text -> "جملة"
-        "فوري" in text || "فئات" in text -> "فوري"
-        "باقة" in text || "باقات" in text -> "باقات"
-        "ريال" in text -> "ريال"
-        "رصيد" in text -> "رصيد"
-        else -> service.name.take(14)
+        "yemen-mobile" in key || "يمن موبايل" in key -> "YM"
+        "sabafon" in key || "سبأفون" in key -> "S"
+        "you" in key || "يو" in key -> "YOU"
+        "why" in key || "واي" in key -> "WHY"
+        "4g" in key || "فورجي" in key -> "4G"
+        "yemen-net" in key || "يمن نت" in key -> "YN"
+        "adenet" in key || "عدن نت" in key -> "AD"
+        else -> name.trim().take(2)
     }
 }
 
-private fun prettifyResultKey(key: String): String = when (key.lowercase()) {
+private fun actionLabel(service: ServiceDto): String = when (service.serviceKind) {
+    "query" -> "استعلام"
+    "catalog" -> "عرض الباقات"
+    else -> when {
+        service.name.contains("جملة") -> "جملة"
+        service.name.contains("فئة") || service.name.contains("شحن") -> "فئات"
+        service.name.contains("باقة") -> "باقات"
+        service.name.contains("رصيد") -> "رصيد"
+        else -> "تسديد"
+    }
+}
+
+private fun keyboardFor(field: ServiceFieldDto): KeyboardType = when (field.type) {
+    "number", "decimal" -> KeyboardType.Number
+    "phone" -> KeyboardType.Phone
+    "email" -> KeyboardType.Email
+    else -> KeyboardType.Text
+}
+
+private fun resultLabel(key: String): String = when (key.lowercase()) {
     "balance" -> "الرصيد"
     "availablecredit" -> "الرصيد المتاح"
-    "remaamount", "remainamount" -> "المبلغ المتبقي"
-    "mobiltype", "mobiletype" -> "نوع الخط"
-    "mobile" -> "رقم الهاتف"
+    "remainamount", "remaamount" -> "الرصيد المتبقي"
+    "mobiletype", "mobiltype" -> "نوع الخط"
     "resultdesc" -> "الرسالة"
     "resultcode" -> "رمز النتيجة"
-    "sequenceid" -> "رقم العملية لدى المزود"
+    "sequenceid" -> "رقم العملية"
     "offername" -> "اسم الباقة"
-    "offerid" -> "معرف الباقة"
+    "offerid" -> "كود الباقة"
     "offerstartdate" -> "بداية الباقة"
     "offerenddate" -> "نهاية الباقة"
     "reason" -> "السبب"
     else -> key.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
+@Composable
+private fun ProviderBadge(provider: ServiceCategoryDto, selected: Boolean, onClick: () -> Unit) {
+    val accent = providerAccent(provider.slug, provider.name)
+    Surface(
+        modifier = Modifier.width(112.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(17.dp),
+        color = if (selected) accent else ServicesCard,
+        shadowElevation = if (selected) 4.dp else 1.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 9.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(42.dp).background(
+                    if (selected) Color.White.copy(alpha = .18f) else accent.copy(alpha = .11f),
+                    CircleShape
+                ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(providerMark(provider.slug, provider.name), color = if (selected) Color.White else accent, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+            }
+            Text(provider.name, color = if (selected) Color.White else Color(0xFF26262B), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun OperationRow(service: ServiceDto, selected: Boolean, accent: Color, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(15.dp),
+        color = if (selected) accent.copy(alpha = .09f) else ServicesCard,
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) accent else Color(0xFFE8E6EC)),
+        shadowElevation = if (selected) 2.dp else 0.dp
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(39.dp).background(accent.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(if (service.serviceKind == "query") Icons.Default.Search else Icons.Default.AccountBalanceWallet, null, tint = accent, modifier = Modifier.size(19.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(actionLabel(service), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(service.name, color = Color(0xFF707078), fontSize = 9.sp, maxLines = 2)
+            }
+            Text(if (service.serviceKind == "query") "استعلام" else if (service.serviceKind == "catalog") "عرض" else "مدفوع", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        }
+    }
 }
 
 @Composable
@@ -144,22 +211,42 @@ fun PaymentNetworkScreen(
     modifier: Modifier = Modifier
 ) {
     val repository = remember { StoreRepository.instance }
-    val configuredBaseUrl by repository.djangoBaseUrl.collectAsState()
-    val baseUrl = configuredBaseUrl.trimEnd('/') + "/v2/"
+    val baseUrl by repository.djangoBaseUrl.collectAsState()
     val session by repository.userSession.collectAsState()
     val scope = rememberCoroutineScope()
 
     var catalog by remember { mutableStateOf<List<ServiceMainCategoryDto>>(emptyList()) }
     var selectedProvider by remember { mutableStateOf<ServiceCategoryDto?>(null) }
+    var selectedBranch by remember { mutableStateOf<ServiceCategoryDto?>(null) }
     var selectedService by remember { mutableStateOf<ServiceDto?>(null) }
     var selectedItem by remember { mutableStateOf<ServiceItemDto?>(null) }
+    var selectedPlanTypeId by remember { mutableStateOf<Int?>(null) }
+    var phone by remember(session.phone) { mutableStateOf(session.phone) }
     var loading by remember { mutableStateOf(true) }
     var submitting by remember { mutableStateOf(false) }
+    var showBalance by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<ServiceTransactionDto?>(null) }
-    var isBalanceVisible by remember { mutableStateOf(true) }
-    var phone by remember(session.phone) { mutableStateOf(session.phone) }
-    val fieldValues = remember { mutableStateMapOf<String, String>() }
+    val values = remember { mutableStateMapOf<String, String>() }
+
+    fun chooseService(service: ServiceDto) {
+        selectedService = service
+        selectedItem = null
+        selectedPlanTypeId = null
+        result = null
+        values.clear()
+        service.fields.forEach { field ->
+            if (field.key == "mobile" && phone.isNotBlank()) values[field.key] = phone
+            if (field.type == "select" && field.choices.isNotEmpty()) values[field.key] = field.choices.first()
+        }
+    }
+
+    fun chooseProvider(provider: ServiceCategoryDto) {
+        selectedProvider = provider
+        selectedBranch = provider.children.firstOrNull()
+        val services = flattenServices(listOf(selectedBranch ?: provider)).distinctBy { it.id }
+        services.firstOrNull()?.let(::chooseService)
+    }
 
     fun loadCatalog() {
         val token = session.token
@@ -172,18 +259,16 @@ fun PaymentNetworkScreen(
             loading = true
             error = null
             try {
-                val response = NetworkClient.getApiService(baseUrl).getServiceCatalog("Token $token")
+                val api = NetworkClient.getApiService(baseUrl.trimEnd('/') + "/")
+                val response = api.getServiceCatalog("Token $token")
                 if (!response.isSuccessful || response.body() == null) {
-                    error = "تعذر تحميل خدمات التسديد (HTTP ${response.code()})."
+                    error = "تعذر تحميل الخدمات (HTTP ${response.code()})."
                     return@launch
                 }
                 catalog = response.body()!!.categories
-                val payments = catalog.firstOrNull { it.slug == "payments" }
+                val root = catalog.firstOrNull { it.slug == "payments" }
                     ?: catalog.firstOrNull { it.name.contains("تسديد") }
-                    ?: catalog.firstOrNull()
-                selectedProvider = payments?.categories?.firstOrNull()
-                selectedService = selectedProvider?.let { flattenServices(listOf(it)).firstOrNull() }
-                selectedItem = null
+                root?.categories?.firstOrNull()?.let(::chooseProvider)
             } catch (e: Exception) {
                 error = e.localizedMessage ?: "تعذر الاتصال بخادم الخدمات."
             } finally {
@@ -192,31 +277,22 @@ fun PaymentNetworkScreen(
         }
     }
 
-    LaunchedEffect(session.token, configuredBaseUrl) { loadCatalog() }
+    LaunchedEffect(session.token, baseUrl) { loadCatalog() }
 
-    val paymentsRoot = catalog.firstOrNull { it.slug == "payments" }
+    val root = catalog.firstOrNull { it.slug == "payments" }
         ?: catalog.firstOrNull { it.name.contains("تسديد") }
-    val providers = paymentsRoot?.categories.orEmpty()
-    val providerServices = selectedProvider?.let { flattenServices(listOf(it)) }.orEmpty().distinctBy { it.id }
-    val accent by animateColorAsState(providerColor(selectedProvider?.slug.orEmpty(), selectedProvider?.name.orEmpty()), animationSpec = tween(300), label = "payment_accent")
-    val tabs = providerServices.map { serviceTabLabel(it) }.distinct()
+    val providers = root?.categories.orEmpty()
+    val branches = selectedProvider?.children.orEmpty()
+    val services = flattenServices(listOf(selectedBranch ?: selectedProvider ?: ServiceCategoryDto(-1, "", ""))).distinctBy { it.id }
+    val accent = providerAccent(selectedProvider?.slug.orEmpty(), selectedProvider?.name.orEmpty())
+    val selectedType = selectedService?.planTypes?.firstOrNull { it.id == selectedPlanTypeId }
+    val visibleItems = selectedService?.items.orEmpty().filter { selectedType == null || it.id in selectedType.planIds }
 
-    fun chooseService(service: ServiceDto) {
-        selectedService = service
-        selectedItem = null
-        result = null
-        fieldValues.clear()
-        service.fields.forEach { field ->
-            if (field.key == "mobile" && phone.isNotBlank()) fieldValues[field.key] = phone
-            if (field.type == "select" && field.choices.isNotEmpty()) fieldValues[field.key] = field.choices.first()
-        }
-    }
-
-    fun submitService() {
+    fun submit() {
         val service = selectedService ?: return
-        if (submitting) return
         val token = session.token ?: return
-        val missing = service.fields.firstOrNull { it.required && fieldValues[it.key].isNullOrBlank() }
+        if (submitting) return
+        val missing = service.fields.firstOrNull { it.required && values[it.key].isNullOrBlank() }
         if (missing != null) {
             error = "الحقل المطلوب: ${missing.label}"
             return
@@ -231,32 +307,37 @@ fun PaymentNetworkScreen(
             result = null
             try {
                 val key = UUID.randomUUID().toString()
-                val body = ServiceRequestPayload(
+                val payload = ServiceRequestPayload(
                     serviceId = service.id,
                     itemType = selectedItem?.type,
                     itemId = selectedItem?.id,
-                    payload = fieldValues.mapValues { it.value.ifBlank { null } },
+                    payload = values.mapValues { it.value.ifBlank { null } },
                     idempotencyKey = key
                 )
-                val response = NetworkClient.getApiService(baseUrl).submitServiceRequest("Token $token", key, body)
+                val api = NetworkClient.getApiService(baseUrl.trimEnd('/') + "/")
+                val response = api.submitServiceRequest("Token $token", key, payload)
                 if (!response.isSuccessful || response.body() == null) {
-                    error = "تعذر إرسال العملية (HTTP ${response.code()})."
+                    val details = response.errorBody()?.string().orEmpty()
+                    error = if (details.isBlank()) "تعذر إرسال العملية (HTTP ${response.code()})." else "رفض الخادم العملية: ${details.take(260)}"
                     return@launch
                 }
                 var latest = response.body()!!
-                repeat(20) {
+                for (attempt in 0 until 20) {
                     result = latest
-                    val status = latest.status.orEmpty().lowercase()
-                    val done = status in setOf("success", "failed", "refunded") || (service.serviceKind == "query" && !latest.result.isNullOrEmpty())
-                    if (done) return@repeat
+                    val state = latest.status.orEmpty().lowercase()
+                    val done = state in setOf("success", "failed", "refunded", "manual_review") || (service.serviceKind == "query" && !latest.result.isNullOrEmpty())
+                    if (done || attempt == 19) break
                     delay(900)
-                    val next = NetworkClient.getApiService(baseUrl).getServiceTransaction("Token $token", latest.id)
+                    val next = api.getServiceTransaction("Token $token", latest.id)
                     if (next.isSuccessful && next.body() != null) latest = next.body()!!
                 }
                 result = latest
-                onSyncBalance()
+                if (latest.status == "success" || latest.status == "refunded") onSyncBalance()
+                if (latest.status == "success") {
+                    onRechargeSubmit(phone, selectedProvider?.name.orEmpty(), selectedBranch?.name.orEmpty(), selectedItem?.name ?: service.name, latest.amount?.toDoubleOrNull() ?: 0.0)
+                }
             } catch (e: Exception) {
-                error = e.localizedMessage ?: "حدث خطأ أثناء تنفيذ العملية."
+                error = e.localizedMessage ?: "حدث خطأ أثناء التنفيذ."
             } finally {
                 submitting = false
             }
@@ -267,145 +348,213 @@ fun PaymentNetworkScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("تسديد الخدمات", fontWeight = FontWeight.Bold) },
+                title = { Text("خدمات التسديد", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
                 navigationIcon = { IconButton(onClick = onBackClick) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
                 actions = { IconButton(onClick = { loadCatalog(); onSyncBalance() }) { Icon(Icons.Default.Refresh, "تحديث") } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = accent, titleContentColor = Color.White, navigationIconContentColor = Color.White, actionIconContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = ServicesBackground)
             )
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).background(Color(0xFFF5F7FA)),
-            contentPadding = PaddingValues(bottom = 30.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxSize().padding(padding).background(ServicesBackground),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             item {
-                Column(Modifier.fillMaxWidth().background(accent).padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                        Surface(shape = CircleShape, color = Color.White.copy(alpha = .18f), modifier = Modifier.clickable { isBalanceVisible = !isBalanceVisible }) {
-                            Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(if (isBalanceVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                Text(if (isBalanceVisible) "${formatMoney(wallet.balanceYer)} ر.ي" else "•••••", color = Color.White, fontWeight = FontWeight.Bold)
-                                Text("رصيدي", color = Color.White.copy(alpha = .9f), fontSize = 12.sp)
-                            }
-                        }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("التسديد", fontWeight = FontWeight.ExtraBold, fontSize = 23.sp)
+                        Text("اختر الشركة ثم نوع العملية", color = Color(0xFF77747D), fontSize = 10.sp)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text("تسديد شبكات الاتصالات والخدمات", modifier = Modifier.fillMaxWidth(), color = Color.White, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontSize = 16.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        providers.forEach { provider ->
-                            val selected = selectedProvider?.id == provider.id
-                            FilterChip(selected = selected, onClick = { selectedProvider = provider; selectedService = flattenServices(listOf(provider)).firstOrNull(); selectedItem = null; result = null }, label = { Text(provider.name) }, leadingIcon = { Icon(Icons.Default.Call, null, modifier = Modifier.size(16.dp)) })
+                    Surface(modifier = Modifier.clickable { showBalance = !showBalance }, shape = RoundedCornerShape(14.dp), color = ServicesCard, shadowElevation = 1.dp) {
+                        Row(Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(if (showBalance) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = accent, modifier = Modifier.size(16.dp))
+                            Text(if (showBalance) "${formatMoney(wallet.balanceYer)} ر.ي" else "••••••", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
             item {
-                Card(Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(3.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("رقم المستفيد", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        OutlinedTextField(value = phone, onValueChange = { phone = it; fieldValues["mobile"] = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("ادخل رقم الهاتف / الاشتراك") }, leadingIcon = { Icon(Icons.Default.Call, null, tint = accent) }, trailingIcon = { if (phone.isNotEmpty()) IconButton(onClick = { phone = ""; fieldValues.remove("mobile") }) { Icon(Icons.Default.Clear, "مسح") } }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), shape = RoundedCornerShape(12.dp))
-                        Text("+967  ${phone.ifBlank { "—" }}", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = accent, fontWeight = FontWeight.Bold)
+                Surface(shape = RoundedCornerShape(19.dp), color = ServicesCard, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("الشركات", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6B6870))
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            providers.forEach { provider ->
+                                ProviderBadge(provider, selectedProvider?.id == provider.id) { chooseProvider(provider) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (branches.isNotEmpty()) {
+                item {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        branches.forEach { branch ->
+                            FilterChip(
+                                selected = selectedBranch?.id == branch.id,
+                                onClick = {
+                                    selectedBranch = branch
+                                    flattenServices(listOf(branch)).distinctBy { it.id }.firstOrNull()?.let(::chooseService)
+                                },
+                                label = { Text(branch.name, fontSize = 10.sp) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(19.dp), colors = CardDefaults.cardColors(containerColor = ServicesCard), elevation = CardDefaults.cardElevation(1.dp)) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text("نوع الخدمة", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6B6870))
+                        services.forEach { service ->
+                            OperationRow(service, selectedService?.id == service.id, accent) { chooseService(service) }
+                        }
                     }
                 }
             }
 
             if (loading) {
-                item { Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) { CircularProgressIndicator(color = accent); Spacer(Modifier.height(8.dp)); Text("جارٍ تحميل الخدمات والباقات من الخادم…") } }
-            } else if (error != null) {
-                item { Card(Modifier.fillMaxWidth().padding(horizontal = 14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) { Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Default.ErrorOutline, null); Text(error!!, textAlign = TextAlign.Center); TextButton(onClick = { error = null; loadCatalog() }) { Text("إعادة المحاولة") } } } }
-            } else {
-                if (tabs.isNotEmpty()) {
-                    item { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { tabs.forEach { tab -> val active = selectedService?.let { serviceTabLabel(it) } == tab; FilterChip(selected = active, onClick = { selectedService = providerServices.firstOrNull { serviceTabLabel(it) == tab } }, label = { Text(tab) }) } } }
-                }
+                item { Box(Modifier.fillMaxWidth().padding(35.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) } }
+            }
 
-                items(providerServices) { service ->
-                    Card(onClick = { chooseService(service) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (selectedService?.id == service.id) accent.copy(alpha = .10f) else Color.White)) {
-                        Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Surface(shape = CircleShape, color = accent.copy(alpha = .12f), modifier = Modifier.size(40.dp)) { Box(contentAlignment = Alignment.Center) { Icon(if (service.serviceKind == "query") Icons.Default.Search else Icons.Default.AccountBalanceWallet, null, tint = accent, modifier = Modifier.size(19.dp)) } }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(service.name, fontWeight = FontWeight.Bold, maxLines = 2)
-                                Text(if (service.items.isNotEmpty()) "${service.items.size} فئة/باقة" else if (service.serviceKind == "query") "استعلام بدون خصم" else "خدمة حسب المبلغ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Text(if (service.serviceKind == "query") "استعلام" else serviceTabLabel(service), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                selectedService?.let { service ->
-                    item {
-                        Card(Modifier.fillMaxWidth().padding(horizontal = 14.dp), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(4.dp)) {
-                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) { Text(service.name, fontWeight = FontWeight.Bold, fontSize = 18.sp); Text(service.description.ifBlank { service.code }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                    Surface(shape = CircleShape, color = accent.copy(alpha = .12f), modifier = Modifier.size(40.dp)) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.AccountBalanceWallet, null, tint = accent) } }
+            selectedService?.let { service ->
+                item {
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = ServicesCard), elevation = CardDefaults.cardElevation(1.dp)) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(service.name, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                            if (service.planTypes.isNotEmpty()) {
+                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilterChip(selected = selectedPlanTypeId == null, onClick = { selectedPlanTypeId = null; selectedItem = null }, label = { Text("كل الأنواع", fontSize = 9.sp) })
+                                    service.planTypes.forEach { type ->
+                                        FilterChip(selected = selectedPlanTypeId == type.id, onClick = { selectedPlanTypeId = type.id; selectedItem = null }, label = { Text(type.name, fontSize = 9.sp) })
+                                    }
                                 }
-                                if (service.items.isNotEmpty()) {
-                                    Text("اختر الفئة / الباقة", fontWeight = FontWeight.Bold)
-                                    service.items.chunked(2).forEach { rowItems ->
-                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            rowItems.forEach { item ->
-                                                Card(onClick = { selectedItem = item }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(13.dp), colors = CardDefaults.cardColors(containerColor = if (selectedItem?.id == item.id) accent.copy(alpha = .14f) else Color(0xFFF7F8FB))) {
-                                                    Column(Modifier.padding(11.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(item.name, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 2); Text(item.price?.let { "${formatMoney(it.toDoubleOrNull() ?: 0.0)} ${item.currency}" } ?: "حسب الخدمة", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold) }
-                                                }
+                            }
+                            if (visibleItems.isNotEmpty()) {
+                                Text("الفئات / الباقات", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF69666E))
+                                visibleItems.forEach { item ->
+                                    val selected = selectedItem?.id == item.id && selectedItem?.type == item.type
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth().clickable(enabled = item.availability["available"] != "false") { selectedItem = item },
+                                        shape = RoundedCornerShape(13.dp),
+                                        color = if (selected) accent.copy(alpha = .09f) else Color(0xFFFAF9FB),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) accent else Color(0xFFE7E4EA))
+                                    ) {
+                                        Row(Modifier.padding(horizontal = 10.dp, vertical = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(item.name, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                if (item.availability["available"] == "false") Text(item.availability["reason"] ?: "غير متاح", fontSize = 9.sp, color = Color(0xFFAC3C3C))
                                             }
-                                            if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                                            Text(item.price?.let { "${formatMoney(it.toDoubleOrNull() ?: 0.0)} ${item.currency}" } ?: "—", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = accent)
                                         }
                                     }
                                 }
-                                service.fields.forEach { field -> PaymentField(field, fieldValues[field.key].orEmpty()) { value -> fieldValues[field.key] = value; if (field.key == "mobile") phone = value } }
-                                if (service.serviceKind == "query") Text("لا يتم خصم أي مبلغ من الاستعلام.", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                                else if (service.pricingMode == "amount") Text("المبلغ يحدد داخل حدود الخدمة التي أرسلها الخادم.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                                Button(onClick = { submitService() }, enabled = !submitting, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(13.dp)) { if (submitting) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp) else Text(if (service.serviceKind == "query") "استعلام" else "تأكيد وخصم الرصيد", fontWeight = FontWeight.Bold) }
-                                result?.let { ResultCard(it, formatMoney, accent) }
+                            }
+
+                            service.fields.filter { it.key != "mobile" }.forEach { field ->
+                                val value = values[field.key].orEmpty()
+                                if (field.type == "select") {
+                                    Text(field.label, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        field.choices.forEach { choice ->
+                                            FilterChip(selected = value == choice, onClick = { values[field.key] = choice }, label = { Text(choice, fontSize = 9.sp) })
+                                        }
+                                    }
+                                } else {
+                                    OutlinedTextField(
+                                        value = value,
+                                        onValueChange = { values[field.key] = it },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        label = { Text(field.label + if (field.required) " *" else "", fontSize = 10.sp) },
+                                        keyboardOptions = KeyboardOptions(keyboardType = keyboardFor(field)),
+                                        trailingIcon = if (value.isNotEmpty()) ({ IconButton(onClick = { values.remove(field.key) }) { Icon(Icons.Default.Clear, "مسح") } }) else null,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                }
+                            }
+
+                            if (service.fields.any { it.key == "mobile" }) {
+                                OutlinedTextField(
+                                    value = phone,
+                                    onValueChange = { phone = it; values["mobile"] = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    label = { Text("رقم الهاتف / المستفيد", fontSize = 10.sp) },
+                                    leadingIcon = { Icon(Icons.Default.Call, null, tint = accent) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+
+                            Text(
+                                when (service.serviceKind) {
+                                    "query" -> "الاستعلام لا يخصم من محفظتك."
+                                    "catalog" -> "عرض معلومات الكتالوج فقط."
+                                    else -> "سيتم حجز المبلغ محاسبيًا قبل الإرسال."
+                                },
+                                color = Color(0xFF727078),
+                                fontSize = 9.sp
+                            )
+
+                            Button(onClick = ::submit, enabled = !submitting, modifier = Modifier.fillMaxWidth().height(49.dp), shape = RoundedCornerShape(14.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = accent)) {
+                                if (submitting) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(19.dp), strokeWidth = 2.dp)
+                                    Spacer(Modifier.width(7.dp))
+                                    Text("جارٍ التنفيذ…", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                } else {
+                                    Icon(if (service.serviceKind == "query") Icons.Default.Search else Icons.Default.CheckCircle, null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(actionLabel(service), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-private fun PaymentField(field: ServiceFieldDto, value: String, onValueChange: (String) -> Unit) {
-    if (field.key == "mobile") return
-    if (field.type == "select" && field.choices.isNotEmpty()) {
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(field.label, fontWeight = FontWeight.Medium, fontSize = 12.sp)
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { field.choices.forEach { choice -> FilterChip(selected = value == choice, onClick = { onValueChange(choice) }, label = { Text(choice) }) } }
-        }
-        return
-    }
-    val keyboard = when (field.type) { "number", "decimal" -> KeyboardType.Number; "phone" -> KeyboardType.Phone; "email" -> KeyboardType.Email; else -> KeyboardType.Text }
-    OutlinedTextField(value = value, onValueChange = onValueChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(field.label + if (field.required) " *" else "") }, keyboardOptions = KeyboardOptions(keyboardType = keyboard), shape = RoundedCornerShape(11.dp))
-}
-
-@Composable
-private fun ResultCard(transaction: ServiceTransactionDto, formatMoney: (Double) -> String, accent: Color) {
-    val status = transaction.status.orEmpty().lowercase()
-    val resultMap = transaction.result.orEmpty()
-    val success = status == "success" || resultMap["resultCode"]?.toString() == "0"
-    val pending = status in setOf("queued", "processing", "pending_provider", "accepted")
-    val cardColor = if (success) Color(0xFFE8F5E9) else if (pending) Color(0xFFFFF8E1) else MaterialTheme.colorScheme.errorContainer
-    Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(15.dp)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (success) Icons.Default.CheckCircle else if (pending) Icons.Default.Refresh else Icons.Default.ErrorOutline, null, tint = accent, modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(7.dp))
-                Text(if (success) "تمت العملية بنجاح" else if (pending) "العملية قيد المعالجة" else "تعذر إتمام العملية", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(transaction.amount?.toDoubleOrNull()?.let { formatMoney(it) + " " + (transaction.currency ?: "ر.ي") } ?: "", color = accent, fontWeight = FontWeight.Bold)
-            }
-            resultMap.entries.forEach { (key, value) ->
-                if (value != null && value.toString().isNotBlank()) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(prettifyResultKey(key), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value.toString(), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End) }
+            error?.let { message ->
+                item {
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEEEE))) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.ErrorOutline, null, tint = Color(0xFFAE3434))
+                            Text(message, textAlign = TextAlign.Center, fontSize = 10.sp)
+                            TextButton(onClick = { error = null; loadCatalog() }) { Text("إعادة المحاولة", fontSize = 10.sp) }
+                        }
+                    }
                 }
             }
-            Text("رقم العملية: ${transaction.id}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            transaction.errorMessage?.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
+
+            result?.let { tx ->
+                item {
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(19.dp), colors = CardDefaults.cardColors(containerColor = ServicesCard), elevation = CardDefaults.cardElevation(2.dp)) {
+                        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("نتيجة العملية", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                            Text(
+                                when (tx.status.orEmpty()) {
+                                    "success" -> "تمت العملية بنجاح ✅"
+                                    "refunded" -> "أعيد المبلغ إلى الرصيد."
+                                    "manual_review" -> "العملية تحتاج مراجعة تشغيلية."
+                                    "queued", "processing", "pending_provider", "accepted" -> "العملية قيد المعالجة لدى المزود."
+                                    else -> tx.errorMessage ?: "تعذر إكمال العملية."
+                                },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text("رقم المرجع: ${tx.id}", fontSize = 9.sp, color = Color(0xFF77747C))
+                            tx.result.orEmpty().entries.sortedBy { it.key }.forEach { (key, value) ->
+                                if (value != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(resultLabel(key), fontSize = 9.sp, color = Color(0xFF727078))
+                                    Text(value.toString(), fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
