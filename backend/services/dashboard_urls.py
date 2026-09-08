@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import dashboard, section_view
+from .unified_dashboard import dashboard, section_view
 
 urlpatterns = [
     path("", dashboard, name="admin-dashboard-services"),
