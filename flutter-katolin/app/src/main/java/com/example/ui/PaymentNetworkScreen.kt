@@ -503,7 +503,7 @@ private fun AmountCard(amount: String, onAmountChange: (String) -> Unit, provide
 
 @Composable
 private fun PackagePurchaseCard(item: ServiceItemDto, provider: ProviderUi, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp).clickable(onClick = onClick), colors = CardDefaults.cardColors(White), elevation = CardDefaults.cardElevation(1.dp)) {
+    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(White), elevation = CardDefaults.cardElevation(1.dp)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = onClick, shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = provider.color)) { Text("تجديد", fontWeight = FontWeight.Black) }
             Column(horizontalAlignment = Alignment.End) {
