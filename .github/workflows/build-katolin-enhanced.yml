@@ -1,0 +1,97 @@
+name: Katolin Android Enhanced CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feat/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Build Katolin Android Enhanced
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter-katolin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Apply provider/query/package fixes
+        working-directory: .
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt")
+          source = path.read_text(encoding="utf-8")
+
+          # Always fetch the fresh service catalog once after opening the screen.
+          source = source.replace(
+              '    LaunchedEffect(baseUrl, session.token) { restoreCatalog() }',
+              '''    LaunchedEffect(baseUrl, session.token) {\n        restoreCatalog()\n        if (session.token != null) syncCatalog()\n    }'''
+          )
+
+          # Use both the catalog-only and purchase package services as one source of UI items.
+          source = source.replace(
+              '    val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }\n    val packagePurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.PACKAGES, true) }',
+              '''    val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }\n    val packagePurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.PACKAGES, true) }\n    val denominationPurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.INSTANT, true) }'''
+          )
+
+          # Add a reusable denomination card if it is not already present.
+          if 'private fun DenominationPurchaseCard' not in source:
+              card = '''@Composable\nprivate fun DenominationPurchaseCard(item: ServiceItemDto, provider: ProviderUi, onClick: () -> Unit) {\n    Card(\n        Modifier.fillMaxWidth().clickable(onClick = onClick),\n        shape = RoundedCornerShape(17.dp),\n        colors = CardDefaults.cardColors(Color(0xFFFFDEAF)),\n        elevation = CardDefaults.cardElevation(2.dp)\n    ) {\n        Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {\n            Surface(shape = CircleShape, color = White, modifier = Modifier.size(58.dp)) {\n                Box(contentAlignment = Alignment.Center) { Text(provider.mark, color = provider.color, fontWeight = FontWeight.Black, fontSize = 13.sp) }\n            }\n            Column(Modifier.weight(1f).padding(horizontal = 12.dp), horizontalAlignment = Alignment.End) {\n                Text(item.name, color = provider.color, fontWeight = FontWeight.Black, fontSize = 16.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)\n                Text("بطاقة شحن", color = TextDark, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)\n            }\n            Text(\n                item.price?.let { formatYemeni(it.toDoubleOrNull() ?: 0.0) } ?: "—",\n                color = TextDark,\n                fontWeight = FontWeight.Black,\n                fontSize = 27.sp,\n                modifier = Modifier.width(82.dp),\n                textAlign = TextAlign.Center\n            )\n        }\n    }\n}\n\n'''
+              source = source.replace('@Composable\nprivate fun PackagePurchaseCard', card + '@Composable\nprivate fun PackagePurchaseCard', 1)
+
+          # Yemen Mobile "فوري" must select an item from yem-denomination before submitting.
+          instant_block = '''            if (action == PaymentAction.INSTANT) {\n                val instantItems = denominationPurchase?.items.orEmpty().distinctBy { it.id }.take(30)\n                if (instantItems.isNotEmpty()) {\n                    item {\n                        Text("بطاقات يمن موبايل", color = provider.color, fontWeight = FontWeight.Black, fontSize = 19.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)\n                    }\n                    instantItems.forEach { itemDto ->\n                        item { DenominationPurchaseCard(itemDto, provider) { selectedItem = itemDto; selectedPurchaseService = denominationPurchase; showConfirm = true } }\n                    }\n                } else {\n                    item { AmountCard(amount, { amount = it }, provider) }\n                    item {\n                        Button(onClick = { selectedPurchaseService = denominationPurchase; showConfirm = true }, enabled = denominationPurchase != null && !loading, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = provider.color), shape = RoundedCornerShape(13.dp)) {\n                            Text("تسديد", fontWeight = FontWeight.Black, fontSize = 16.sp)\n                        }\n                    }\n                }\n            } else if (action == PaymentAction.WHOLESALE || action == PaymentAction.POSTPAID) {\n                item { AmountCard(amount, { amount = it }, provider) }\n                item {\n                    Button(onClick = { selectedPurchaseService = detectedKind?.let { providerService(allServices, it, action, true) }; showConfirm = true }, enabled = selectedPurchaseService != null && !loading, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = provider.color), shape = RoundedCornerShape(13.dp)) {\n                        Text("تسديد", fontWeight = FontWeight.Black, fontSize = 16.sp)\n                    }\n                }\n            }'''
+
+          generic_block = '''            if (action == PaymentAction.INSTANT || action == PaymentAction.WHOLESALE || action == PaymentAction.POSTPAID) {\n                item { AmountCard(amount, { amount = it }, provider) }\n                item {\n                    Button(onClick = { selectedPurchaseService = detectedKind?.let { providerService(allServices, it, action, true) }; showConfirm = true }, enabled = selectedPurchaseService != null && !loading, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = provider.color), shape = RoundedCornerShape(13.dp)) { Text("تسديد", fontWeight = FontWeight.Black, fontSize = 16.sp) }\n                }\n            }'''
+          if generic_block in source and instant_block not in source:
+              source = source.replace(generic_block, instant_block)
+
+          # Show all available Yemen Mobile package items, preferring the catalog service but falling back safely.
+          source = source.replace(
+              'val purchaseItems = (packageCatalogService?.items.orEmpty()).ifEmpty { packagePurchase?.items.orEmpty() }.distinctBy { it.id }.take(30)',
+              'val purchaseItems = (listOfNotNull(packageCatalogService, packagePurchase).flatMap { it.items }).distinctBy { it.id }.take(30)'
+          )
+
+          path.write_text(source, encoding="utf-8")
+          PY
+
+          if ! git diff --quiet -- flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt
+            git commit -m "fix(katolin): fetch and render provider package items"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Compile debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: katolin-enhanced-debug-apk
+          path: flutter-katolin/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
