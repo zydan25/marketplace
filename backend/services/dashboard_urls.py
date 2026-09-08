@@ -2,6 +2,7 @@ from django.urls import path
 
 from .admin_v4 import center, distribution
 from .dashboard_resource_catalog import dashboard_resources
+from .operations_dashboard import balances_dashboard, operations_dashboard
 from .provider_setup_v3 import provider_setup
 from .service_dashboard_home import modern_home
 from .views import section_view
@@ -22,5 +23,7 @@ urlpatterns = [
     path("links/", section_view, {"section": "links"}, name="admin-services-links"),
     path("distribution/", distribution, name="admin-services-distribution"),
     path("transactions/", section_view, {"section": "transactions"}, name="admin-services-transactions"),
+    path("operations/", operations_dashboard, name="admin-services-operations"),
+    path("balances/", balances_dashboard, name="admin-services-balances"),
     path("wifi/", wifi_management, name="admin-services-wifi-management"),
 ]
