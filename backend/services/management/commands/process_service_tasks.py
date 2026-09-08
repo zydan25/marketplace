@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = "يشغّل قائمة خدمات الخلفية باستمرار، مع تعافي من أخطاء المهمة وعدم إسقاط العامل كاملًا."
+    help = "عامل خدمات يدوي/طوارئ. التشغيل الطبيعي يتم داخل Django عبر services.embedded_worker."
 
     def add_arguments(self, parser):
         parser.add_argument("--limit", type=int, default=1, help="عدد المهام في الدورة الواحدة")
-        parser.add_argument("--loop", action="store_true", help="استمر في العمل كعامل خلفي")
+        parser.add_argument("--loop", action="store_true", help="استمر في العمل كعامل خلفي للطوارئ")
         parser.add_argument("--sleep", type=float, default=1.0, help="ثواني الانتظار عند خلو القائمة")
         parser.add_argument("--error-sleep", type=float, default=2.0, help="ثواني الانتظار بعد خطأ غير متوقع")
 
