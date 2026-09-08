@@ -8,7 +8,7 @@ from services.models import ProviderConnection
 
 
 class Command(BaseCommand):
-    help = "تهيئة كتالوج الخدمات من عقد API، إصلاح فروع الخدمات والباقات، وربط مسارات المزود الفعالة."
+    help = "تهيئة كتالوج الخدمات من عقد API، إصلاح فروع الخدمات والباقات والألعاب، وربط مسارات المزود الفعالة."
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -30,9 +30,12 @@ class Command(BaseCommand):
             tagged += 1
 
         route_count = 0
-        for provider in ProviderConnection.objects.filter(is_active=True):
-            _, _, current_services = provision()
-            links = provision_links(provider, current_services)
+        sanaacash_providers = ProviderConnection.objects.filter(
+            is_active=True,
+            connection_type=ProviderConnection.Types.SANAACASH,
+        )
+        for provider in sanaacash_providers:
+            links = provision_links(provider, services)
             route_count += len(links)
 
         stats = repair_hierarchy()
@@ -42,5 +45,5 @@ class Command(BaseCommand):
             )
         )
         self.stdout.write(
-            "تم الحفاظ على خدمات وعناصر الكتالوج/النسخة الاحتياطية دون اختلاق خدمات غير موجودة في عقد API."
+            "تم الحفاظ على الكتالوج التاريخي دون اختلاق خدمات أو برامج غير موثقة في عقد API."
         )
