@@ -37,7 +37,6 @@ class ProviderClient:
 
     @staticmethod
     def new_numeric_transid(provider, *, request_kind="service", service_transaction=None):
-        """Allocate a random 5-9 digit provider id that has never appeared in the system."""
         from services.models import ServiceRequestReference, ServiceTransaction
 
         for _ in range(256):
@@ -82,15 +81,17 @@ class ProviderClient:
         legacy_id = getattr(transaction, "provider_transaction_id", "")
         transid = str(provider_transid or legacy_id or "")
         context = dict(transaction.payload or {})
-        context.update({
-            "transaction.id": str(transaction.id),
-            "transid": transid,
-            "provider_transid": transid,
-            "service.code": transaction.service.code,
-            "service_id": transaction.service_id,
-            "mobile": transaction.mobile,
-            "transaction.mobile": transaction.mobile,
-        })
+        context.update(
+            {
+                "transaction.id": str(transaction.id),
+                "transid": transid,
+                "provider_transid": transid,
+                "service.code": transaction.service.code,
+                "service_id": transaction.service_id,
+                "mobile": transaction.mobile,
+                "transaction.mobile": transaction.mobile,
+            }
+        )
         params = {k: self._render(v, context) for k, v in (link.fixed_params or {}).items()}
         for target, source in (link.field_map or {}).items():
             if isinstance(source, str) and source.startswith("{{") and source.endswith("}}"):
@@ -141,7 +142,7 @@ class ProviderClient:
         return data, raw_text, code, desc
 
     def check_balance(self):
-        """Query Sanaacash agent balance without creating a customer transaction."""
+        """Query the canonical Sanaacash /info endpoint without an artificial balance action."""
         if self.connection.connection_type != "sanaacash":
             return ProviderResult(code="UNSUPPORTED", description="فحص رصيد المزود غير مهيأ لهذا النوع من الربط.")
         transid = self.new_numeric_transid(self.connection, request_kind="balance")
@@ -151,15 +152,24 @@ class ProviderClient:
             "mobile": mobile,
             "transid": str(transid),
             "token": self.sanaacash_token(self.connection.get_password(), transid, self.connection.username, mobile),
-            "action": "balance",
         }
         headers = dict(self.connection.headers or {})
         timeout = max(1, int(self.connection.timeout_seconds or 20))
         try:
             response = requests.get(self._url("info"), params=params, headers=headers, timeout=timeout)
             data, raw_text, code, desc = self._decode(response)
-            success = str(code) == "0" and "balance" in data
-            return ProviderResult(code=code, description=desc or ("تم جلب رصيد المزود بنجاح." if success else ""), success=success, response=data, raw_text=raw_text)
+            balance = data.get("balance", data.get("accountBalance", data.get("availableBalance")))
+            success = str(code) == "0" and balance is not None
+            if success:
+                data = dict(data)
+                data["normalized_balance"] = balance
+            return ProviderResult(
+                code=code,
+                description=desc or ("تم جلب رصيد المزود بنجاح." if success else "تعذر استخراج الرصيد من استجابة info."),
+                success=success,
+                response=data,
+                raw_text=raw_text,
+            )
         except requests.RequestException as exc:
             return ProviderResult(code="NETWORK", description=str(exc), success=False, response={"error": str(exc)})
 
