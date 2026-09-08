@@ -4,6 +4,7 @@ import time
 
 from django.core.management.base import BaseCommand
 
+from services.embedded_worker import _process_lock
 from services.executor import process_task
 
 
@@ -41,7 +42,11 @@ class Command(BaseCommand):
                 if stop["requested"]:
                     return
                 try:
-                    task = process_task()
+                    with _process_lock() as leader:
+                        if not leader:
+                            time.sleep(min(sleep_seconds, 1.0))
+                            continue
+                        task = process_task()
                 except Exception as exc:  # noqa: BLE001 - worker must survive one bad task
                     logger.exception("Service worker task failed unexpectedly")
                     self.stderr.write(self.style.ERROR(f"خطأ غير متوقع في عامل الخدمات: {exc}"))
