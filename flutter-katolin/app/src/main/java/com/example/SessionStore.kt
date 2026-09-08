@@ -27,6 +27,7 @@ object SessionStore {
     }
 
     private fun context(): Context = appContext ?: error("SessionStore.initialize(context) must be called first")
+    private fun prefs() = context().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private fun key(): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -47,16 +48,16 @@ object SessionStore {
         val plain = phone.trim() + "\u0000" + password
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())
-        context().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        prefs().edit()
             .putString(CIPHERTEXT, Base64.encodeToString(cipher.doFinal(plain.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP))
             .putString(IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
             .apply()
     }
 
     fun loadCredentials(): SessionCredentials? {
-        val prefs = context().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val ciphertext = prefs.getString(CIPHERTEXT, null) ?: return null
-        val iv = prefs.getString(IV, null) ?: return null
+        val preferences = prefs()
+        val ciphertext = preferences.getString(CIPHERTEXT, null) ?: return null
+        val iv = preferences.getString(IV, null) ?: return null
         return runCatching {
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
@@ -66,7 +67,14 @@ object SessionStore {
         }.getOrNull()
     }
 
+    /** Generic local cache used for non-sensitive server catalogs. */
+    fun saveLocalString(key: String, value: String) {
+        prefs().edit().putString(key, value).apply()
+    }
+
+    fun loadLocalString(key: String): String? = prefs().getString(key, null)
+
     fun clear() {
-        context().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+        prefs().edit().clear().apply()
     }
 }
