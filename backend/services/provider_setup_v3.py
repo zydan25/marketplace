@@ -79,9 +79,9 @@ def provider_setup(request):
 
     edit_id = request.GET.get("edit")
     editing_provider = ProviderConnection.objects.prefetch_related("links").filter(pk=edit_id).first() if edit_id else None
-    providers = ProviderConnection.objects.prefetch_related("links").all()
-    return render(
-        request,
-        "services/provider_setup_v3.html",
-        {"providers": providers, "editing_provider": editing_provider},
-    )
+    providers = ProviderConnection.objects.prefetch_related("links").order_by("name")
+    return render(request, "services/provider_setup_v3.html", {
+        "providers": providers,
+        "editing_provider": editing_provider,
+        "show_form": bool(editing_provider or request.GET.get("add")),
+    })
