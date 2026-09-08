@@ -682,7 +682,6 @@ fun PaymentNetworkScreen(
     val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }
     val packagePurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.PACKAGES, true) }
     val denominationPurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.INSTANT, true) }
-    val denominationPurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.INSTANT, true) }
 
     fun restoreCatalog() {
         SessionStore.loadLocalString("service_catalog_${baseUrl.trimEnd('/')}")?.let { raw ->
