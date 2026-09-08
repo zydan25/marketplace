@@ -693,7 +693,7 @@ fun PaymentNetworkScreen(
                         Text("******  •  رصيد مخفي", color = White.copy(.88f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 },
-                navigationIcon = { IconButton(onClick = ::syncCatalog) { Surface(CircleShape, White, Modifier.size(42.dp)) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Refresh, null, tint = provider.color) } } } },
+                navigationIcon = { IconButton(onClick = ::syncCatalog) { Surface(modifier = Modifier.size(42.dp), shape = CircleShape, color = White) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Refresh, null, tint = provider.color) } } } },
                 actions = { IconButton(onClick = onBackClick) { Text("رجوع", color = White, fontWeight = FontWeight.Bold, fontSize = 11.sp) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = provider.color, titleContentColor = White)
             )
