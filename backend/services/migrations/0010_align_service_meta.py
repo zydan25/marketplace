@@ -7,15 +7,11 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name="providerconnection",
-            options={"ordering": ["name", "id"]},
+            options={},
         ),
         migrations.AlterModelOptions(
             name="service",
-            options={
-                "ordering": ["sort_order", "id"],
-                "verbose_name": "الخدمة",
-                "verbose_name_plural": "الخدمات",
-            },
+            options={"ordering": ["sort_order", "id"]},
         ),
         migrations.AlterModelOptions(
             name="servicecategory",
