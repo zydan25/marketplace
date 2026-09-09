@@ -12,7 +12,10 @@ class ServicesConfig(AppConfig):
     verbose_name = "الخدمات"
 
     def ready(self):
+        # Import the extension model during app initialization so Django's
+        # registry knows about it even though it lives in a focused module.
         from . import admin_v4
+        from .settings_models import ServiceSetting  # noqa: F401
 
         extra_fields = [
             ("external_code", "الكود الخارجي", "text"),
