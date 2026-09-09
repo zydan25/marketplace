@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,9 +28,19 @@ class CustomerServiceReportsAPIView(APIView):
 
     def get(self, request):
         status_filter = str(request.query_params.get("status") or "").strip()
+        mobile = str(request.query_params.get("mobile") or "").strip()
+        service_code = str(request.query_params.get("service") or "").strip()
+        today_only = str(request.query_params.get("today") or "").strip().lower() in {"1", "true", "yes"}
         qs = ServiceTransaction.objects.filter(customer=request.user).select_related("service").order_by("-created_at")
         if status_filter:
             qs = qs.filter(status=status_filter)
+        if mobile:
+            normalized = mobile.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789"))
+            qs = qs.filter(mobile=normalized)
+        if service_code:
+            qs = qs.filter(service__code=service_code)
+        if today_only:
+            qs = qs.filter(created_at__date=timezone.localdate())
         qs = qs[:100]
         return Response({
             "count": len(qs),

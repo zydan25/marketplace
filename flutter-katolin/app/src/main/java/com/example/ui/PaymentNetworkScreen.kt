@@ -641,7 +641,7 @@ private fun ResultDialog(tx: ServiceTransactionDto, provider: ProviderUi, onClos
 }
 
 @Composable
-fun PaymentNetworkScreen(
+fun LegacyPaymentNetworkScreen(
     wallet: WalletAccount,
     packages: List<TelecomPackage>,
     formatMoney: (Double) -> String,

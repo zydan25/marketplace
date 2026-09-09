@@ -21,9 +21,10 @@ interface DjangoApiService {
     @GET("notifications/") suspend fun getNotifications(@Header("Authorization") token: String): Response<NotificationResponse>
 
     @GET("v2/services/catalog/") suspend fun getServiceCatalog(@Header("Authorization") token: String): Response<ServiceCatalogResponse>
+    @GET("v2/services/settings/") suspend fun getServiceSettings(@Header("Authorization") token: String, @Query("group") group: String? = null, @Query("configured") configured: String? = "1"): Response<ServiceSettingsResponse>
     @POST("v2/services/requests/") suspend fun submitServiceRequest(@Header("Authorization") token: String, @Header("Idempotency-Key") idempotencyKey: String, @Body request: ServiceRequestPayload): Response<ServiceTransactionDto>
     @GET("v2/services/requests/{id}/") suspend fun getServiceTransaction(@Header("Authorization") token: String, @Path("id") id: String): Response<ServiceTransactionDto>
-    @GET("v2/services/reports/") suspend fun getServiceReports(@Header("Authorization") token: String, @Query("status") status: String? = null): Response<ServiceTransactionListResponse>
+    @GET("v2/services/reports/") suspend fun getServiceReports(@Header("Authorization") token: String, @Query("status") status: String? = null, @Query("mobile") mobile: String? = null, @Query("today") today: String? = null, @Query("service") service: String? = null): Response<ServiceTransactionListResponse>
     @POST("v2/services/requests/{id}/provider-check/") suspend fun checkServiceProvider(@Header("Authorization") token: String, @Path("id") id: String): Response<ServiceTransactionDto>
 
     @POST("gifts/lookup/") suspend fun lookupRecipient(@Header("Authorization") token: String, @Body request: Map<String, Any?>): Response<Map<String, Any>>
