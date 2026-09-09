@@ -1,0 +1,49 @@
+name: Apply Katolin Payment Refactor
+
+on:
+  push:
+    branches: [feat/katolin-yemen-payment-ui]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch source
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          
+          old = Path('flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt')
+          s = old.read_text()
+          s = s.replace('fun PaymentNetworkScreen(\n', 'fun LegacyPaymentNetworkScreen(\n', 1)
+          old.write_text(s)
+          
+          api = Path('flutter-katolin/app/src/main/java/com/example/data/remote/DjangoApiService.kt')
+          s = api.read_text()
+          line='    @GET("v2/services/catalog/") suspend fun getServiceCatalog(@Header("Authorization") token: String): Response<ServiceCatalogResponse>\n'
+          s=s.replace(line, line+'    @GET("v2/services/settings/") suspend fun getServiceSettings(@Header("Authorization") token: String, @Query("group") group: String? = null, @Query("configured") configured: String? = "1"): Response<ServiceSettingsResponse>\n')
+          line='    @GET("v2/services/reports/") suspend fun getServiceReports(@Header("Authorization") token: String, @Query("status") status: String? = null): Response<ServiceTransactionListResponse>\n'
+          s=s.replace(line, '    @GET("v2/services/reports/") suspend fun getServiceReports(@Header("Authorization") token: String, @Query("status") status: String? = null, @Query("mobile") mobile: String? = null, @Query("today") today: String? = null, @Query("service") service: String? = null): Response<ServiceTransactionListResponse>\n')
+          api.write_text(s)
+          
+          rep=Path('backend/services/customer_reports_api.py')
+          s=rep.read_text()
+          s=s.replace('from django.shortcuts import get_object_or_404\n', 'from django.shortcuts import get_object_or_404\nfrom django.utils import timezone\n')
+          old_block='''        status_filter = str(request.query_params.get("status") or "").strip()\n        qs = ServiceTransaction.objects.filter(customer=request.user).select_related("service").order_by("-created_at")\n        if status_filter:\n            qs = qs.filter(status=status_filter)\n        qs = qs[:100]\n'''
+          new_block='''        status_filter = str(request.query_params.get("status") or "").strip()\n        mobile = str(request.query_params.get("mobile") or "").strip()\n        service_code = str(request.query_params.get("service") or "").strip()\n        today_only = str(request.query_params.get("today") or "").strip().lower() in {"1", "true", "yes"}\n        qs = ServiceTransaction.objects.filter(customer=request.user).select_related("service").order_by("-created_at")\n        if status_filter:\n            qs = qs.filter(status=status_filter)\n        if mobile:\n            normalized = mobile.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789"))\n            qs = qs.filter(mobile=normalized)\n        if service_code:\n            qs = qs.filter(service__code=service_code)\n        if today_only:\n            qs = qs.filter(created_at__date=timezone.localdate())\n        qs = qs[:100]\n'''
+          if old_block not in s: raise SystemExit('customer report block not found')
+          rep.write_text(s.replace(old_block,new_block))
+          PY
+      - name: Commit patched sources
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add flutter-katolin backend/services/customer_reports_api.py
+          git rm --cached .github/workflows/apply-katolin-payment-refactor.yml 2>/dev/null || true
+          git commit -m "feat(katolin): connect payment UI to basic service settings" || exit 0
+          git push
