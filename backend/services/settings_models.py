@@ -1,14 +1,12 @@
-from django.db import models
-from django.db.models import Q
 from django.core.validators import MinValueValidator
+from django.db import models
 
 
 class ServiceSetting(models.Model):
     """Central configuration that maps stable setting keys to real Service IDs.
 
-    The customer app should read this table through the settings API instead of
-    hard-coding provider service IDs. System settings are seeded by migration;
-    additional settings may be created from the services dashboard.
+    Core service settings may be left unconfigured until the matching Service
+    exists; the API marks them as unconfigured instead of inventing an ID.
     """
 
     class Types(models.TextChoices):
@@ -43,12 +41,6 @@ class ServiceSetting(models.Model):
         indexes = [
             models.Index(fields=["group", "is_active", "sort_order"], name="svc_setting_group_idx"),
             models.Index(fields=["service", "is_active"], name="svc_setting_service_idx"),
-        ]
-        constraints = [
-            models.CheckConstraint(
-                condition=Q(setting_type="service", service__isnull=False) | ~Q(setting_type="service"),
-                name="svc_setting_service_required",
-            ),
         ]
 
     def __str__(self):
