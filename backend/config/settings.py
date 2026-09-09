@@ -3,8 +3,12 @@ import os
 import sys
 
 from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BASE_DIR.parent
+load_dotenv(PROJECT_ROOT / ".env")
+
 DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 RUNNING_TESTS = "test" in sys.argv[1:]
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-change-me") if DEBUG else os.environ["DJANGO_SECRET_KEY"]
