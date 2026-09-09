@@ -1,10 +1,11 @@
-from django.urls import path
+from django.urls import include, path
 
 from .admin_v4 import center, distribution
 from .dashboard_resource_catalog_v11 import dashboard_resources
 from .operations_dashboard import balances_dashboard, operations_dashboard
 from .provider_setup_v3 import provider_setup
 from .service_dashboard_home import modern_home
+from .settings_admin import settings_center
 from .views import section_view
 from .wifi_dashboard import wifi_management
 
@@ -26,4 +27,5 @@ urlpatterns = [
     path("operations/", operations_dashboard, name="admin-services-operations"),
     path("balances/", balances_dashboard, name="admin-services-balances"),
     path("wifi/", wifi_management, name="admin-services-wifi-management"),
+    path("settings/", settings_center, name="admin-services-settings"),
 ]
