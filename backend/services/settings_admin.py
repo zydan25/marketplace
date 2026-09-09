@@ -57,8 +57,9 @@ def settings_center(request):
                     if setting_type not in {choice[0] for choice in ServiceSetting.Types.choices}:
                         raise ValueError("نوع الإعداد غير صالح.")
                     setting = ServiceSetting.objects.filter(pk=request.POST.get("pk") or 0).first()
-                    if not setting:
-                        setting = ServiceSetting()
+                    is_new = setting is None
+                    if is_new:
+                        setting = ServiceSetting(is_system=False)
                     setting.key = slugify(key, allow_unicode=True).replace("-", "_") or key
                     setting.name = name
                     setting.group = slugify((request.POST.get("group") or "general").strip(), allow_unicode=True).replace("-", "_") or "general"
@@ -73,7 +74,6 @@ def settings_center(request):
                     else:
                         setting.service = None
                         setting.value = _parse_value(request.POST.get("value"), setting_type)
-                    setting.is_system = bool(setting.is_system and not setting.pk) or setting.is_system
                     setting.is_active = True
                     setting.sort_order = max(0, int(request.POST.get("sort_order", 0) or 0))
                     setting.save()
