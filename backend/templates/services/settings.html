@@ -6,106 +6,99 @@
 <title>إعدادات الخدمات - شبيك</title>
 {% include "services/_legacy_data_guide_style.html" %}
 <style>
-body{font-size:14px}.legacy-app{grid-template-columns:270px minmax(0,1fr)}.legacy-main{padding-top:0}.settings-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.settings-title{margin:0;color:var(--legacy-blue);font-size:27px}.settings-sub{margin:4px 0 0;color:var(--legacy-muted);font-size:12px}.settings-tools{display:flex;gap:7px;flex-wrap:wrap}.settings-card{background:#fff;border:1px solid var(--legacy-line);border-radius:13px;padding:14px;box-shadow:var(--legacy-shadow);margin-bottom:12px}.settings-card h2{margin:0 0 5px;color:var(--legacy-blue);font-size:18px}.settings-card .hint{color:var(--legacy-muted);font-size:12px;margin-bottom:11px}.setting-grid{display:grid;grid-template-columns:1.1fr 1.55fr 1fr .9fr auto;gap:8px;align-items:end}.setting-row{border-top:1px solid #edf1f5;padding:10px 0}.setting-row:first-child{border-top:0}.field label{display:block;font-weight:800;font-size:11px;margin-bottom:4px;color:#40536b}.field input,.field select,.field textarea{width:100%;box-sizing:border-box;min-height:40px;border:1px solid #ccd7e2;border-radius:9px;background:#fff;padding:8px}.field textarea{min-height:70px}.status{font-size:11px}.ok{color:#157347;font-weight:800}.off{color:#b42318;font-weight:800}.key{direction:ltr;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#40536b;font-size:11px}.api-box{background:#f4f7fa;border:1px solid #d9e2ea;border-radius:10px;padding:11px;margin-top:8px}.api-box code{direction:ltr;text-align:left;display:block;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}.api-list{margin:8px 0 0;padding-right:20px}.api-list li{margin:5px 0}.side-link{display:block;padding:10px 12px;border-bottom:1px solid #d2dae1;background:#eef1f3;color:#314658;font-weight:800;text-decoration:none}.side-link.active{background:var(--legacy-blue-selected);color:#fff;border-inline-start:4px solid var(--legacy-cyan)}.side-note{padding:12px 14px;color:var(--legacy-muted);font-size:11px;border-top:1px solid var(--legacy-line);line-height:1.7}@media(max-width:1000px){.setting-grid{grid-template-columns:1fr 1.5fr 1fr auto}}@media(max-width:650px){.legacy-app{grid-template-columns:1fr}.settings-title{font-size:21px}.setting-grid{grid-template-columns:1fr}.setting-grid .full-mobile{grid-column:1/-1}.settings-tools .legacy-btn{flex:1}}
+body{font-size:14px}.legacy-app{grid-template-columns:275px minmax(0,1fr)}.legacy-main{padding-top:0}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.title{margin:0;color:var(--legacy-blue);font-size:27px}.sub{margin:4px 0 0;color:var(--legacy-muted);font-size:12px}.tools{display:flex;gap:7px;flex-wrap:wrap}.side-link{display:block;padding:10px 12px;border-bottom:1px solid #d2dae1;background:#eef1f3;color:#314658;font-weight:800;text-decoration:none}.side-link.active{background:var(--legacy-blue-selected);color:#fff;border-inline-start:4px solid var(--legacy-cyan)}.side-note{padding:12px 14px;color:var(--legacy-muted);font-size:11px;line-height:1.8;border-top:1px solid var(--legacy-line)}.card{background:#fff;border:1px solid var(--legacy-line);border-radius:13px;padding:14px;box-shadow:var(--legacy-shadow);margin-bottom:12px}.card h2{margin:0 0 6px;color:var(--legacy-blue);font-size:18px}.hint{font-size:12px;color:var(--legacy-muted);line-height:1.8}.api{margin-top:10px;background:#f5f8fa;border:1px solid #dce4eb;border-radius:10px;padding:11px}.api code{display:block;direction:ltr;text-align:left;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.8}.api-list{margin:8px 0 0;padding-right:20px}.api-list li{margin:4px 0}.setting{border-top:1px solid #edf1f5;padding:11px 0}.setting:first-child{border-top:0}.setting-grid{display:grid;grid-template-columns:1.35fr 2.1fr .8fr .8fr auto;gap:9px;align-items:end}.field label{display:block;font-size:11px;font-weight:800;margin-bottom:4px;color:#40536b}.field input,.field select,.field textarea{width:100%;box-sizing:border-box;min-height:40px;padding:8px;border:1px solid #ccd7e2;border-radius:9px;background:#fff}.field textarea{min-height:70px}.key{direction:ltr;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:#63758a;margin-top:3px}.state-ok{color:#157347;font-weight:800}.state-off{color:#b42318;font-weight:800}.row-extra{display:flex;align-items:center;gap:8px;margin-top:6px}.custom-grid{display:grid;grid-template-columns:1fr 1.2fr .9fr 1fr .5fr;gap:9px;align-items:end}.custom-full{grid-column:1/-1}.hidden{display:none!important}@media(max-width:1000px){.setting-grid,.custom-grid{grid-template-columns:1fr 1fr}.custom-full{grid-column:1/-1}}@media(max-width:650px){.legacy-app{grid-template-columns:1fr}.title{font-size:21px}.setting-grid,.custom-grid{grid-template-columns:1fr}.custom-full{grid-column:auto}.tools .legacy-btn{flex:1}}
 </style>
 </head>
 <body>
 <div class="legacy-app">
-  <aside class="legacy-sidebar">
-    <div class="legacy-brand"><div class="legacy-brand-title">شبيك</div><div class="legacy-brand-sub">مركز إدارة الخدمات والعمليات</div></div>
-    <nav class="legacy-menu">
-      <a class="side-link" href="/admin/dashboard/services/">الرئيسية</a>
-      <a class="side-link" href="/admin/dashboard/services/services/">الخدمات والفئات</a>
-      <a class="side-link" href="/admin/dashboard/services/resources/">التسديدات والباقات</a>
-      <a class="side-link" href="/admin/dashboard/services/providers/">المزودون والربطيات</a>
-      <a class="side-link active" href="/admin/dashboard/services/settings/">الإعدادات</a>
-      <a class="side-link" href="/admin/dashboard/services/distribution/">توزيع الخدمات</a>
-      <div class="side-note">الإعدادات الأساسية هنا لا تخزن رقم خدمة المزود كنص. يتم اختيار الخدمة من قاعدة الخدمات ويحفظ النظام <b>service_id</b>، ثم يستطيع تطبيق العميل قراءته من API.</div>
-    </nav>
-  </aside>
+<aside class="legacy-sidebar">
+  <div class="legacy-brand"><div class="legacy-brand-title">شبيك</div><div class="legacy-brand-sub">مركز إدارة الخدمات والعمليات</div></div>
+  <nav class="legacy-menu">
+    <a class="side-link" href="/admin/dashboard/services/">الرئيسية</a>
+    <a class="side-link" href="/admin/dashboard/services/services/">الخدمات والفئات</a>
+    <a class="side-link" href="/admin/dashboard/services/resources/">التسديدات والباقات</a>
+    <a class="side-link" href="/admin/dashboard/services/providers/">المزودون والربطيات</a>
+    <a class="side-link active" href="/admin/dashboard/services/settings/">الإعدادات</a>
+    <a class="side-link" href="/admin/dashboard/services/distribution/">توزيع الخدمات</a>
+    <div class="side-note">الإعداد الأساسي لا يُحذف. يتم اختيار الخدمة من قاعدة الخدمات ويحفظ النظام <b>service_id</b> الحقيقي، ثم يقرأه تطبيق العميل من API.</div>
+  </nav>
+</aside>
+<main class="legacy-main">
+  <div class="legacy-mobilebar"><button class="legacy-menu-button" type="button" onclick="legacyOpenMenu()">☰</button><div class="legacy-mobile-title">إعدادات الخدمات</div><a class="legacy-mobile-home" href="/admin/dashboard/">⌂</a></div>
+  <div class="legacy-breadcrumb"><span>الإدارة</span><span class="sep">›</span><span>الخدمات</span><span class="sep">›</span><b>الإعدادات الأساسية</b></div>
+  {% for message in messages %}<div class="card">{{ message }}</div>{% endfor %}
 
-  <main class="legacy-main">
-    <div class="legacy-mobilebar"><button class="legacy-menu-button" type="button" onclick="legacyOpenMenu()">☰</button><div class="legacy-mobile-title">إعدادات الخدمات</div><a class="legacy-mobile-home" href="/admin/dashboard/">⌂</a></div>
-    <div class="legacy-breadcrumb"><span>الإدارة</span><span class="sep">›</span><span>الخدمات</span><span class="sep">›</span><b>الإعدادات</b></div>
+  <div class="top"><div><h1 class="title">الإعدادات الأساسية للخدمات</h1><p class="sub">تحديد خدمة Django التي يجب أن يستخدمها التطبيق لكل عملية دفع أو استعلام.</p></div><div class="tools"><a class="legacy-btn secondary" href="/admin/dashboard/services/">↩ مركز الخدمات</a><a class="legacy-btn primary" href="#custom-setting">+ إضافة إعداد</a></div></div>
 
-    {% for message in messages %}<div class="legacy-card" style="margin-bottom:9px">{{ message }}</div>{% endfor %}
-
-    <div class="settings-top">
-      <div><h1 class="settings-title">الإعدادات الأساسية للخدمات</h1><p class="settings-sub">كل سطر يمثل إعدادًا منطقيًا يستخدمه تطبيق العميل للوصول إلى خدمة محددة.</p></div>
-      <div class="settings-tools"><a class="legacy-btn secondary" href="/admin/dashboard/services/">↩ مركز الخدمات</a><a class="legacy-btn primary" href="#custom-setting">+ إضافة إعداد</a></div>
-    </div>
-
-    <section class="settings-card">
-      <h2>كيف تعمل هذه الصفحة؟</h2>
-      <div class="hint">الخدمة تُختار من القائمة، ولا يكتب المدير رقم ID يدويًا. بعد الحفظ، قاعدة البيانات تخزن معرف خدمة Django الحقيقي، وAPI يعرض للعميل المعرف والاسم والكود وتفاصيل الخدمة عند الحاجة.</div>
+  <section class="card">
+    <h2>طريقة عمل الإعدادات</h2>
+    <div class="hint">لا تكتب رقم الخدمة يدويًا. اختر الخدمة من القائمة. عند الحفظ تُخزن علاقة ForeignKey إلى الخدمة نفسها، وتبقى أسماء الخدمة وأكوادها قابلة للتحديث من مركز الخدمات دون تغيير تطبيق العميل.</div>
+    <div class="api">
+      <b>واجهات جلب الإعدادات للتطبيق:</b>
       <ol class="api-list">
-        <li><b>جلب جميع الإعدادات الفعالة:</b> <span class="key">GET /api/services/settings/</span></li>
-        <li><b>جلب مجموعة شركة واحدة:</b> <span class="key">GET /api/services/settings/?group=yemen_mobile</span></li>
-        <li><b>جلب إعداد بالمفتاح:</b> <span class="key">GET /api/services/settings/?key=yemen_mobile_recharge</span></li>
-        <li><b>جلب إعداد محدد:</b> <span class="key">GET /api/services/settings/yemen_mobile_recharge/</span></li>
-        <li><b>جلب الخدمة كاملة من الإعداد مباشرة:</b> <span class="key">GET /api/services/settings/yemen_mobile_recharge/service/</span></li>
-        <li><b>الجلب المجهز فقط:</b> أضف <span class="key">configured=1</span> حتى يعيد API الإعدادات المربوطة أو ذات قيمة فقط.</li>
+        <li><code>GET /api/services/settings/</code> — جميع الإعدادات الفعالة.</li>
+        <li><code>GET /api/services/settings/?group=yemen_mobile</code> — إعدادات شركة محددة.</li>
+        <li><code>GET /api/services/settings/?key=yemen_mobile_recharge</code> — إعداد واحد.</li>
+        <li><code>GET /api/services/settings/yemen_mobile_recharge/</code> — تفاصيل الإعداد.</li>
+        <li><code>GET /api/services/settings/yemen_mobile_recharge/service/</code> — الإعداد + عقد الخدمة الكامل (الحقول والباقات والفئات).</li>
+        <li><code>GET /api/services/settings/?configured=1</code> — الإعدادات المجهزة فقط.</li>
       </ol>
-      <div class="api-box"><b>تسلسل الاستخدام في تطبيق العميل:</b><br><br><code>1) GET /api/services/settings/?group=yemen_mobile
-2) ابحث عن key المطلوب، ثم اقرأ service.id
-3) استخدم service.id في شاشة التسديد أو اطلب /api/services/settings/{key}/service/
-4) لا تحفظ service_id ثابتًا داخل التطبيق؛ التغيير يتم من لوحة الخدمات.</code></div>
-    </section>
+      <code>تسلسل التطبيق: جلب المجموعة ← قراءة service.id ← إظهار service.name للمستخدم ← إرسال service.id عند تنفيذ العملية.</code>
+    </div>
+  </section>
 
-    {% for group in groups %}
-      <section class="settings-card">
-        <h2>{{ group.label }}</h2>
-        <div class="hint">إعدادات هذه المجموعة مرتبطة بالخدمات الحالية. الإعداد الأساسي لا يُحذف، ويمكن إيقافه فقط.</div>
-        {% for setting in group.settings %}
-          <div class="setting-row">
-            <form method="post" class="setting-grid">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="save">
-              <input type="hidden" name="pk" value="{{ setting.id }}">
-              <div class="field"><label>اسم الإعداد</label><div>{{ setting.name }}</div><div class="key">{{ setting.key }}</div></div>
-              <div class="field"><label>الخدمة التي سيستخدمها التطبيق</label>{% if setting.setting_type == 'service' %}<select name="service" required><option value="">اختر الخدمة</option>{% for service in services %}<option value="{{ service.id }}" {% if setting.service_id == service.id %}selected{% endif %}>{{ service.name }} — {{ service.code }}{% if service.category %} — {{ service.category.main_category.name }} / {{ service.category.name }}{% endif %}</option>{% endfor %}</select>{% else %}<input name="value" value="{{ setting.value|default:'' }}" placeholder="قيمة الإعداد"></div>{% endif %}</div>
-              <div class="field"><label>الحالة</label><div class="status {% if setting.is_active %}ok{% else %}off{% endif %}">{% if setting.is_active %}فعال{% else %}متوقف{% endif %}</div>{% if setting.service_id %}<div class="key">service_id={{ setting.service_id }}</div>{% else %}<div class="key">غير مربوط</div>{% endif %}</div>
-              <div class="field"><label>النوع</label><div>{{ setting.get_setting_type_display }}</div><div class="key">group={{ setting.group }}</div></div>
-              <div class="field"><button class="legacy-btn primary" type="submit">حفظ</button></div>
-            </form>
-            {% if setting.description %}<div class="hint" style="margin-top:5px">{{ setting.description }}</div>{% endif %}
-            {% if setting.is_system %}
-              <div style="display:flex;gap:6px;align-items:center;margin-top:5px"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="pk" value="{{ setting.id }}"><button type="submit" class="legacy-btn small">{% if setting.is_active %}إيقاف مؤقت{% else %}تفعيل{% endif %}</button></form><span class="hint" style="margin:0">إعداد أساسي للنظام</span></div>
-            {% endif %}
-          </div>
-        {% endfor %}
-      </section>
-    {% endfor %}
-
-    <section class="settings-card" id="custom-setting">
-      <h2>إضافة إعداد مخصص</h2>
-      <div class="hint">يمكنك إضافة إعداد جديد بالمفتاح والاسم، وربطه بخدمة موجودة أو حفظه كقيمة نصية/JSON/نعم-لا. الإعدادات المخصصة ليست جزءًا من القائمة الأساسية ويمكن حذفها لاحقًا.</div>
-      <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="save">
-        <div class="setting-grid" style="grid-template-columns:1.1fr 1.1fr 1fr 1.5fr auto">
-          <div class="field"><label>المفتاح</label><input name="key" required placeholder="my_custom_service"></div>
-          <div class="field"><label>اسم الإعداد</label><input name="name" required placeholder="رقم خدمة مخصص"></div>
-          <div class="field"><label>المجموعة</label><input name="group" value="general" placeholder="general"></div>
-          <div class="field"><label>النوع</label><select name="setting_type" onchange="toggleCustomService(this)">{% for value,label in type_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
-          <div class="field"><label>الترتيب</label><input type="number" min="0" name="sort_order" value="0"></div>
-          <div class="field full-mobile" id="custom-service-field"><label>الخدمة</label><select name="service"><option value="">اختر الخدمة</option>{% for service in services %}<option value="{{ service.id }}">{{ service.name }} — {{ service.code }}</option>{% endfor %}</select></div>
-          <div class="field full-mobile"><label>القيمة (لأنواع غير الخدمة)</label><input name="value" placeholder="قيمة أو JSON"></div>
-          <div class="field full-mobile"><label>الوصف</label><textarea name="description" placeholder="ماذا يستخدم هذا الإعداد؟"></textarea></div>
+  {% for group in groups %}
+  <section class="card">
+    <h2>{{ group.label }}</h2>
+    <div class="hint">الإعدادات الأساسية المعروضة هنا لا تُحذف. يمكن إيقاف الإعداد مؤقتًا، أو تغيير الخدمة التي يشير إليها.</div>
+    {% for setting in group.settings %}
+    <div class="setting">
+      <form method="post" class="setting-grid">
+        {% csrf_token %}<input type="hidden" name="action" value="save"><input type="hidden" name="pk" value="{{ setting.id }}">
+        <div class="field"><label>الإعداد</label><div><b>{{ setting.name }}</b></div><div class="key">{{ setting.key }}</div></div>
+        <div class="field">
+          <label>{% if setting.setting_type == 'service' %}الخدمة التي سيستخدمها التطبيق{% else %}قيمة الإعداد{% endif %}</label>
+          {% if setting.setting_type == 'service' %}
+            <select name="service" required><option value="">اختر الخدمة</option>{% for service in services %}<option value="{{ service.id }}" {% if setting.service_id == service.id %}selected{% endif %}>{{ service.name }} — {{ service.code }} — {{ service.category.main_category.name }} / {{ service.category.name }}</option>{% endfor %}</select>
+          {% else %}
+            <input name="value" value="{{ setting.value|default:'' }}" placeholder="أدخل القيمة أو JSON">
+          {% endif %}
         </div>
-        <button class="legacy-btn primary" type="submit">حفظ الإعداد المخصص</button>
+        <div class="field"><label>الحالة</label><div class="{% if setting.is_active %}state-ok{% else %}state-off{% endif %}">{% if setting.is_active %}فعال{% else %}متوقف{% endif %}</div>{% if setting.service_id %}<div class="key">service_id={{ setting.service_id }}</div>{% endif %}</div>
+        <div class="field"><label>النوع</label><div>{{ setting.get_setting_type_display }}</div></div>
+        <div class="field"><button type="submit" class="legacy-btn primary">حفظ</button></div>
       </form>
-    </section>
-  </main>
+      {% if setting.description %}<div class="hint" style="margin-top:6px">{{ setting.description }}</div>{% endif %}
+      {% if setting.is_system %}<div class="row-extra"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="pk" value="{{ setting.id }}"><button type="submit" class="legacy-btn small">{% if setting.is_active %}إيقاف مؤقت{% else %}تفعيل{% endif %}</button></form><span class="hint">إعداد أساسي للنظام</span></div>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+
+  <section class="card" id="custom-setting">
+    <h2>إضافة إعداد جديد</h2>
+    <div class="hint">لإضافة إعداد غير موجود في القائمة: أدخل المفتاح والاسم، ثم اختر نوعه. الإعداد من نوع «خدمة» يجب أن يرتبط بخدمة فعلية، بينما الأنواع الأخرى تحفظ قيمة مستقلة.</div>
+    <form method="post">
+      {% csrf_token %}<input type="hidden" name="action" value="save">
+      <div class="custom-grid">
+        <div class="field"><label>مفتاح الإعداد</label><input name="key" required placeholder="my_custom_service"></div>
+        <div class="field"><label>اسم الإعداد</label><input name="name" required placeholder="اسم الخدمة أو الإعداد"></div>
+        <div class="field"><label>المجموعة</label><input name="group" value="general" placeholder="general"></div>
+        <div class="field"><label>النوع</label><select name="setting_type" id="custom-type" onchange="toggleCustomType(this)">{% for value,label in type_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+        <div class="field"><label>الترتيب</label><input type="number" min="0" name="sort_order" value="0"></div>
+        <div class="field custom-full" id="service-picker"><label>الخدمة</label><select name="service"><option value="">اختر الخدمة</option>{% for service in services %}<option value="{{ service.id }}">{{ service.name }} — {{ service.code }} — {{ service.category.main_category.name }} / {{ service.category.name }}</option>{% endfor %}</select></div>
+        <div class="field custom-full"><label>القيمة للأنواع غير المرتبطة بخدمة</label><textarea name="value" placeholder="نص أو JSON مثل {&quot;enabled&quot;:true}"></textarea></div>
+        <div class="field custom-full"><label>الوصف</label><textarea name="description" placeholder="وضح استخدام هذا الإعداد للتطبيق أو العمليات الداخلية"></textarea></div>
+      </div>
+      <button class="legacy-btn primary" type="submit">حفظ الإعداد</button>
+    </form>
+  </section>
+</main>
 </div>
 <div class="legacy-drawer-overlay" onclick="legacyCloseMenu()"></div>
 <script>
-function toggleCustomService(select){
-  var box=document.getElementById('custom-service-field');
-  if(!box)return;
-  box.style.display=select.value==='service'?'block':'none';
-}
-document.addEventListener('DOMContentLoaded',function(){var t=document.querySelector('#custom-setting select[name=setting_type]');if(t)toggleCustomService(t);});
+function toggleCustomType(select){var box=document.getElementById('service-picker');if(box)box.classList.toggle('hidden',select.value!=='service');}
+document.addEventListener('DOMContentLoaded',function(){var t=document.getElementById('custom-type');if(t)toggleCustomType(t);});
 </script>
 </body>
 </html>
