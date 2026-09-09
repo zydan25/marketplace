@@ -4,6 +4,7 @@ from .admin_v4 import center, distribution
 from .provider_setup_v3 import provider_setup
 from .resource_catalog_v8 import catalog_resources
 from .service_admin_v6 import services
+from .settings_admin import settings_center
 
 urlpatterns = [
     path("", center, name="legacy-services-home"),
@@ -17,4 +18,5 @@ urlpatterns = [
     path("catalog/games-cards/", catalog_resources, {"type": "entertainment"}, name="legacy-services-catalog-games-cards"),
     path("providers/", provider_setup, name="legacy-services-providers"),
     path("distribution/", distribution, name="legacy-services-distribution"),
+    path("settings/", settings_center, name="legacy-services-settings"),
 ]
