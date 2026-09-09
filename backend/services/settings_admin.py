@@ -49,33 +49,63 @@ def settings_center(request):
         try:
             with transaction.atomic():
                 if action == "save":
-                    key = (request.POST.get("key") or "").strip()
-                    name = (request.POST.get("name") or "").strip()
-                    if not key or not name:
-                        raise ValueError("مفتاح واسم الإعداد مطلوبان.")
-                    setting_type = request.POST.get("setting_type", ServiceSetting.Types.SERVICE)
-                    if setting_type not in {choice[0] for choice in ServiceSetting.Types.choices}:
-                        raise ValueError("نوع الإعداد غير صالح.")
-                    setting = ServiceSetting.objects.filter(pk=request.POST.get("pk") or 0).first()
+                    pk = request.POST.get("pk") or 0
+                    setting = ServiceSetting.objects.filter(pk=pk).first()
                     is_new = setting is None
                     if is_new:
                         setting = ServiceSetting(is_system=False)
-                    setting.key = slugify(key, allow_unicode=True).replace("-", "_") or key
-                    setting.name = name
-                    setting.group = slugify((request.POST.get("group") or "general").strip(), allow_unicode=True).replace("-", "_") or "general"
-                    setting.description = (request.POST.get("description") or "").strip()
-                    setting.setting_type = setting_type
+
+                    raw_key = (request.POST.get("key") or "").strip()
+                    raw_name = (request.POST.get("name") or "").strip()
+                    raw_group = (request.POST.get("group") or "").strip()
+
+                    # Forms for existing/system settings intentionally send only pk + service.
+                    # Preserve the immutable identity fields instead of rejecting the update.
+                    if is_new and (not raw_key or not raw_name):
+                        raise ValueError("مفتاح واسم الإعداد مطلوبان عند إضافة إعداد جديد.")
+
+                    if raw_key:
+                        setting.key = slugify(raw_key, allow_unicode=True).replace("-", "_") or raw_key
+                    elif is_new:
+                        raise ValueError("مفتاح الإعداد مطلوب عند الإضافة.")
+
+                    if raw_name:
+                        setting.name = raw_name
+                    elif is_new:
+                        raise ValueError("اسم الإعداد مطلوب عند الإضافة.")
+
+                    if raw_group:
+                        setting.group = slugify(raw_group, allow_unicode=True).replace("-", "_") or "general"
+
+                    if "description" in request.POST:
+                        setting.description = (request.POST.get("description") or "").strip()
+
+                    posted_type = (request.POST.get("setting_type") or "").strip()
+                    if posted_type:
+                        if posted_type not in {choice[0] for choice in ServiceSetting.Types.choices}:
+                            raise ValueError("نوع الإعداد غير صالح.")
+                        setting.setting_type = posted_type
+                    elif is_new:
+                        setting.setting_type = ServiceSetting.Types.SERVICE
+
                     service_id = request.POST.get("service") or None
-                    if setting_type == ServiceSetting.Types.SERVICE:
-                        if not service_id:
+                    if setting.setting_type == ServiceSetting.Types.SERVICE:
+                        if service_id:
+                            setting.service = get_object_or_404(Service, pk=service_id, is_active=True)
+                        elif is_new:
                             raise ValueError("إعداد الخدمة يجب أن يرتبط بخدمة.")
-                        setting.service = get_object_or_404(Service, pk=service_id, is_active=True)
+                        # For an existing setting, omitting service means keep its current service.
+                        if setting.service_id is None:
+                            raise ValueError("إعداد الخدمة يحتاج إلى خدمة فعلية.")
                         setting.value = None
                     else:
                         setting.service = None
-                        setting.value = _parse_value(request.POST.get("value"), setting_type)
+                        if "value" in request.POST:
+                            setting.value = _parse_value(request.POST.get("value"), setting.setting_type)
+
                     setting.is_active = True
-                    setting.sort_order = max(0, int(request.POST.get("sort_order", 0) or 0))
+                    if "sort_order" in request.POST:
+                        setting.sort_order = max(0, int(request.POST.get("sort_order", 0) or 0))
                     setting.save()
                     messages.success(request, "تم حفظ الإعداد بنجاح.")
                 elif action == "toggle":
