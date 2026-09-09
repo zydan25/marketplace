@@ -1,7 +1,6 @@
 from django.db import migrations, models
 import django.db.models.deletion
 import django.core.validators
-from django.db.models import Q
 
 
 CORE_SETTINGS = [
@@ -79,19 +78,25 @@ CORE_SETTINGS = [
     ("sabafon_south_packages_legacy", "رقم خدمة باقات سبأفون الجنوب", "general_payments", "باقات سبأفون الجنوب"),
     ("sabafon_south_instant_legacy", "رقم خدمة شحن فوري سبأفون الجنوب", "general_payments", "شحن فوري سبأفون الجنوب"),
     ("wifi_cards_sales", "رقم خدمة مبيعات كروت الواي فاي", "general_payments", "مبيعات كروت الواي فاي"),
+
+    ("manual_service_operations", "أرقام خدمات الشرائح والعمليات اليدوية للربط", "general", "يفصل بين أرقام العمليات بشرطة مثل 120-115"),
+    ("system_currency", "العملة الافتراضية للنظام", "general", "تستخدم كعملة افتراضية للنظام"),
+    ("commission_account", "الحساب الافتراضي لعمولات التسديدات والعمليات الأخرى", "general", "الحساب المستخدم افتراضيًا للعمولات"),
+    ("sms_service_bindings", "ربطيات إشعارات الرسائل النصية", "general", "الخدمات التي يُراد تفعيل الإشعارات النصية لها"),
 ]
 
 
 def seed_settings(apps, schema_editor):
     ServiceSetting = apps.get_model("services", "ServiceSetting")
     for key, name, group, description in CORE_SETTINGS:
+        is_service = key not in {"manual_service_operations", "system_currency", "commission_account", "sms_service_bindings"}
         ServiceSetting.objects.get_or_create(
             key=key,
             defaults={
                 "name": name,
                 "group": group,
                 "description": description,
-                "setting_type": "service",
+                "setting_type": "service" if is_service else ("json" if key == "sms_service_bindings" else "text"),
                 "service_id": None,
                 "value": None,
                 "is_system": True,
@@ -140,13 +145,6 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name="servicesetting",
             index=models.Index(fields=["service", "is_active"], name="svc_setting_service_idx"),
-        ),
-        migrations.AddConstraint(
-            model_name="servicesetting",
-            constraint=models.CheckConstraint(
-                condition=Q(setting_type="service", service__isnull=False) | ~Q(setting_type="service"),
-                name="svc_setting_service_required",
-            ),
         ),
         migrations.RunPython(seed_settings, unseed_settings),
     ]
