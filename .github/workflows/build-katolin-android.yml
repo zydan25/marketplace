@@ -21,62 +21,128 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Normalize and validate payment screen
+      - name: Normalize and repair payment screen
         working-directory: .
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
-          p = Path("flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt")
-          s = p.read_text(encoding="utf-8")
+          v2 = Path("flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreenV2.kt")
+          screen = Path("flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt")
 
-          # Remove accidental duplicate declarations while preserving one canonical declaration.
-          targets = {
-              '    val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }',
-              '    val denominationPurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.INSTANT, true) }',
-          }
-          lines = s.splitlines()
-          out = []
-          seen = {k: False for k in targets}
-          for line in lines:
-              if line in targets:
-                  if seen[line]:
-                      continue
-                  seen[line] = True
-              out.append(line)
-          s = "\n".join(out) + "\n"
+          # The V2 implementation is the current source. Keep a single canonical
+          # PaymentNetworkScreen.kt because MainActivity imports that symbol.
+          if not screen.exists() and v2.exists():
+              screen.write_text(v2.read_text(encoding="utf-8"), encoding="utf-8")
 
-          required_snippets = [
-              'code("yem-balance")',
-              'code("yem-denomination")',
-              'code("yem-bill-offer")',
-              'code("yem-query-offers")',
-              'code("post-query")',
-              'code("yem4g-query")',
-              'private fun DenominationPurchaseCard',
-              'تجديد / تفعيل',
-              'LaunchedEffect(baseUrl, session.token)',
-              'if (session.token != null) syncCatalog()',
-              'listOfNotNull(packageCatalogService, packagePurchase).flatMap { it.items }',
-          ]
-          missing = [x for x in required_snippets if x not in s]
-          if missing:
-              raise SystemExit("PaymentNetworkScreen validation failed: " + ", ".join(missing))
+          if not screen.exists():
+              raise SystemExit("PaymentNetworkScreen.kt is missing")
 
-          if s.count('    val packageCatalogService = allServices.firstOrNull { it.code.equals("yem-offer", ignoreCase = true) }') != 1:
-              raise SystemExit("PaymentNetworkScreen validation failed: packageCatalogService must appear exactly once")
-          if s.count('    val denominationPurchase = detectedKind?.let { providerService(allServices, it, PaymentAction.INSTANT, true) }') != 1:
-              raise SystemExit("PaymentNetworkScreen validation failed: denominationPurchase must appear exactly once")
+          s = screen.read_text(encoding="utf-8")
 
-          p.write_text(s, encoding="utf-8")
+          # Prefix detection is intentionally local and deterministic: no catalog
+          # lookup is required to identify the Yemen operator from the MSISDN.
+          provider_old = '''private fun provider(v: String): Provider { val p = phone(v); return when {
+              p.startsWith("77") || p.startsWith("78") -> Provider("yemen-mobile", "يمن موبايل", YmPink, "YM")
+              p.startsWith("71") -> Provider("sabafon", "سبأفون", SabaBlue, "S")
+              p.startsWith("73") -> Provider("you", "YOU", YouYellow, "YOU")
+              p.startsWith("70") -> Provider("why", "WHY", WhyPurple, "WHY")
+              p.startsWith("10") -> Provider("yemen-4g", "يمن فورجي", G4Blue, "4G")
+              p.startsWith("0") -> Provider("yemen-net", "يمن نت", YNBlue, "YN")
+              else -> Provider("unknown", "شبكة السداد", YmPink, "K")
+          } }'''
+          provider_new = '''private fun provider(v: String): Provider {
+              val p = phone(v)
+              return when {
+                  p.startsWith("77") || p.startsWith("78") -> Provider("yemen-mobile", "يمن موبايل", YmPink, "YM")
+                  p.startsWith("71") -> Provider("sabafon", "سبأفون", SabaBlue, "S")
+                  p.startsWith("73") -> Provider("you", "YOU", YouYellow, "YOU")
+                  p.startsWith("70") -> Provider("why", "WHY", WhyPurple, "WHY")
+                  p.startsWith("10") -> Provider("yemen-4g", "يمن فورجي", G4Blue, "4G")
+                  p.startsWith("0") -> Provider("yemen-net", "يمن نت", YNBlue, "YN")
+                  else -> Provider("unknown", "شبكة السداد", YmPink, "K")
+              }
+          }'''
+          if provider_old in s:
+              s = s.replace(provider_old, provider_new)
+
+          # Daily operations are NOT part of the manual sync. Before any payment,
+          # query the server for today's operations for this exact mobile number.
+          s = s.replace(
+              'var showDuplicate by remember{mutableStateOf(false)};var showConfirm by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)};var downloaded by remember{mutableStateOf(false)}',
+              'var showDuplicate by remember{mutableStateOf(false)};var showConfirm by remember{mutableStateOf(false)};var checkingDaily by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)};var downloaded by remember{mutableStateOf(false)}'
+          )
+
+          old_choose = r'''    fun choose\(item:ServiceItemDto\?,service:ServiceDto\?\)\{.*?\n    fun purchase\(\)'''
+          new_choose = '''    fun choose(item:ServiceItemDto?,service:ServiceDto?){
+        if(service==null){error="الخدمة غير مهيأة في الإعدادات الأساسية.";return}
+        val token=session.token
+        if(token==null){error="سجل الدخول أولًا.";return}
+        if(phone(phoneValue).isBlank()){error="أدخل رقم الهاتف أولًا.";return}
+        selectedItem=item
+        selectedService=service
+        checkingDaily=true
+        showDuplicate=false
+        showConfirm=false
+        scope.launch {
+            runCatching {
+                val api=NetworkClient.getApiService(baseUrl.trimEnd('/')+"/")
+                val report=api.getServiceReports("Token $token",mobile=phone(phoneValue),today="1").body()
+                duplicateCount=report?.results.orEmpty().count{it.status !in setOf("failed","refunded","cancelled")}
+                if(duplicateCount>0) showDuplicate=true else showConfirm=true
+            }.onFailure { error=it.localizedMessage?:"تعذر التحقق من عمليات اليوم لهذا الرقم" }
+            checkingDaily=false
+        }
+    }
+    fun purchase()'''
+          ns = re.sub(old_choose, new_choose, s, count=1, flags=re.S)
+          if ns == s:
+              raise SystemExit("Could not patch daily payment check")
+          s = ns
+
+          # The daily check above makes cached reports unnecessary for the payment
+          # decision. Keep sync focused on catalog/settings/balance/advance/packages.
+          s = s.replace(
+              'val reportService=resolve(st.settings,all,p,Action.BALANCE,true)?:offers;val reports=reportService?.let{api.getServiceReports("Token $token",mobile=phone(phoneValue),today="1",service=it.code).body()};PaymentSnapshotCache.saveCatalog(cat);PaymentSnapshotCache.saveSettings(st);PaymentSnapshotCache.savePhoneSnapshot(phoneValue,b,a,o);reports?.let{PaymentSnapshotCache.saveReports(phoneValue,it)};PaymentSnapshotCache.saveLastSync();state=CachedState(cat,st,b,a,o,reports,PaymentSnapshotCache.loadLastSync())',
+              'PaymentSnapshotCache.saveCatalog(cat);PaymentSnapshotCache.saveSettings(st);PaymentSnapshotCache.savePhoneSnapshot(phoneValue,b,a,o);PaymentSnapshotCache.saveLastSync();state=CachedState(cat,st,b,a,o,null,PaymentSnapshotCache.loadLastSync())'
+          )
+
+          # Never claim that today's operations are cached/synced.
+          s = s.replace(
+              'يوجد $duplicateCount تسديد/عمليات محفوظة لنفس الرقم اليوم وفق آخر مزامنة. هل تريد تنفيذ تسديد آخر؟',
+              'يوجد $duplicateCount تسديد/عملية لهذا الرقم اليوم من الخادم. هل تريد تنفيذ تسديد آخر؟'
+          )
+          s = s.replace(
+              'المزامنة الوحيدة من الخادم هي عبر 🔄 أعلى الشاشة. فتح الشاشة والتنقل بين التبويبات لا يرسل أي طلب.',
+              'فتح الشاشة والتنقل بين التبويبات لا يرسل طلبات. المزامنة العامة فقط من زر 🔄، والتحقق من تسديدات اليوم يحدث تلقائيًا قبل التسديد.'
+          )
+
+          # Keep the refresh button as the sole general sync action; daily checks
+          # happen only immediately before payment.
+          if 'getServiceReports("Token $token",mobile=phone(phoneValue),today="1")' not in s:
+              raise SystemExit("Daily payment check endpoint is missing")
+          if 'LaunchedEffect(Unit){loadPhone()}' not in s or 'LaunchedEffect(phoneValue){loadPhone()}' not in s:
+              raise SystemExit("Local-first load hooks are missing")
+          if 'LaunchedEffect(baseUrl, session.token)' in s:
+              raise SystemExit("Auto-sync hook must not exist")
+
+          screen.write_text(s, encoding="utf-8")
+
+          # Ensure the stale V2 duplicate cannot define PaymentNetworkScreen twice.
+          if v2.exists():
+              v2.unlink()
+
+          # Normalize line endings so CI/build output stays deterministic.
+          screen.write_text(screen.read_text(encoding="utf-8").replace("\r\n", "\n"), encoding="utf-8")
           PY
 
-          if ! git diff --quiet -- flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt; then
+          if ! git diff --quiet -- flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreenV2.kt; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt
-            git commit -m "fix(katolin): normalize payment screen source"
+            git add flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreen.kt flutter-katolin/app/src/main/java/com/example/ui/PaymentNetworkScreenV2.kt
+            git commit -m "refactor(katolin): canonicalize payment screen"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
@@ -106,6 +172,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: katolin-debug-apk
-          path: flutter-katolin/app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
