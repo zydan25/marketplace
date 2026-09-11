@@ -39,12 +39,20 @@ def _canonical_settings():
     return ServiceSetting.objects.filter(is_system=True, is_active=True).select_related("service").order_by("group", "sort_order", "id")
 
 
+def _as_optional_number(value):
+    value = (value or "").strip()
+    return value or None
+
+
 @user_passes_test(staff_only, login_url="/admin/dashboard/login/")
 def services_v2_home(request):
     package_cards = []
     for key, (label, code, setting_label) in PACKAGE_SERVICES.items():
         service = Service.objects.filter(code=code, is_active=True).select_related("category__main_category").first()
-        setting = ServiceSetting.objects.filter(key=f"{('yemen_mobile' if code.startswith('yem') else key)}_packages", is_active=True).first()
+        setting = ServiceSetting.objects.filter(
+            key=("yemen_mobile_packages" if key == "yemen-mobile" else f"{key.replace('-', '_')}_packages"),
+            is_active=True,
+        ).first()
         package_cards.append({"key": key, "label": label, "code": code, "title": setting_label, "service": service, "setting": setting})
     return render(
         request,
@@ -65,6 +73,7 @@ def package_manager_v2(request, package_key):
         return redirect("services-v2-home")
     provider_name, service_code, title = config
     service = get_object_or_404(Service.objects.select_related("category__main_category"), code=service_code, is_active=True)
+
     if request.method == "POST":
         action = request.POST.get("action")
         try:
@@ -78,21 +87,43 @@ def package_manager_v2(request, package_key):
                     obj, _ = TelecomPlanType.objects.update_or_create(
                         service=service,
                         code=code,
-                        defaults={"name": name, "parent": parent, "description": (request.POST.get("description") or "").strip(), "is_active": True},
+                        defaults={
+                            "name": name,
+                            "parent": parent,
+                            "description": (request.POST.get("description") or "").strip(),
+                            "is_active": True,
+                        },
                     )
                     if parent:
                         obj.plans.clear()
                     messages.success(request, "تم حفظ تصنيف الباقة.")
+
                 elif action == "toggle_type":
                     obj = get_object_or_404(TelecomPlanType, pk=request.POST.get("pk"), service=service)
                     obj.is_active = not obj.is_active
                     obj.save(update_fields=["is_active"])
+
                 elif action == "save_plan":
                     external_code = (request.POST.get("external_code") or "").strip()
                     name = (request.POST.get("name") or "").strip()
                     if not external_code or not name:
                         raise ValueError("كود المزود واسم الباقة مطلوبان.")
                     price = request.POST.get("price") or "0"
+                    existing = TelecomPlan.objects.filter(service=service, external_code=external_code).first()
+                    metadata = dict(existing.metadata or {}) if existing else {}
+                    benefits = dict(metadata.get("benefits") or {})
+                    benefits.update({
+                        "internet_amount": _as_optional_number(request.POST.get("internet_amount")),
+                        "internet_unit": (request.POST.get("internet_unit") or "").strip() or None,
+                        "voice_minutes": _as_optional_number(request.POST.get("voice_minutes")),
+                        "sms_count": _as_optional_number(request.POST.get("sms_count")),
+                        "technology": (request.POST.get("technology") or "").strip() or None,
+                    })
+                    metadata.update({
+                        "benefits": benefits,
+                        "source": "services-v2",
+                        "provider_operation": "offeryem" if service.code == "yem-offer" else service.code,
+                    })
                     plan, _ = TelecomPlan.objects.update_or_create(
                         service=service,
                         external_code=external_code,
@@ -101,16 +132,17 @@ def package_manager_v2(request, package_key):
                             "price": price,
                             "payment_type": (request.POST.get("payment_type") or "").strip(),
                             "line_type": (request.POST.get("line_type") or "").strip(),
-                            "quota": request.POST.get("quota") or None,
-                            "quota_unit": (request.POST.get("quota_unit") or "").strip(),
+                            "quota": request.POST.get("quota") or benefits.get("internet_amount") or None,
+                            "quota_unit": (request.POST.get("quota_unit") or benefits.get("internet_unit") or "").strip(),
                             "validity_days": int(request.POST.get("validity_days")) if (request.POST.get("validity_days") or "").isdigit() else None,
-                            "metadata": {"source": "services-v2", "provider_operation": "offeryem" if service.code == "yem-offer" else service.code},
+                            "metadata": metadata,
                             "is_active": True,
                         },
                     )
                     type_ids = [int(x) for x in request.POST.getlist("type_ids") if str(x).isdigit()]
                     plan.plan_types.set(TelecomPlanType.objects.filter(service=service, pk__in=type_ids, is_active=True))
-                    messages.success(request, "تم حفظ الباقة وربطها بتصنيفاتها.")
+                    messages.success(request, "تم حفظ الباقة بكل بياناتها.")
+
                 elif action == "toggle_plan":
                     plan = get_object_or_404(TelecomPlan, pk=request.POST.get("pk"), service=service)
                     plan.is_active = not plan.is_active
