@@ -72,15 +72,20 @@ def _service_data(service):
                 item_data["price"] = str(item.sale_price)
             elif hasattr(item, "price"):
                 item_data["price"] = str(item.price)
+            if item_type == "telecom_plans":
+                item_data["payment_type"] = item.payment_type
+                item_data["line_type"] = item.line_type
+                item_data["plan_type_ids"] = [plan_type.id for plan_type in item.plan_types.filter(is_active=True)]
             items.append(item_data)
 
     plan_types = []
-    for plan_type in TelecomPlanType.objects.filter(service=service, is_active=True).prefetch_related("plans").order_by("sort_order", "id"):
+    for plan_type in TelecomPlanType.objects.filter(service=service, is_active=True).select_related("parent").prefetch_related("plans").order_by("sort_order", "id"):
         plan_types.append({
             "id": plan_type.id,
             "code": plan_type.code,
             "name": plan_type.name,
             "description": plan_type.description,
+            "parent_id": plan_type.parent_id,
             "plan_ids": [plan.id for plan in plan_type.plans.filter(is_active=True)],
         })
 
@@ -143,7 +148,7 @@ class SecureServiceCatalogAPIView(APIView):
                 else:
                     categories.append(_category_data(category))
             roots.append({"id": main.id, "name": main.name, "slug": main.slug, "icon": main.icon, "categories": categories})
-        return Response({"version": "5", "categories": roots})
+        return Response({"version": "6", "categories": roots})
 
 
 class SecureServiceDetailAPIView(APIView):
