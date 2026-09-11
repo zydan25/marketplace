@@ -1,8 +1,9 @@
 from decimal import InvalidOperation
 
 from django.db import IntegrityError, transaction
-from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .accounting_bridge import reserve_service_funds
@@ -24,6 +25,7 @@ from .security import encrypt_secret
 
 
 class CanonicalServiceRequestAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     throttle_classes = [ServiceRequestThrottle]
 
     def _post(self, request):
