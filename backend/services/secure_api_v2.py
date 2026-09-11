@@ -1,12 +1,12 @@
 from decimal import InvalidOperation
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework.response import Response
-from rest_framework.exceptions import IntegrityError, ValidationError
+from rest_framework.exceptions import ValidationError
+from rest_framework.views import APIView
 
 from .accounting_bridge import reserve_service_funds
 from .api import (
-    SERVER_GENERATED_KEYS,
     _clean_payload,
     _generated_keys,
     _hydrate_item_payload,
@@ -23,8 +23,7 @@ from .secure_api import (
 from .security import encrypt_secret
 
 
-class CanonicalServiceRequestAPIView:
-    permission_classes = []
+class CanonicalServiceRequestAPIView(APIView):
     throttle_classes = [ServiceRequestThrottle]
 
     def _post(self, request):
@@ -61,10 +60,7 @@ class CanonicalServiceRequestAPIView:
 
         action = str(payload.get("method") or "").strip()
         free_actions = {str(value) for value in (service.metadata or {}).get("free_actions", [])}
-        if action in free_actions:
-            amount = 0
-        else:
-            amount = _resolve_price(service, payload, item=item)
+        amount = 0 if action in free_actions else _resolve_price(service, payload, item=item)
 
         with transaction.atomic():
             tx = ServiceTransaction.objects.create(
