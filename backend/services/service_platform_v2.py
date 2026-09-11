@@ -31,6 +31,10 @@ def _service_rows():
     )
 
 
+def _all_services():
+    return Service.objects.filter(is_active=True).select_related("category__main_category").order_by("category__main_category__sort_order", "category__sort_order", "sort_order", "id")
+
+
 def _canonical_settings():
     return ServiceSetting.objects.filter(is_system=True, is_active=True).select_related("service").order_by("group", "sort_order", "id")
 
@@ -148,7 +152,7 @@ def settings_v2(request):
         except Exception as exc:
             messages.error(request, f"تعذر حفظ الإعداد: {exc}")
         return redirect(request.path)
-    return render(request, "services/service_settings_v2.html", {"settings": _canonical_settings(), "services": _service_rows()})
+    return render(request, "services/service_settings_v2.html", {"settings": _canonical_settings(), "services": _all_services()})
 
 
 @user_passes_test(staff_only, login_url="/admin/dashboard/login/")
