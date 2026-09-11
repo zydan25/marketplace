@@ -1,4 +1,4 @@
-from django.urls import include, path
+from django.urls import path
 
 from .admin_v4 import center, distribution
 from .dashboard_resource_catalog_v11 import dashboard_resources
@@ -8,6 +8,7 @@ from .service_dashboard_home import modern_home
 from .settings_admin import settings_center
 from .views import section_view
 from .wifi_dashboard import wifi_management
+from .service_platform_v2 import package_manager_v2, services_v2_home, settings_v2, integration_docs_v2
 
 urlpatterns = [
     path("", modern_home, name="admin-dashboard-services"),
@@ -28,4 +29,8 @@ urlpatterns = [
     path("balances/", balances_dashboard, name="admin-services-balances"),
     path("wifi/", wifi_management, name="admin-services-wifi-management"),
     path("settings/", settings_center, name="admin-services-settings"),
+    path("v2/", services_v2_home, name="services-v2-home"),
+    path("v2/packages/<slug:package_key>/", package_manager_v2, name="services-v2-package-manager"),
+    path("v2/settings/", settings_v2, name="services-v2-settings"),
+    path("v2/docs/", integration_docs_v2, name="services-v2-docs"),
 ]
