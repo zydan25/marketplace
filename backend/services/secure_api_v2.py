@@ -6,13 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .accounting_bridge import reserve_service_funds
 from .api import (
     _clean_payload,
     _generated_keys,
     _hydrate_item_payload,
     _resolve_price,
     _transaction_data,
+    reserve_service_funds,
 )
 from .models import Service, ServiceTask, ServiceTransaction
 from .secure_api import (
