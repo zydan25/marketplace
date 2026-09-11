@@ -15,7 +15,7 @@ from services.models import (
     TelecomPlan,
     TelecomPlanType,
 )
-from services.catalog_data import GAMES_AND_CARDS, YEMEN_MOBILE_OFFERS
+from services.catalog_data import YEMEN_MOBILE_OFFERS
 from services.catalog_yemen_contract import canonical_yemen_mobile_offer_code
 from services.settings_models import ServiceSetting
 
@@ -51,21 +51,8 @@ CANONICAL_SETTINGS = [
     ("water", "water_bill", "تسديد الماء", "water-bill"),
 ]
 
-PACKAGE_SERVICE_REMAP = {
-    "yem-offer": {
-        "name": "باقات يمن موبايل",
-        "slug": "yemen-mobile-packages",
-        "category": "yemen-mobile",
-        "description": "كتالوج باقات يمن موبايل مع الشراء والتفعيل والتجديد والحذف عبر عقد المزود.",
-        "free_actions": ["Remove"],
-    },
-    "saba-offer": {"name": "باقات سبأفون", "slug": "sabafon-packages", "category": "sabafon"},
-    "sbay-offer": {"name": "باقات سبأفون الجنوب", "slug": "sabafon-south-packages", "category": "sabafon"},
-    "you-offer": {"name": "باقات يو", "slug": "you-packages", "category": "you"},
-    "why-package": {"name": "باقات واي", "slug": "wai-packages", "category": "why"},
-}
-
 LEGACY_YEMEN_CODES = {"yem-denomination", "yem-bill-offer", "yem-offer-bill"}
+
 
 def _canonical_code(value):
     return canonical_yemen_mobile_offer_code(value)
@@ -103,34 +90,6 @@ def _ensure_field(service, key, label, field_type="text", *, required=True, choi
             "is_active": True,
         },
     )
-
-
-def _ensure_service(code, *, name=None, category=None, kind="purchase", pricing="fixed", requires_balance=True, description=""):
-    service = Service.objects.filter(code=code).first()
-    if service is None:
-        raise ValueError(f"الخدمة المطلوبة غير موجودة في قاعدة البيانات: {code}")
-    changed = False
-    updates = {
-        "name": name or service.name,
-        "slug": slugify((name or service.name), allow_unicode=True),
-        "service_kind": kind,
-        "requires_balance": requires_balance,
-        "pricing_mode": pricing,
-        "currency": "YER",
-        "is_active": True,
-    }
-    if category is not None:
-        updates["category"] = category
-    if description:
-        updates["description"] = description
-    metadata = dict(service.metadata or {})
-    for field, value in updates.items():
-        if getattr(service, field) != value:
-            setattr(service, field, value)
-            changed = True
-    if changed:
-        service.save()
-    return service, metadata
 
 
 def _ensure_link(provider, code, *, path, field_map, fixed_params=None):
@@ -196,15 +155,13 @@ def _merge_yemen_mobile_plans(target):
             for key, value in data.items():
                 setattr(existing, key, value)
             existing.save()
-    for legacy in Service.objects.filter(code__in=LEGACY_YEMEN_CODES):
-        legacy.is_active = False
-        legacy.save(update_fields=["is_active", "updated_at"])
+    Service.objects.filter(code__in=LEGACY_YEMEN_CODES).update(is_active=False)
 
 
 def _seed_yemen_mobile_catalog(service):
     for index, (code, price, name, payment_type, line_type) in enumerate(YEMEN_MOBILE_OFFERS):
         code = _canonical_code(code)
-        plan, _ = TelecomPlan.objects.update_or_create(
+        TelecomPlan.objects.update_or_create(
             service=service,
             external_code=code,
             defaults={
@@ -223,7 +180,7 @@ def _seed_yemen_mobile_catalog(service):
                 },
             },
         )
-    # One clean root category plus meaningful children. The roots carry no plans.
+
     roots = {}
     for code, name in [("3g", "باقات 3G"), ("4g", "باقات 4G"), ("other", "باقات أخرى")]:
         roots[code], _ = TelecomPlanType.objects.update_or_create(
@@ -231,29 +188,26 @@ def _seed_yemen_mobile_catalog(service):
             code=code,
             defaults={"name": name, "description": "تصنيف رئيسي للباقات", "parent": None, "is_active": True},
         )
-    for type_obj in roots.values():
-        type_obj.plans.clear()
+        roots[code].plans.clear()
+
     plans = TelecomPlan.objects.filter(service=service, is_active=True)
-    three_g = []
-    four_g = []
-    others = []
+    groups = {"3g": [], "4g": [], "other": []}
     for plan in plans:
-        text = f"{plan.name} {(plan.metadata or {}).get('catalog_source', '')}".lower()
+        text = (plan.name or "").lower()
         if "4g" in text or "فورجي" in text:
-            four_g.append(plan)
+            groups["4g"].append(plan)
         elif "3g" in text or "3(g)" in text:
-            three_g.append(plan)
+            groups["3g"].append(plan)
         else:
-            others.append(plan)
-    roots["3g"].plans.add(*three_g)
-    roots["4g"].plans.add(*four_g)
-    roots["other"].plans.add(*others)
+            groups["other"].append(plan)
+    for key, items in groups.items():
+        roots[key].plans.add(*items)
 
 
 def _settings_from_services():
     for group, key, name, code in CANONICAL_SETTINGS:
         service = Service.objects.filter(code=code, is_active=True).first()
-        setting, _ = ServiceSetting.objects.update_or_create(
+        ServiceSetting.objects.update_or_create(
             key=key,
             defaults={
                 "name": name,
@@ -267,9 +221,7 @@ def _settings_from_services():
                 "sort_order": 10,
             },
         )
-    # Loan query exists in some historical deployments but the supplied API PDF
-    # does not define its endpoint. Keep a visible configurable setting without
-    # fabricating a provider contract.
+
     candidates = ["yem-query-loan", "yem-query-solfa", "yem-solfa-query"]
     loan_service = Service.objects.filter(code__in=candidates, is_active=True).first()
     ServiceSetting.objects.update_or_create(
@@ -287,13 +239,15 @@ def _settings_from_services():
         },
     )
 
-    for service in Service.objects.filter(code__in=GAMES_AND_CARDS.keys(), is_active=True):
+    game_services = Service.objects.filter(category__main_category__slug__in=["games", "software"], is_active=True).select_related("category")
+    for service in game_services:
+        group = "games" if service.category.main_category.slug == "games" else "digital_cards"
         ServiceSetting.objects.update_or_create(
-            key=f"games_{service.code}",
+            key=f"{group}_{service.code}",
             defaults={
                 "name": service.name,
-                "group": "games",
-                "description": "خدمة الألعاب/البطاقات التي يرسل فيها type = service.code إلى المزود.",
+                "group": group,
+                "description": "خدمة ثابتة يرسل فيها type = service.code ضمن عقد الألعاب والبطاقات.",
                 "setting_type": ServiceSetting.Types.SERVICE,
                 "service": service,
                 "is_system": True,
@@ -301,6 +255,7 @@ def _settings_from_services():
                 "sort_order": 100,
             },
         )
+    ServiceSetting.objects.filter(is_system=True, service__is_active=False).update(is_active=False)
 
 
 def provision(*, provider_code="sanaacash-1", provider_name="صنعاء كاش - الربطية الأولى", base_url="https://sanaacash.yrbso.net/api/yr/"):
@@ -358,12 +313,9 @@ def provision(*, provider_code="sanaacash-1", provider_name="صنعاء كاش -
             fixed_params={"action": "billoffer"},
             field_map={"mobile": "mobile", "offerkey": "external_code", "method": "method", "solfa": "solfa"},
         )
-        for dist in ServiceDistribution.objects.filter(service=yem_package):
-            dist.is_active = False
-            dist.save(update_fields=["is_active"])
+        ServiceDistribution.objects.filter(service=yem_package).update(is_active=False)
         _attach(yem_package, combined_link)
 
-        # Make the remaining operational services explicit and readable.
         readable = {
             "yem-balance": "تسديد رصيد يمن موبايل",
             "yem-query-balance": "استعلام رصيد يمن موبايل",
@@ -410,12 +362,7 @@ def provision(*, provider_code="sanaacash-1", provider_name="صنعاء كاش -
             service.is_active = True
             service.save()
 
-        for code in LEGACY_YEMEN_CODES:
-            legacy = Service.objects.filter(code=code).first()
-            if legacy:
-                legacy.is_active = False
-                legacy.save(update_fields=["is_active", "updated_at"])
-
+        Service.objects.filter(code__in=LEGACY_YEMEN_CODES).update(is_active=False)
         _settings_from_services()
 
     return {
