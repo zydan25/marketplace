@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import slugify
 
 from .models import Service, ServiceDistribution, TelecomPlan, TelecomPlanType
+from .settings_admin import settings_center
 from .settings_models import ServiceSetting
 from .yemen_mobile_catalog_sync import sync_yemen_mobile_catalog
 
@@ -107,41 +108,25 @@ def package_manager_v2(request, package_key):
             with transaction.atomic():
                 if action == "sync_catalog":
                     result = sync_yemen_mobile_catalog(service)
-                    messages.success(
-                        request,
-                        f"تم تحديث الكتالوج: {result['created_plans']} باقة، من أصل {result['expected_source_rows']} صفًا، وأسعار صفرية: {result['zero_price']}."
-                    )
-
+                    messages.success(request, f"تم تحديث الكتالوج: {result['created_plans']} باقة، من أصل {result['expected_source_rows']} صفًا، وأسعار صفرية: {result['zero_price']}.")
                 elif action == "save_type":
                     name = (request.POST.get("name") or "").strip()
                     if not name:
                         raise ValueError("اسم الفئة مطلوب.")
                     code = slugify(name, allow_unicode=True)[:80]
                     parent = TelecomPlanType.objects.filter(pk=request.POST.get("parent") or 0, service=service).first()
-                    obj, _ = TelecomPlanType.objects.update_or_create(
-                        service=service,
-                        code=code,
-                        defaults={
-                            "name": name,
-                            "parent": parent,
-                            "description": (request.POST.get("description") or "").strip(),
-                            "is_active": True,
-                        },
-                    )
+                    TelecomPlanType.objects.update_or_create(service=service, code=code, defaults={"name": name, "parent": parent, "description": (request.POST.get("description") or "").strip(), "is_active": True})
                     messages.success(request, "تم حفظ تصنيف الباقة.")
-
                 elif action == "toggle_type":
                     obj = get_object_or_404(TelecomPlanType, pk=request.POST.get("pk"), service=service)
                     obj.is_active = not obj.is_active
                     obj.save(update_fields=["is_active"])
-
                 elif action == "delete_type":
                     obj = get_object_or_404(TelecomPlanType, pk=request.POST.get("pk"), service=service)
                     obj.plans.clear()
                     obj.children.update(parent=None)
                     obj.delete()
                     messages.success(request, "تم حذف التصنيف.")
-
                 elif action == "save_plan":
                     plan_pk = (request.POST.get("plan_pk") or "").strip()
                     external_code = (request.POST.get("external_code") or "").strip()
@@ -152,32 +137,18 @@ def package_manager_v2(request, package_key):
                     existing = TelecomPlan.objects.filter(service=service, external_code=external_code).first()
                     if plan_pk:
                         plan = get_object_or_404(TelecomPlan, pk=plan_pk, service=service)
-                        collision = TelecomPlan.objects.filter(service=service, external_code=external_code).exclude(pk=plan.pk).exists()
-                        if collision:
+                        if TelecomPlan.objects.filter(service=service, external_code=external_code).exclude(pk=plan.pk).exists():
                             raise ValueError("كود المزود مستخدم بالفعل في باقة أخرى.")
                         metadata = dict(plan.metadata or {})
+                    elif existing:
+                        plan = existing
+                        metadata = dict(existing.metadata or {})
                     else:
-                        if existing:
-                            plan = existing
-                            metadata = dict(existing.metadata or {})
-                        else:
-                            plan = TelecomPlan(service=service)
-                            metadata = {}
-
+                        plan = TelecomPlan(service=service)
+                        metadata = {}
                     benefits = dict(metadata.get("benefits") or {})
-                    benefits.update({
-                        "internet_amount": _as_optional_number(request.POST.get("internet_amount")),
-                        "internet_unit": (request.POST.get("internet_unit") or "").strip() or None,
-                        "voice_minutes": _as_optional_number(request.POST.get("voice_minutes")),
-                        "sms_count": _as_optional_number(request.POST.get("sms_count")),
-                        "technology": (request.POST.get("technology") or "").strip() or None,
-                    })
-                    metadata.update({
-                        "benefits": benefits,
-                        "source": "services-v2",
-                        "provider_operation": "offeryem" if service.code == "yem-offer" else service.code,
-                        "purchaseable": True,
-                    })
+                    benefits.update({"internet_amount": _as_optional_number(request.POST.get("internet_amount")), "internet_unit": (request.POST.get("internet_unit") or "").strip() or None, "voice_minutes": _as_optional_number(request.POST.get("voice_minutes")), "sms_count": _as_optional_number(request.POST.get("sms_count")), "technology": (request.POST.get("technology") or "").strip() or None})
+                    metadata.update({"benefits": benefits, "source": "services-v2", "provider_operation": "offeryem" if service.code == "yem-offer" else service.code, "purchaseable": True})
                     plan.name = name
                     plan.external_code = external_code
                     plan.price = price
@@ -192,7 +163,6 @@ def package_manager_v2(request, package_key):
                     type_ids = [int(x) for x in request.POST.getlist("type_ids") if str(x).isdigit()]
                     plan.plan_types.set(TelecomPlanType.objects.filter(service=service, pk__in=type_ids, is_active=True))
                     messages.success(request, "تم حفظ الباقة وتحديث جميع بياناتها.")
-
                 elif action == "delete_plan":
                     plan = get_object_or_404(TelecomPlan, pk=request.POST.get("pk"), service=service)
                     plan.is_active = False
@@ -202,14 +172,12 @@ def package_manager_v2(request, package_key):
                     plan.save(update_fields=["is_active", "metadata", "updated_at"])
                     plan.plan_types.clear()
                     messages.success(request, "تم حذف الباقة من الكتالوج وإخفاؤها من القائمة.")
-
                 elif action == "toggle_plan":
                     plan = get_object_or_404(TelecomPlan, pk=request.POST.get("pk"), service=service)
                     plan.is_active = not plan.is_active
                     plan.save(update_fields=["is_active", "updated_at"])
                     if not plan.is_active:
                         plan.plan_types.clear()
-
                 else:
                     raise ValueError("عملية غير معروفة.")
         except Exception as exc:
@@ -219,36 +187,13 @@ def package_manager_v2(request, package_key):
     plans = TelecomPlan.objects.filter(service=service, is_active=True).prefetch_related("plan_types").order_by("sort_order", "id")
     types = TelecomPlanType.objects.filter(service=service, is_active=True).select_related("parent").prefetch_related("children").order_by("sort_order", "id")
     root_types = types.filter(parent__isnull=True)
-    return render(
-        request,
-        "services/package_manager_v2.html",
-        {
-            "package_key": package_key,
-            "provider_name": provider_name,
-            "title": title,
-            "service": service,
-            "plans": plans,
-            "types": types,
-            "root_types": root_types,
-            "edit_plan": _plan_form_data(edit_plan) if edit_plan else None,
-        },
-    )
+    return render(request, "services/package_manager_v2.html", {"package_key": package_key, "provider_name": provider_name, "title": title, "service": service, "plans": plans, "types": types, "root_types": root_types, "edit_plan": _plan_form_data(edit_plan) if edit_plan else None})
 
 
 @user_passes_test(staff_only, login_url="/admin/dashboard/login/")
 def settings_v2(request):
-    if request.method == "POST":
-        try:
-            key = (request.POST.get("key") or "").strip()
-            setting = get_object_or_404(ServiceSetting, key=key, is_system=True)
-            service = get_object_or_404(Service, pk=request.POST.get("service"), is_active=True)
-            setting.service = service
-            setting.save(update_fields=["service", "updated_at"])
-            messages.success(request, f"تم ربط {setting.name} بالخدمة: {service.name}.")
-        except Exception as exc:
-            messages.error(request, f"تعذر حفظ الإعداد: {exc}")
-        return redirect(request.path)
-    return render(request, "services/service_settings_v2.html", {"settings": _canonical_settings(), "services": _all_services()})
+    # Full editor on the v2 URL. The legacy settings URL remains active too.
+    return settings_center(request)
 
 
 @user_passes_test(staff_only, login_url="/admin/dashboard/login/")
