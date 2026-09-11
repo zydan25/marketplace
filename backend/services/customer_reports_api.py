@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from .api import _transaction_data
 from .executor import _new_status_task, process_task
-from .models import ServiceTask, ServiceTransaction
+from .models import Service, ServiceTask, ServiceTransaction
 
 
 FINAL_STATES = {
@@ -27,7 +27,12 @@ class CustomerServiceReportsAPIView(APIView):
 
     def get(self, request):
         status_filter = str(request.query_params.get("status") or "").strip()
-        qs = ServiceTransaction.objects.filter(customer=request.user).select_related("service").order_by("-created_at")
+        qs = (
+            ServiceTransaction.objects.filter(customer=request.user)
+            .exclude(service__service_kind=Service.ServiceKinds.QUERY)
+            .select_related("service")
+            .order_by("-created_at")
+        )
         if status_filter:
             qs = qs.filter(status=status_filter)
         qs = qs[:100]

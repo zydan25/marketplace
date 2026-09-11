@@ -5,6 +5,7 @@ from .catalog_admin_safe import SafeCatalogAdminEntityAPIView
 from .customer_reports_api import CustomerServiceProviderCheckAPIView, CustomerServiceReportsAPIView
 from .secure_catalog import SecureServiceCatalogAPIView, SecureServiceDetailAPIView
 from .secure_api import SecureServiceRequestAPIView, SecureServiceTransactionDetailAPIView
+from .secure_api_v2 import CanonicalServiceRequestAPIView
 from .settings_api import ServiceSettingDetailAPIView, ServiceSettingServiceAPIView, ServiceSettingsAPIView
 from .webhook import SanaacashWebhookAPIView
 from .wifi_api import WifiNetworksAPIView, WifiPurchaseAPIView, WifiMyCardsAPIView
@@ -15,7 +16,7 @@ urlpatterns = [
     path("settings/<slug:key>/", ServiceSettingDetailAPIView.as_view(), name="service-setting-detail"),
     path("settings/<slug:key>/service/", ServiceSettingServiceAPIView.as_view(), name="service-setting-service"),
     path("services/<int:pk>/", SecureServiceDetailAPIView.as_view(), name="service-detail"),
-    path("requests/", SecureServiceRequestAPIView.as_view(), name="service-request"),
+    path("requests/", CanonicalServiceRequestAPIView.as_view(), name="service-request"),
     path("requests/<uuid:pk>/", SecureServiceTransactionDetailAPIView.as_view(), name="service-request-detail"),
     path("requests/<uuid:pk>/provider-check/", CustomerServiceProviderCheckAPIView.as_view(), name="service-request-provider-check"),
     path("reports/", CustomerServiceReportsAPIView.as_view(), name="customer-service-reports"),

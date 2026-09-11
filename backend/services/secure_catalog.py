@@ -9,13 +9,14 @@ from .models import MainServiceCategory, Service, TelecomPlanType
 _PUBLIC_METADATA_KEYS = {
     "quota", "quota_unit", "validity_days", "payment_type", "line_type", "catalog_only",
     "description", "country", "region", "currency_name", "unit_detail", "detail",
+    "catalog_source", "catalog_authority", "exact_api_code", "provider_offer_code",
 }
 _GENERATED_KEYS = {"external_code", "num", "packageid", "uniqcode"}
 
 
 def _public_metadata(item):
     metadata = getattr(item, "metadata", {}) or {}
-    return {key: str(metadata[key]) for key in _PUBLIC_METADATA_KEYS if key in metadata and metadata[key] is not None}
+    return {key: metadata[key] for key in _PUBLIC_METADATA_KEYS if key in metadata and metadata[key] is not None}
 
 
 def _field_is_generated(service, field):
@@ -49,6 +50,19 @@ def _availability(item, service):
     return {"available": "true" if getattr(item, "is_active", True) else "false"}
 
 
+def _plan_benefits(item):
+    metadata = getattr(item, "metadata", {}) or {}
+    benefits = metadata.get("benefits") or {}
+    return {
+        "internet_amount": benefits.get("internet_amount"),
+        "internet_unit": benefits.get("internet_unit"),
+        "voice_minutes": benefits.get("voice_minutes"),
+        "sms_count": benefits.get("sms_count"),
+        "validity_days": item.validity_days,
+        "technology": benefits.get("technology"),
+    }
+
+
 def _service_data(service):
     items = []
     relations = (
@@ -72,15 +86,27 @@ def _service_data(service):
                 item_data["price"] = str(item.sale_price)
             elif hasattr(item, "price"):
                 item_data["price"] = str(item.price)
+            if item_type == "telecom_plans":
+                item_data.update({
+                    "price": str(item.price),
+                    "payment_type": item.payment_type,
+                    "line_type": item.line_type,
+                    "quota": str(item.quota) if item.quota is not None else None,
+                    "quota_unit": item.quota_unit,
+                    "validity_days": item.validity_days,
+                    "benefits": _plan_benefits(item),
+                    "plan_type_ids": [plan_type.id for plan_type in item.plan_types.filter(is_active=True)],
+                })
             items.append(item_data)
 
     plan_types = []
-    for plan_type in TelecomPlanType.objects.filter(service=service, is_active=True).prefetch_related("plans").order_by("sort_order", "id"):
+    for plan_type in TelecomPlanType.objects.filter(service=service, is_active=True).select_related("parent").prefetch_related("plans").order_by("sort_order", "id"):
         plan_types.append({
             "id": plan_type.id,
             "code": plan_type.code,
             "name": plan_type.name,
             "description": plan_type.description,
+            "parent_id": plan_type.parent_id,
             "plan_ids": [plan.id for plan in plan_type.plans.filter(is_active=True)],
         })
 
@@ -99,6 +125,7 @@ def _service_data(service):
         "max_amount": str(service.max_amount) if service.max_amount is not None else None,
         "request_schema": service.request_schema,
         "response_schema": service.response_schema,
+        "metadata": service.metadata,
         "fields": [
             {"key": field.key, "label": field.label, "type": field.field_type, "required": field.required, "secret": field.secret, "choices": field.choices, "default": field.default_value, "validation": field.validation}
             for field in service.fields.filter(is_active=True).order_by("sort_order", "id")
@@ -124,7 +151,15 @@ def _category_data(category):
 def _games_as_children(category):
     result = []
     for service in category.services.filter(is_active=True).order_by("sort_order", "id"):
-        result.append({"id": -service.id, "name": service.name, "slug": service.code, "icon": service.icon or "gamepad", "parent_id": category.id, "services": [_service_data(service)], "children": []})
+        result.append({
+            "id": -service.id,
+            "name": service.name,
+            "slug": service.code,
+            "icon": service.icon or "gamepad",
+            "parent_id": category.id,
+            "services": [_service_data(service)],
+            "children": [],
+        })
     for child in category.children.filter(is_active=True).order_by("sort_order", "id"):
         result.append(_category_data(child))
     return result
@@ -139,11 +174,19 @@ class SecureServiceCatalogAPIView(APIView):
             categories = []
             for category in main.categories.filter(is_active=True, parent=None).order_by("sort_order", "id"):
                 if main.slug == "games" and category.slug == "games":
-                    categories.append({"id": category.id, "name": category.name, "slug": category.slug, "icon": category.icon, "parent_id": None, "services": [], "children": _games_as_children(category)})
+                    categories.append({
+                        "id": category.id,
+                        "name": category.name,
+                        "slug": category.slug,
+                        "icon": category.icon,
+                        "parent_id": None,
+                        "services": [],
+                        "children": _games_as_children(category),
+                    })
                 else:
                     categories.append(_category_data(category))
             roots.append({"id": main.id, "name": main.name, "slug": main.slug, "icon": main.icon, "categories": categories})
-        return Response({"version": "5", "categories": roots})
+        return Response({"version": "7", "categories": roots})
 
 
 class SecureServiceDetailAPIView(APIView):
@@ -152,5 +195,9 @@ class SecureServiceDetailAPIView(APIView):
     def get(self, request, pk):
         service = get_object_or_404(Service.objects.select_related("category__main_category"), pk=pk, is_active=True)
         data = _service_data(service)
-        data["category"] = {"id": service.category_id, "name": service.category.name, "main_category": service.category.main_category.name}
+        data["category"] = {
+            "id": service.category_id,
+            "name": service.category.name,
+            "main_category": service.category.main_category.name,
+        }
         return Response(data)

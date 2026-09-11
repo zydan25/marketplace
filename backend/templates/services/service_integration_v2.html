@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>طريقة الربط للخدمات — شبيك</title>
+<style>:root{--bg:#f4f7fb;--panel:#fff;--ink:#111827;--muted:#64748b;--line:#e2e8f0;--dark:#0f172a;--blue:#2563eb}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif}.main{max-width:1250px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:14px}.eyebrow{font-size:10px;color:var(--blue);font-weight:900}h1{font-size:25px;margin:4px 0}.lead{font-size:10px;color:var(--muted);line-height:1.9}.btn{display:inline-block;border:1px solid var(--line);background:#fff;color:var(--ink);text-decoration:none;padding:9px 12px;border-radius:10px;font-size:9px;font-weight:900}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}.card h2{font-size:14px;margin:0 0 7px}.code{direction:ltr;text-align:left;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:11px;white-space:pre-wrap;font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace}.note{border-right:4px solid var(--blue);background:#eff6ff;padding:10px;border-radius:8px;font-size:9px;line-height:1.8}.step{padding:10px 0;border-bottom:1px solid #edf1f5}.step:last-child{border-bottom:0}.step b{font-size:10px}.step p{font-size:9px;color:var(--muted);line-height:1.8;margin:4px 0 0}</style></head>
+<body><main class="main">
+<div class="top"><div><div class="eyebrow">SERVICE API CONTRACT</div><h1>طريقة الربط للخدمات في شبيك</h1><p class="lead">الباقات عنصر داخل Service واحدة للعرض والشراء، والاستعلامات خدمات مستقلة وغير مالية.</p></div><a class="btn" href="/admin/dashboard/services/v2/">← مركز الخدمات</a></div>
+<div class="card"><h2>1) الإعدادات</h2><div class="code">GET /api/v2/services/settings/
+GET /api/v2/services/settings/?group=yemen_mobile
+GET /api/v2/services/settings/&lt;key&gt;/service/</div><p class="lead">التطبيق يعتمد على المفتاح الثابت للإعداد ثم يقرأ الـ Service المرتبطة به. لا يتم تثبيت service id داخل التطبيق.</p></div>
+<div class="card"><h2>2) كتالوج يمن موبايل</h2><div class="code">GET /api/v2/services/catalog/
+GET /api/v2/services/services/&lt;service_id&gt;/</div><p class="lead">العنصر <b>telecom_plans</b> يعيد السعر والكود ونوع الدفع ونوع الخط والحصة والصلاحية، بالإضافة إلى benefits: الإنترنت، الدقائق، الرسائل، والتقنية عندما تكون مذكورة في بيانات المصدر.</p></div>
+<div class="card"><h2>3) شراء / تفعيل باقة</h2><div class="code">POST /api/v2/services/requests/
+Authorization: Token &lt;token&gt;
+Idempotency-Key: &lt;unique-key&gt;
+
+{
+  "service_id": 123,
+  "item_type": "telecom_plans",
+  "item_id": 456,
+  "payload": {
+    "mobile": "77xxxxxxx",
+    "method": "New",
+    "solfa": "N"
+  }
+}</div><p class="lead">الخادم يحسب السعر من العنصر نفسه، ويشتق <b>offerkey</b> من كود الباقة. العمليات المدعومة: New / Renew / Remove.</p></div>
+<div class="card"><h2>4) يمن نت: ADSL والهاتف الثابت</h2><div class="code">GET /api/v2/services/catalog/
+POST /api/v2/services/requests/</div><p class="lead">في الفاتورة يرسل المزود صراحة <b>type=adsl</b> أو <b>type=line</b>. أما endpoint الاستعلام في العقد الحالي فهو <b>/post?action=query</b> ولا يعرض type كمعامل للاستعلام ولا يذكر في الاستجابة أن الحساب ADSL أو خط ثابت.</p><div class="note">لذلك أصبحت الخدمات داخل شبيك منفصلة محليًا: <b>استعلام يمن نت ADSL</b> و<b>استعلام هاتف ثابت يمن نت</b>. هذا يمنع خلط اختيار العميل، من دون اختراع قيمة لا يدعمها API المزود.</div></div>
+<div class="card"><h2>5) متابعة العملية</h2><div class="code">GET /api/v2/services/requests/&lt;uuid&gt;/</div><div class="step"><b>queued / processing</b><p>الطلب في طابور التنفيذ.</p></div><div class="step"><b>pending_provider</b><p>المزود لم يحسم العملية؛ يتم استخدام فحص الحالة عندما يكون متاحًا.</p></div><div class="step"><b>success / failed / refunded / manual_review</b><p>الحالة النهائية تعتمد على المعاملة، وليس على HTTP 200 فقط.</p></div></div>
+<div class="card"><h2>6) الألعاب والبطاقات</h2><p class="lead">عقد المزود يستخدم <b>type</b> لكل خدمة لعبة/بطاقة، مع الحقول مثل playerid وplayername وzoneid وemail وmobile. لذلك تبقى الألعاب والبطاقات منفصلة عن باقات الاتصالات.</p></div>
+<div class="card"><h2>7) التنفيذ الآمن</h2><p class="lead">بيانات المزود السرية تبقى على الخادم. تطبيق العميل لا يرسل userid أو password أو token. جميع العمليات تستخدم Idempotency-Key لمنع التكرار.</p></div>
+</main></body></html>
