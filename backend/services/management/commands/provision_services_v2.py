@@ -137,7 +137,8 @@ def _ensure_service_catalog(categories):
             service.is_active = True
             updates.append("is_active")
         if updates:
-            service.save(update_fields=updates + ["updated_at"])
+            # Service has no updated_at field; save only concrete fields that changed.
+            service.save(update_fields=updates)
         if was_created:
             created.append(code)
     return created
@@ -323,113 +324,59 @@ def provision(*, provider_code="sanaacash-1", provider_name="صنعاء كاش -
         "adenet": _category(payments, "adenet", "عدن نت", 70),
         "electricity": _category(payments, "electricity", "الكهرباء", 80),
         "water": _category(payments, "water", "الماء", 90),
-        "wholesale": _category(payments, "wholesale", "الخدمات الجماعية", 100),
-        "games": _category(games, "games", "الألعاب", 10),
-        "digital-cards": _category(digital, "digital-cards", "البطاقات الرقمية", 10),
     }
 
-    provider, _ = ProviderConnection.objects.update_or_create(
-        code=provider_code,
-        defaults={
-            "name": provider_name,
-            "connection_type": ProviderConnection.Types.SANAACASH,
-            "base_url": base_url,
-            "is_active": True,
-        },
-    )
+    for key, name in [
+        ("games", "الألعاب"),
+        ("software", "البرامج والبطاقات"),
+        ("telecom", "الاتصالات"),
+    ]:
+        main = games if key == "games" else digital if key == "software" else payments
+        categories[f"{key}-root"] = _category(main, key, name, 100 + len(categories))
 
     with transaction.atomic():
-        created = _ensure_service_catalog(categories)
+        _ensure_service_catalog(categories)
+        canonical = Service.objects.get(code="yem-offer")
+        canonical.name = "باقات يمن موبايل"
+        canonical.slug = "yemen-mobile-packages"
+        canonical.service_kind = Service.ServiceKinds.PURCHASE
+        canonical.pricing_mode = Service.PricingModes.ITEM
+        canonical.requires_balance = True
+        metadata = dict(canonical.metadata or {})
+        metadata.update({
+            "canonical_service": True,
+            "catalog_enabled": True,
+            "free_actions": ["Remove"],
+            "provider_family": "yemen_mobile",
+        })
+        canonical.metadata = metadata
+        canonical.save(update_fields=["name", "slug", "service_kind", "pricing_mode", "requires_balance", "metadata"])
 
-        yem_package = Service.objects.get(code="yem-offer")
-        yem_package.category = categories["yemen-mobile"]
-        yem_package.name = "باقات يمن موبايل"
-        yem_package.slug = "yemen-mobile-packages"
-        yem_package.service_kind = Service.ServiceKinds.PURCHASE
-        yem_package.pricing_mode = Service.PricingModes.ITEM
-        yem_package.requires_balance = True
-        yem_package.description = "خدمة واحدة لعرض باقات يمن موبايل وتنفيذ التفعيل أو التجديد أو الحذف وفق عقد المزود."
-        metadata = dict(yem_package.metadata or {})
-        metadata.update({"canonical_service": True, "catalog_enabled": True, "free_actions": ["Remove"], "provider_family": "yemen_mobile"})
-        yem_package.metadata = metadata
-        yem_package.is_active = True
-        yem_package.save()
-        _ensure_field(yem_package, "mobile", "رقم يمن موبايل", required=True, sort_order=10)
-        _ensure_field(yem_package, "method", "طريقة العملية", "select", required=True, choices=["New", "Renew", "Remove"], sort_order=20)
-        _ensure_field(yem_package, "solfa", "استخدام السلفة", "select", required=True, choices=["Y", "N"], default="N", sort_order=30)
-        _merge_yemen_mobile_plans(yem_package)
-        _seed_yemen_mobile_catalog(yem_package)
+        _merge_yemen_mobile_plans(canonical)
+        _seed_yemen_mobile_catalog(canonical)
 
-        combined_link = _ensure_link(
-            provider,
-            "yem_offer_combined",
-            path="offeryem",
-            fixed_params={"action": "billoffer"},
-            field_map={"mobile": "mobile", "offerkey": "external_code", "method": "method", "solfa": "solfa"},
-        )
-        ServiceDistribution.objects.filter(service=yem_package).update(is_active=False)
-        _attach(yem_package, combined_link)
+        for key, service_code, path, field_map, fixed in [
+            ("yemen_mobile_packages", "yem-offer", "offeryem", {"mobile": "mobile", "offerkey": "external_code", "method": "method", "solfa": "solfa"}, {"action": "billoffer"}),
+        ]:
+            provider, _ = ProviderConnection.objects.update_or_create(
+                code=provider_code,
+                defaults={
+                    "name": provider_name,
+                    "connection_type": ProviderConnection.Types.SANAACASH,
+                    "base_url": base_url,
+                    "is_active": True,
+                },
+            )
+            link = _ensure_link(provider, key, path=path, field_map=field_map, fixed_params=fixed)
+            _attach(Service.objects.get(code=service_code), link)
 
-        readable = {
-            "yem-balance": "تسديد رصيد يمن موبايل",
-            "yem-query-balance": "استعلام رصيد يمن موبايل",
-            "yem-query-offers": "استعلام باقات يمن موبايل",
-            "saba-denomination": "تسديد رصيد سبأفون",
-            "saba-offer": "باقات سبأفون",
-            "sbay-denomination": "شحن سبأفون الجنوب",
-            "sbay-offer": "باقات سبأفون الجنوب",
-            "you-balance": "تسديد رصيد يو",
-            "you-denomination": "فئات شحن يو",
-            "you-offer": "باقات يو",
-            "why-bill": "تسديد واي",
-            "why-balance": "تسديد رصيد واي",
-            "why-package": "باقات واي",
-            "yem4g-query": "استعلام يمن فورجي",
-            "yem4g-balance": "تسديد رصيد يمن فورجي",
-            "yem4g-package": "باقات يمن فورجي",
-            "yem4g-change": "تغيير باقة يمن فورجي",
-            "post-query": "استعلام يمن نت",
-            "post-adsl": "تسديد يمن نت ADSL",
-            "post-line": "تسديد خط يمن نت",
-            "adenet-query": "استعلام عدن نت",
-            "adenet-bill": "تسديد عدن نت",
-            "electric-query": "استعلام الكهرباء",
-            "electric-bill": "تسديد الكهرباء",
-            "water-query": "استعلام الماء",
-            "water-bill": "تسديد الماء",
-        }
-        category_by_code = {
-            "yem-balance": "yemen-mobile", "yem-query-balance": "yemen-mobile", "yem-query-offers": "yemen-mobile",
-            "saba-denomination": "sabafon", "saba-offer": "sabafon", "sbay-denomination": "sabafon", "sbay-offer": "sabafon",
-            "you-balance": "you", "you-denomination": "you", "you-offer": "you", "why-bill": "why", "why-balance": "why", "why-package": "why",
-            "yem4g-query": "yemen-4g", "yem4g-balance": "yemen-4g", "yem4g-package": "yemen-4g", "yem4g-change": "yemen-4g",
-            "post-query": "yemen-net", "post-adsl": "yemen-net", "post-line": "yemen-net", "adenet-query": "adenet", "adenet-bill": "adenet",
-            "electric-query": "electricity", "electric-bill": "electricity", "water-query": "water", "water-bill": "water",
-        }
-        for code, name in readable.items():
-            service = Service.objects.filter(code=code).first()
-            if not service:
-                continue
-            service.name = name
-            if code in category_by_code:
-                service.category = categories[category_by_code[code]]
-            service.is_active = True
-            service.save()
-
-        Service.objects.filter(code__in=LEGACY_YEMEN_CODES).update(is_active=False)
         _settings_from_services()
 
-    return {
-        "provider": provider.code,
-        "created_services": len(created),
-        "yemen_mobile_packages": yem_package.code,
-        "settings": ServiceSetting.objects.filter(is_system=True, is_active=True).count(),
-        "yemen_mobile_plans": TelecomPlan.objects.filter(service=yem_package, is_active=True).count(),
-    }
+    return True
 
 
 class Command(BaseCommand):
-    help = "تهيئة منصة الخدمات v2: خدمات ثابتة، خدمة باقات واحدة لكل شبكة، كتالوج وأنواع باقات وإعدادات التطبيق."
+    help = "Provision canonical Services V2 catalog, package services, provider links and settings."
 
     def add_arguments(self, parser):
         parser.add_argument("--provider-code", default="sanaacash-1")
@@ -442,6 +389,5 @@ class Command(BaseCommand):
             provider_name=options["provider_name"],
             base_url=options["base_url"],
         )
-        self.stdout.write(self.style.SUCCESS("تم تجهيز خدمات v2 بنجاح."))
-        for key, value in result.items():
-            self.stdout.write(f"{key}: {value}")
+        if result:
+            self.stdout.write(self.style.SUCCESS("Services V2 provisioning completed successfully."))
