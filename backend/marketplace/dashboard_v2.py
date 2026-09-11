@@ -15,11 +15,14 @@ ACCOUNTING_SIDEBAR_LINK = (
 SERVICES_SETTINGS_SIDEBAR_LINK = (
     '<div class="section-title">الخدمات</div>'
     '<nav class="nav">'
-    '<a href="/admin/dashboard/services/" onclick="closeMenu()">'
-    '<span>مركز الخدمات</span><span>NEW</span>'
+    '<a href="/admin/dashboard/services/v2/" onclick="closeMenu()">'
+    '<span>منصة الخدمات الجديدة</span><span>V2</span>'
     '</a>'
-    '<a href="/admin/dashboard/services/settings/" onclick="closeMenu()">'
+    '<a href="/admin/dashboard/services/v2/settings/" onclick="closeMenu()">'
     '<span>إعدادات الخدمات</span><span>⚙</span>'
+    '</a>'
+    '<a href="/admin/dashboard/services/v2/docs/" onclick="closeMenu()">'
+    '<span>طريقة الربط</span><span>API</span>'
     '</a>'
     '</nav>'
 )
