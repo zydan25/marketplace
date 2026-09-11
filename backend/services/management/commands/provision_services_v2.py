@@ -4,6 +4,9 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils.text import slugify
 
+from services.catalog_base import SERVICES
+from services.catalog_yemen_contract import canonical_yemen_mobile_offer_code
+from services.catalog_data import YEMEN_MOBILE_OFFERS
 from services.models import (
     MainServiceCategory,
     ProviderConnection,
@@ -15,8 +18,6 @@ from services.models import (
     TelecomPlan,
     TelecomPlanType,
 )
-from services.catalog_data import YEMEN_MOBILE_OFFERS
-from services.catalog_yemen_contract import canonical_yemen_mobile_offer_code
 from services.settings_models import ServiceSetting
 
 
@@ -90,6 +91,56 @@ def _ensure_field(service, key, label, field_type="text", *, required=True, choi
             "is_active": True,
         },
     )
+
+
+def _ensure_service_catalog(categories):
+    created = []
+    for code, name, category_code, kind, pricing, _link_key, requires_balance in SERVICES:
+        category = categories.get(category_code)
+        if category is None:
+            continue
+        service, was_created = Service.objects.get_or_create(
+            code=code,
+            defaults={
+                "category": category,
+                "name": name,
+                "slug": slugify(name, allow_unicode=True),
+                "description": name,
+                "service_kind": kind,
+                "pricing_mode": pricing,
+                "requires_balance": bool(requires_balance),
+                "currency": "YER",
+                "metadata": {"provisioned_by": "provision_services_v2"},
+                "is_active": True,
+            },
+        )
+        updates = []
+        if service.category_id != category.id:
+            service.category = category
+            updates.append("category")
+        if not service.name:
+            service.name = name
+            updates.append("name")
+        if not service.slug:
+            service.slug = slugify(name, allow_unicode=True)
+            updates.append("slug")
+        if service.service_kind != kind:
+            service.service_kind = kind
+            updates.append("service_kind")
+        if service.pricing_mode != pricing:
+            service.pricing_mode = pricing
+            updates.append("pricing_mode")
+        if service.requires_balance != bool(requires_balance):
+            service.requires_balance = bool(requires_balance)
+            updates.append("requires_balance")
+        if not service.is_active:
+            service.is_active = True
+            updates.append("is_active")
+        if updates:
+            service.save(update_fields=updates + ["updated_at"])
+        if was_created:
+            created.append(code)
+    return created
 
 
 def _ensure_link(provider, code, *, path, field_map, fixed_params=None):
@@ -272,6 +323,7 @@ def provision(*, provider_code="sanaacash-1", provider_name="صنعاء كاش -
         "adenet": _category(payments, "adenet", "عدن نت", 70),
         "electricity": _category(payments, "electricity", "الكهرباء", 80),
         "water": _category(payments, "water", "الماء", 90),
+        "wholesale": _category(payments, "wholesale", "الخدمات الجماعية", 100),
         "games": _category(games, "games", "الألعاب", 10),
         "digital-cards": _category(digital, "digital-cards", "البطاقات الرقمية", 10),
     }
@@ -287,6 +339,8 @@ def provision(*, provider_code="sanaacash-1", provider_name="صنعاء كاش -
     )
 
     with transaction.atomic():
+        created = _ensure_service_catalog(categories)
+
         yem_package = Service.objects.get(code="yem-offer")
         yem_package.category = categories["yemen-mobile"]
         yem_package.name = "باقات يمن موبايل"
@@ -367,6 +421,7 @@ def provision(*, provider_code="sanaacash-1", provider_name="صنعاء كاش -
 
     return {
         "provider": provider.code,
+        "created_services": len(created),
         "yemen_mobile_packages": yem_package.code,
         "settings": ServiceSetting.objects.filter(is_system=True, is_active=True).count(),
         "yemen_mobile_plans": TelecomPlan.objects.filter(service=yem_package, is_active=True).count(),
