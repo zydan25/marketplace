@@ -137,6 +137,17 @@ def package_manager_v2(request, package_key):
 
 @user_passes_test(staff_only, login_url="/admin/dashboard/login/")
 def settings_v2(request):
+    if request.method == "POST":
+        try:
+            key = (request.POST.get("key") or "").strip()
+            setting = get_object_or_404(ServiceSetting, key=key, is_system=True)
+            service = get_object_or_404(Service, pk=request.POST.get("service"), is_active=True)
+            setting.service = service
+            setting.save(update_fields=["service", "updated_at"])
+            messages.success(request, f"تم ربط {setting.name} بالخدمة: {service.name}.")
+        except Exception as exc:
+            messages.error(request, f"تعذر حفظ الإعداد: {exc}")
+        return redirect(request.path)
     return render(request, "services/service_settings_v2.html", {"settings": _canonical_settings(), "services": _service_rows()})
 
 
