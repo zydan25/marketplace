@@ -6,13 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from . import api as service_api
 from .api import (
     _clean_payload,
     _generated_keys,
     _hydrate_item_payload,
     _resolve_price,
     _transaction_data,
-    reserve_service_funds,
 )
 from .models import Service, ServiceTask, ServiceTransaction
 from .secure_api import (
@@ -79,7 +79,7 @@ class CanonicalServiceRequestAPIView(APIView):
                 webhook_secret_encrypted=encrypt_secret(__import__("secrets").token_urlsafe(24)),
             )
             if service.requires_balance and amount > 0:
-                journal = reserve_service_funds(tx)
+                journal = service_api.reserve_service_funds(tx)
                 tx.reserved_journal_id = journal.pk if journal else None
             tx.status = ServiceTransaction.Status.QUEUED
             tx.save(update_fields=["reserved_journal_id", "status", "updated_at"])
