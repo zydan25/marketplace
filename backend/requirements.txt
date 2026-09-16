@@ -6,3 +6,6 @@ cryptography>=43,<47
 Pillow>=10,<12
 redis>=5.0,<7.0
 python-dotenv>=1.0,<2.0
+gunicorn>=23,<24
+dj-database-url>=2.2,<3.0
+psycopg[binary]>=3.2,<4.0
