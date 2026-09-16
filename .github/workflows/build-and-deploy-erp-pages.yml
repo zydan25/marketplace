@@ -1,0 +1,51 @@
+name: Build & Deploy ERP Dashboard Preview
+
+on:
+  push:
+    branches:
+      - feat/erp-style-unified-admin-2026-09
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-erp-preview
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build ERP Dashboard Preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate preview
+        shell: bash
+        run: |
+          test -f preview/index.html
+          test -s preview/index.html
+          echo "ERP dashboard preview is present."
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./preview
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
