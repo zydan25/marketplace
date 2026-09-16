@@ -11,14 +11,14 @@ permissions:
   id-token: write
 
 concurrency:
-  group: erp-pages
+  group: erp-pages-preview
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
+      name: erp-pages-preview
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout clean build
