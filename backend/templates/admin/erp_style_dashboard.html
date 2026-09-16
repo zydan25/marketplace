@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<title>شبيك — لوحة الإدارة</title>
+<style>
+:root{--primary:#4f46e5;--primary2:#6d28d9;--ink:#0f172a;--muted:#64748b;--bg:#f1f5f9;--card:#fff;--border:#e2e8f0;--sidebar:264px;--header:68px;--shadow:0 14px 35px rgba(15,23,42,.08)}
+*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Tahoma,Arial,sans-serif}body{min-height:100vh}a{text-decoration:none;color:inherit}button,input{font:inherit}
+.app{min-height:100vh}.sidebar{position:fixed;z-index:50;inset:0 auto 0 0;width:var(--sidebar);background:linear-gradient(180deg,#4f46e5 0%,#5b21b6 100%);color:#fff;box-shadow:10px 0 40px rgba(30,41,59,.12);display:flex;flex-direction:column;transition:transform .28s ease,width .28s ease}.brand{height:var(--header);display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid rgba(255,255,255,.15)}.brand-mark{width:38px;height:38px;border-radius:12px;background:#fff;color:var(--primary);display:grid;place-items:center;font-weight:900;box-shadow:0 8px 20px rgba(0,0,0,.15)}.brand h1{font-size:17px;margin:0}.brand small{display:block;opacity:.7;font-size:10px;margin-top:2px}.nav{padding:14px 10px 20px;overflow:auto;flex:1}.group-title{padding:12px 10px 7px;color:rgba(255,255,255,.55);font-size:10px;font-weight:700;letter-spacing:.04em}.nav a{display:flex;align-items:center;gap:12px;padding:10px 11px;margin:3px 0;border-radius:12px;color:rgba(255,255,255,.92);font-size:12px;transition:.18s}.nav a:hover,.nav a.active{background:#fff;color:#4338ca;box-shadow:0 7px 18px rgba(0,0,0,.1)}.ico{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.12);display:grid;place-items:center;font-size:12px;flex:0 0 26px}.nav a.active .ico{background:#eef2ff}.nav .sub{margin:2px 8px 8px 0;border-right:1px solid rgba(255,255,255,.17);padding-right:7px}.nav .sub a{font-size:11px;padding:8px 9px}.sidebar-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.14);font-size:10px;color:rgba(255,255,255,.65)}
+.main{margin-left:var(--sidebar);min-height:100vh}.header{position:sticky;top:0;z-index:40;height:var(--header);background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 26px}.header-left{display:flex;align-items:center;gap:10px}.hamb{display:none;border:0;background:#eef2ff;color:#4338ca;width:40px;height:40px;border-radius:12px;font-size:20px;cursor:pointer}.crumb{font-size:13px;font-weight:700}.crumb small{display:block;color:var(--muted);font-size:10px;font-weight:400;margin-top:3px}.head-actions{display:flex;gap:8px;align-items:center}.head-btn{border:1px solid var(--border);background:#fff;color:#334155;border-radius:11px;padding:8px 11px;font-size:11px}.head-btn:hover{border-color:#c7d2fe;color:#4338ca}.user{display:flex;align-items:center;gap:8px;margin-right:6px}.avatar{width:34px;height:34px;border-radius:50%;background:#eef2ff;color:#4338ca;display:grid;place-items:center;font-size:12px;font-weight:800}.user span{font-size:11px;font-weight:700}.content{padding:27px;max-width:1500px;margin:auto}.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px}.hero h2{font-size:28px;margin:0 0 5px}.hero p{margin:0;color:var(--muted);font-size:12px}.hero .date{font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--border);padding:9px 12px;border-radius:11px}
+.stat-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:13px;margin-bottom:22px}.stat{border-radius:18px;padding:17px;color:#fff;box-shadow:var(--shadow);min-height:112px;display:flex;flex-direction:column;justify-content:space-between}.stat.indigo{background:linear-gradient(135deg,#4f46e5,#3730a3)}.stat.green{background:linear-gradient(135deg,#10b981,#047857)}.stat.violet{background:linear-gradient(135deg,#7c3aed,#5b21b6)}.stat.sky{background:linear-gradient(135deg,#0284c7,#0369a1)}.stat.orange{background:linear-gradient(135deg,#f97316,#c2410c)}.stat.rose{background:linear-gradient(135deg,#e11d48,#9f1239)}.stat .top{display:flex;align-items:center;justify-content:space-between;gap:8px}.stat .label{font-size:10px;opacity:.86}.stat .badge{font-size:16px;opacity:.9}.stat .value{font-size:24px;font-weight:900;line-height:1.1}.stat .meta{font-size:9px;opacity:.72}
+.grid{display:grid;gap:18px}.grid.two{grid-template-columns:1.2fr .8fr}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.card{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}.card-head{padding:15px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}.card-head h3{font-size:14px;margin:0}.card-head small{font-size:10px;color:var(--muted)}.card-body{padding:16px}.quick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.quick a{border:1px solid var(--border);background:#f8fafc;border-radius:13px;padding:12px 9px;text-align:center;font-size:10px;font-weight:700;transition:.18s}.quick a:hover{background:#eef2ff;border-color:#c7d2fe;color:#4338ca;transform:translateY(-1px)}.quick .qicon{font-size:18px;display:block;margin-bottom:7px}.mini-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.mini{border-radius:13px;background:#f8fafc;border:1px solid var(--border);padding:10px}.mini b{display:block;font-size:17px;margin-bottom:3px}.mini span{font-size:9px;color:var(--muted)}
+.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:640px}.table th,.table td{padding:10px 12px;border-bottom:1px solid #edf2f7;text-align:right;font-size:10px;white-space:nowrap}.table th{font-size:9px;color:var(--muted);background:#f8fafc}.table tr:hover td{background:#fbfdff}.pill{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:9px;font-weight:700;background:#eef2ff;color:#4338ca}.pill.ok{background:#ecfdf5;color:#047857}.pill.warn{background:#fff7ed;color:#c2410c}.pill.err{background:#fef2f2;color:#b91c1c}.pill.gray{background:#f1f5f9;color:#475569}
+.services{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.service-tree{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.service-cat{border:1px solid var(--border);border-radius:14px;padding:12px;background:#fff}.service-cat .cat{font-size:10px;color:var(--muted);margin-bottom:7px;font-weight:700}.service-links{display:flex;flex-wrap:wrap;gap:6px}.service-links a{background:#f8fafc;border:1px solid var(--border);padding:6px 8px;border-radius:9px;font-size:9px}.service-links a:hover{background:#eef2ff;color:#4338ca}.package-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.package{border:1px solid var(--border);border-radius:13px;padding:11px;background:linear-gradient(180deg,#fff,#f8fafc)}.package strong{display:block;font-size:11px}.package span{display:block;font-size:9px;color:var(--muted);margin:3px 0 8px}.package a{font-size:9px;color:#4338ca;font-weight:700}
+.cards-list{display:grid;gap:8px}.row-card{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #edf2f7}.row-card:last-child{border-bottom:0}.row-card .title{font-size:10px;font-weight:700}.row-card .sub{font-size:9px;color:var(--muted);margin-top:3px}.row-card .num{font-size:11px;font-weight:800}.report-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.report{padding:13px;border:1px solid var(--border);border-radius:14px;background:#fff}.report strong{display:block;font-size:11px}.report span{font-size:9px;color:var(--muted);display:block;margin-top:3px}.report a{display:inline-block;margin-top:8px;font-size:9px;color:#4338ca;font-weight:800}
+.overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:45}.mobile-close{display:none}
+@media(max-width:1200px){.stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.grid.two,.services{grid-template-columns:1fr}.report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){:root{--sidebar:278px}.sidebar{transform:translateX(110%);inset:0 0 0 auto}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.header{height:60px;padding:0 12px}.hamb{display:block}.head-btn{display:none}.user span{display:none}.mobile-close{display:grid;margin-left:auto;margin-bottom:3px;border:0;background:rgba(255,255,255,.12);color:#fff;width:34px;height:34px;border-radius:10px;place-items:center}.content{padding:16px 12px}.hero{align-items:flex-start;flex-direction:column}.hero h2{font-size:22px}.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{min-height:102px;padding:14px}.stat .value{font-size:20px}.quick{grid-template-columns:repeat(2,minmax(0,1fr))}.service-tree{grid-template-columns:1fr}.package-list{grid-template-columns:1fr}.grid.three{grid-template-columns:1fr}.report-grid{grid-template-columns:1fr}}
+@media(max-width:430px){.stat-grid{grid-template-columns:1fr 1fr}.stat .label{font-size:9px}.stat .value{font-size:18px}.card-head{padding:13px}.card-body{padding:12px}.header-left .crumb{font-size:11px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-mark">ش</div><div><h1>شبيك للإدارة</h1><small>ERP · Marketplace Control</small></div><button class="mobile-close" onclick="toggleMenu(false)">×</button></div>
+    <nav class="nav">
+      <div class="group-title">الرئيسية</div>
+      <a class="active" href="/admin/dashboard/control/"><span class="ico">⌂</span>لوحة التحكم</a>
+      <a href="/admin/dashboard/"><span class="ico">↗</span>الواجهة السابقة</a>
+
+      <div class="group-title">السوق والمتاجر</div>
+      <a href="/admin/dashboard/catalog/"><span class="ico">▦</span>الكتالوج والمنتجات</a>
+      <a href="/admin/dashboard/resource/categories/"><span class="ico">◈</span>التصنيفات</a>
+      <a href="/admin/dashboard/resource/variants/"><span class="ico">⌘</span>المتغيرات</a>
+      <a href="/admin/dashboard/vendors/"><span class="ico">▣</span>المتاجر</a>
+      <a href="/admin/dashboard/vendors/applications/"><span class="ico">!</span>طلبات المتاجر</a>
+      <a href="/admin/dashboard/orders/"><span class="ico">🛒</span>الطلبات والمبيعات</a>
+      <a href="/admin/dashboard/resource/payments/"><span class="ico">$</span>المدفوعات</a>
+      <a href="/admin/dashboard/finance/"><span class="ico">≋</span>الشحن والمالية</a>
+
+      <div class="group-title">التسديدات والخدمات</div>
+      <a href="/admin/dashboard/services/v2/"><span class="ico">⚡</span>مركز التسديدات</a>
+      <a href="/admin/dashboard/services/operations/"><span class="ico">⇄</span>العمليات</a>
+      <a href="/admin/dashboard/services/transactions/"><span class="ico">▤</span>سجل العمليات</a>
+      <a href="/admin/dashboard/services/providers/"><span class="ico">☁</span>المزودون</a>
+      <a href="/admin/dashboard/services/links/"><span class="ico">↔</span>روابط الخدمات</a>
+      <a href="/admin/dashboard/services/distribution/"><span class="ico">◫</span>التوزيع والتسعير</a>
+      <a href="/admin/dashboard/services/settings/"><span class="ico">⚙</span>إعدادات الربط</a>
+      <a href="/admin/dashboard/services/resources/"><span class="ico">▥</span>موارد الخدمات</a>
+      <div class="sub">
+      {% for p in package_nav %}<a href="/admin/dashboard/services/v2/packages/{{ p.key }}/"><span class="ico">◉</span>{{ p.title }}</a>{% endfor %}
+      </div>
+
+      <div class="group-title">التسديدات حسب الخدمة</div>
+      {% for main_name, cats in service_tree.items %}
+        <a href="/admin/dashboard/services/v2/"><span class="ico">●</span>{{ main_name }}</a>
+        <div class="sub">
+          {% for cat_name, services in cats.items %}
+            <div style="padding:4px 8px;color:rgba(255,255,255,.55);font-size:9px">{{ cat_name }}</div>
+            {% for service in services %}<a href="/admin/dashboard/services/services/?service={{ service.id }}"><span class="ico">•</span>{{ service.name }}</a>{% endfor %}
+          {% endfor %}
+        </div>
+      {% empty %}<a href="/admin/dashboard/services/health/"><span class="ico">—</span>لا توجد خدمات نشطة</a>{% endfor %}
+
+      <div class="group-title">المالية والمحاسبة</div>
+      <a href="/admin/dashboard/accounting/"><span class="ico">▤</span>المحاسبة</a>
+      <a href="/admin/dashboard/accounting/accounts/"><span class="ico">◎</span>الحسابات</a>
+      <a href="/admin/dashboard/accounting/journals/"><span class="ico">☷</span>القيود اليومية</a>
+      <a href="/admin/dashboard/accounting/vouchers/"><span class="ico">▣</span>السندات</a>
+      <a href="/admin/dashboard/accounting/withdrawals/"><span class="ico">↧</span>السحوبات</a>
+
+      <div class="group-title">المتجر والواجهة</div>
+      <a href="/admin/dashboard/storefront/"><span class="ico">⌘</span>واجهة المتجر</a>
+      <a href="/admin/dashboard/theme-studio/"><span class="ico">✦</span>استوديو التصميم</a>
+      <a href="/admin/dashboard/storefront/themes/new/"><span class="ico">＋</span>إضافة تصميم</a>
+
+      <div class="group-title">المستخدمون والتواصل</div>
+      <a href="/admin/dashboard/accounts/"><span class="ico">♙</span>المستخدمون</a>
+      <a href="/admin/dashboard/communication/"><span class="ico">☏</span>التواصل</a>
+      <a href="/admin/dashboard/communication/notifications/new/"><span class="ico">●</span>إرسال إشعار</a>
+
+      <div class="group-title">التسويق</div>
+      <a href="/admin/dashboard/promotions/"><span class="ico">%</span>العروض والتسويق</a>
+      <a href="/admin/dashboard/promotions/coupons/new/"><span class="ico">▧</span>كوبونات</a>
+
+      <div class="group-title">التقارير</div>
+      <a href="/admin/dashboard/accounting/reports/"><span class="ico">▥</span>تقارير المحاسبة</a>
+      <a href="/admin/dashboard/services/operations/"><span class="ico">◒</span>تقارير العمليات</a>
+      <a href="/admin/dashboard/finance/"><span class="ico">◔</span>تقارير المالية</a>
+    </nav>
+    <div class="sidebar-foot">لوحة جديدة مستقلة · النظام القديم محفوظ بالكامل</div>
+  </aside>
+  <div class="overlay" id="overlay" onclick="toggleMenu(false)"></div>
+
+  <section class="main">
+    <header class="header">
+      <div class="header-left"><button class="hamb" onclick="toggleMenu(true)">☰</button><div class="crumb">لوحة الإدارة الموحدة<small>مركز التحكم في السوق والخدمات والمالية</small></div></div>
+      <div class="head-actions"><a class="head-btn" href="/admin/dashboard/services/v2/">التسديدات</a><a class="head-btn" href="/admin/dashboard/accounting/">المحاسبة</a><a class="head-btn" href="/admin/dashboard/">القديمة</a><div class="user"><div class="avatar">م</div><span>الإدارة</span></div></div>
+    </header>
+
+    <main class="content">
+      <div class="hero"><div><h2>مرحبًا بك في لوحة التحكم</h2><p>واجهة جديدة مبنية بروح ERP الحديثة، مع إبقاء كل المسارات والوظائف الحالية كما هي.</p></div><div class="date">{{ now|date:"Y/m/d · H:i" }}</div></div>
+
+      <section class="stat-grid">
+        <div class="stat indigo"><div class="top"><span class="label">المنتجات</span><span class="badge">▦</span></div><div class="value">{{ stats.products }}</div><div class="meta">كل المنتجات في الكتالوج</div></div>
+        <div class="stat green"><div class="top"><span class="label">العملاء</span><span class="badge">♙</span></div><div class="value">{{ stats.customers }}</div><div class="meta">الحسابات بدور عميل</div></div>
+        <div class="stat violet"><div class="top"><span class="label">المتاجر النشطة</span><span class="badge">▣</span></div><div class="value">{{ stats.stores }}</div><div class="meta">المتاجر العاملة حاليًا</div></div>
+        <div class="stat sky"><div class="top"><span class="label">طلبات اليوم</span><span class="badge">🛒</span></div><div class="value">{{ stats.today_orders }}</div><div class="meta">منذ بداية اليوم</div></div>
+        <div class="stat orange"><div class="top"><span class="label">مبيعات اليوم</span><span class="badge">$</span></div><div class="value">{{ stats.today_paid|floatformat:0 }}</div><div class="meta">الطلبات المدفوعة اليوم</div></div>
+        <div class="stat rose"><div class="top"><span class="label">عمليات الخدمات</span><span class="badge">⚡</span></div><div class="value">{{ service_counts.services }}</div><div class="meta">خدمات فعالة في الكتالوج</div></div>
+      </section>
+
+      <div class="grid two">
+        <section class="card"><div class="card-head"><h3>الوصول السريع</h3><small>الأقسام الأكثر استخدامًا</small></div><div class="card-body"><div class="quick">
+          <a href="/admin/dashboard/catalog/"><span class="qicon">▦</span>الكتالوج</a>
+          <a href="/admin/dashboard/orders/"><span class="qicon">🛒</span>المبيعات</a>
+          <a href="/admin/dashboard/vendors/"><span class="qicon">▣</span>المتاجر</a>
+          <a href="/admin/dashboard/services/v2/"><span class="qicon">⚡</span>التسديدات</a>
+          <a href="/admin/dashboard/services/operations/"><span class="qicon">⇄</span>العمليات</a>
+          <a href="/admin/dashboard/accounting/"><span class="qicon">▤</span>المحاسبة</a>
+          <a href="/admin/dashboard/storefront/"><span class="qicon">⌘</span>الواجهة</a>
+          <a href="/admin/dashboard/communication/"><span class="qicon">☏</span>التواصل</a>
+        </div></div></section>
+        <section class="card"><div class="card-head"><h3>ملخص المالية</h3><small>قراءة سريعة</small></div><div class="card-body"><div class="mini-grid">
+          <div class="mini"><b>{{ stats.wallet_balance|floatformat:0 }}</b><span>أرصدة المحافظ</span></div><div class="mini"><b>{{ stats.pending_payouts }}</b><span>دفعات معلقة</span></div><div class="mini"><b>{{ stats.pending_applications }}</b><span>طلبات متاجر</span></div><div class="mini"><b>{{ payment_summary.paid }}</b><span>مدفوعات ناجحة</span></div><div class="mini"><b>{{ payment_summary.pending }}</b><span>مدفوعات معلقة</span></div><div class="mini"><b>{{ payment_summary.failed }}</b><span>مدفوعات فاشلة</span></div>
+        </div></div></section>
+      </div>
+
+      <div style="height:18px"></div>
+      <div class="grid two">
+        <section class="card"><div class="card-head"><h3>آخر الطلبات والمبيعات</h3><a href="/admin/dashboard/orders/" class="pill">فتح الكل</a></div><div class="table-wrap"><table class="table"><thead><tr><th>الطلب</th><th>العميل</th><th>الإجمالي</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>
+          {% for row in latest_orders %}<tr><td>#{{ row.id }}</td><td>{{ row.customer }}</td><td>{{ row.total|floatformat:0 }}</td><td><span class="pill {% if row.payment_status == 'paid' %}ok{% elif row.payment_status == 'pending' %}warn{% else %}gray{% endif %}">{{ row.payment_status }}</span></td><td>{{ row.created_at|date:"m/d H:i" }}</td></tr>{% empty %}<tr><td colspan="5">لا توجد طلبات حتى الآن</td></tr>{% endfor %}
+        </tbody></table></div></section>
+        <section class="card"><div class="card-head"><h3>آخر عمليات الخدمات</h3><a href="/admin/dashboard/services/operations/" class="pill">مركز العمليات</a></div><div class="table-wrap"><table class="table"><thead><tr><th>الخدمة</th><th>العميل</th><th>المبلغ</th><th>الحالة</th><th>المزود</th></tr></thead><tbody>
+          {% for row in latest_transactions %}<tr><td>{{ row.service }}</td><td>{{ row.customer }}</td><td>{{ row.amount|floatformat:0 }}</td><td><span class="pill {% if row.status == 'success' %}ok{% elif row.status in 'failed refunded' %}err{% else %}warn{% endif %}">{{ row.status }}</span></td><td>{{ row.provider_transaction_id|default:"—" }}</td></tr>{% empty %}<tr><td colspan="5">لا توجد عمليات خدمة حديثة</td></tr>{% endfor %}
+        </tbody></table></div></section>
+      </div>
+
+      <div style="height:18px"></div>
+      <section class="card"><div class="card-head"><h3>التسديدات حسب الشركات</h3><small>روابط الباقات تنشأ من تعريفات منصة الخدمات الحالية</small></div><div class="card-body"><div class="package-list">
+        {% for p in package_nav %}<div class="package"><strong>{{ p.name }}</strong><span>{{ p.title }} · {{ p.service.code }}</span><a href="/admin/dashboard/services/v2/packages/{{ p.key }}/">إدارة الباقات ←</a></div>{% empty %}<div class="package">لا توجد حزم معرفة حاليًا.</div>{% endfor %}
+      </div></div></section>
+
+      <div style="height:18px"></div>
+      <div class="services">
+        <section class="card"><div class="card-head"><h3>شجرة الخدمات الفعلية</h3><small>{{ service_counts.services }} خدمة فعالة</small></div><div class="card-body"><div class="service-tree">
+          {% for main_name, cats in service_tree.items %}{% for cat_name, services in cats.items %}<div class="service-cat"><div class="cat">{{ main_name }} / {{ cat_name }}</div><div class="service-links">{% for service in services %}<a href="/admin/dashboard/services/services/?service={{ service.id }}">{{ service.name }}</a>{% endfor %}</div></div>{% endfor %}{% empty %}<div>لا توجد خدمات نشطة.</div>{% endfor %}
+        </div></div></section>
+        <section class="card"><div class="card-head"><h3>موارد منصة الخدمات</h3><a href="/admin/dashboard/services/resources/" class="pill">إدارة الموارد</a></div><div class="card-body"><div class="mini-grid">
+          <div class="mini"><b>{{ service_counts.plans }}</b><span>الباقات</span></div><div class="mini"><b>{{ service_counts.denominations }}</b><span>الفئات</span></div><div class="mini"><b>{{ service_counts.options }}</b><span>الخيارات</span></div><div class="mini"><b>{{ service_counts.games }}</b><span>الألعاب</span></div><div class="mini"><b>{{ service_counts.digital }}</b><span>المنتجات الرقمية</span></div><div class="mini"><b>{{ service_counts.distributions }}</b><span>التوزيعات</span></div><div class="mini"><b>{{ service_counts.settings }}</b><span>إعدادات الربط</span></div><div class="mini"><b>{{ service_counts.services }}</b><span>الخدمات الفعالة</span></div>
+        </div></div></section>
+      </div>
+
+      <div style="height:18px"></div>
+      <div class="grid two">
+        <section class="card"><div class="card-head"><h3>إعدادات ربط الخدمات</h3><a href="/admin/dashboard/services/settings/" class="pill">فتح الإعدادات</a></div><div class="card-body"><div class="cards-list">{% for row in recent_settings %}<div class="row-card"><div><div class="title">{{ row.key }}</div><div class="sub">{{ row.service|default:"عام" }} · {{ row.group }}</div></div><span class="pill ok">فعّال</span></div>{% empty %}<div>لا توجد إعدادات فعالة.</div>{% endfor %}</div></div></section>
+        <section class="card"><div class="card-head"><h3>آخر مهام العمليات</h3><a href="/admin/dashboard/services/operations/" class="pill">التفاصيل</a></div><div class="card-body"><div class="cards-list">{% for row in recent_tasks %}<div class="row-card"><div><div class="title">مهمة #{{ row.id }}</div><div class="sub">{{ row.status }}</div></div><span class="pill gray">{{ row.created_at|date:"m/d H:i" }}</span></div>{% empty %}<div>لا توجد مهام حديثة.</div>{% endfor %}</div></div></section>
+      </div>
+
+      <div style="height:18px"></div>
+      <section class="card"><div class="card-head"><h3>التقارير ومراكز المتابعة</h3><small>روابط مباشرة للتقارير الموجودة في النظام</small></div><div class="card-body"><div class="report-grid">
+        <div class="report"><strong>تقارير المحاسبة</strong><span>الحسابات والقيود والسندات.</span><a href="/admin/dashboard/accounting/reports/">فتح التقرير ←</a></div>
+        <div class="report"><strong>تقارير العمليات</strong><span>الطلبات والاستعلامات ومهام المزودين.</span><a href="/admin/dashboard/services/operations/">فتح العمليات ←</a></div>
+        <div class="report"><strong>الطلبات والشحن</strong><span>المبيعات والمدفوعات والشحن.</span><a href="/admin/dashboard/orders/">فتح المركز ←</a></div>
+        <div class="report"><strong>المتاجر والعملاء</strong><span>المتاجر والطلبات والحسابات.</span><a href="/admin/dashboard/vendors/">فتح الإدارة ←</a></div>
+      </div></div></section>
+    </main>
+  </section>
+</div>
+<script>
+function toggleMenu(force){const s=document.getElementById('sidebar'),o=document.getElementById('overlay');s.classList.toggle('open',force);o.style.display=force?'block':'none'}
+window.addEventListener('keydown',e=>{if(e.key==='Escape')toggleMenu(false)});
+document.querySelectorAll('.sidebar a').forEach(a=>a.addEventListener('click',()=>{if(window.innerWidth<=900)toggleMenu(false)}));
+</script>
+</body>
+</html>
