@@ -1,52 +1,48 @@
-name: Build & Deploy ERP Dashboard Preview
+name: Build and Deploy ERP Dashboard to GitHub Pages
 
 on:
   push:
-    branches:
-      - feat/erp-style-unified-admin-2026-09
+    branches: [feat/erp-style-unified-admin-2026-09]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: erp-dashboard-pages
+  group: erp-pages
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build ERP Dashboard Preview
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
+      - name: Checkout clean build
         uses: actions/checkout@v4
 
-      - name: Build preview package
+      - name: Prepare production preview
         shell: bash
         run: |
           set -euo pipefail
-          test -f preview/index.html
           test -s preview/index.html
-          mkdir -p build/erp-dashboard
-          cp -R preview/. build/erp-dashboard/
-          test -s build/erp-dashboard/index.html
-          echo "ERP dashboard preview build completed."
+          rm -rf dist
+          mkdir -p dist
+          cp -R preview/. dist/
+          cp dist/index.html dist/404.html
+          test -s dist/index.html
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: erp-dashboard-preview
-          path: build/erp-dashboard
-          if-no-files-found: error
+          path: dist
 
-      - name: Publish to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ./build/erp-dashboard
-          force_orphan: true
-          commit_message: "Deploy ERP dashboard preview ${{ github.sha }}"
-          enable_jekyll: false
-
-# Explicit push marker to retrigger the preview build after the Pages workflow fix.
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
