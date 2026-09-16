@@ -7,12 +7,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages-erp-preview
+  group: erp-dashboard-pages
   cancel-in-progress: true
 
 jobs:
@@ -23,29 +21,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate preview
+      - name: Build preview package
         shell: bash
         run: |
+          set -euo pipefail
           test -f preview/index.html
           test -s preview/index.html
-          echo "ERP dashboard preview is present."
+          mkdir -p build/erp-dashboard
+          cp -R preview/. build/erp-dashboard/
+          test -s build/erp-dashboard/index.html
+          echo "ERP dashboard preview build completed."
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          path: ./preview
+          name: erp-dashboard-preview
+          path: build/erp-dashboard
+          if-no-files-found: error
 
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy Pages artifact
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./build/erp-dashboard
+          force_orphan: true
+          commit_message: "Deploy ERP dashboard preview ${{ github.sha }}"
