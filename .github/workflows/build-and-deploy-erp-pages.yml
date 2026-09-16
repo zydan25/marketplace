@@ -47,3 +47,6 @@ jobs:
           publish_dir: ./build/erp-dashboard
           force_orphan: true
           commit_message: "Deploy ERP dashboard preview ${{ github.sha }}"
+          enable_jekyll: false
+
+# Explicit push marker to retrigger the preview build after the Pages workflow fix.
