@@ -13,6 +13,7 @@ from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_log
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
+from marketplace.erp_style_dashboard import erp_style_dashboard
 from marketplace.root_views import landing_page
 from marketplace.theme_studio import theme_studio
 from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
@@ -31,6 +32,7 @@ urlpatterns = [
     path("admin/dashboard/login/", dashboard_login, name="admin-dashboard-login"),
     path("admin/dashboard/logout/", dashboard_logout, name="admin-dashboard-logout"),
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
+    path("admin/dashboard/control/", erp_style_dashboard, name="admin-erp-style-dashboard"),
     path("admin/dashboard/theme-studio/", theme_studio, name="admin-theme-studio"),
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
     path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
