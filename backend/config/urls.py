@@ -15,6 +15,7 @@ from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
 from marketplace.root_views import landing_page
 from marketplace.theme_studio import theme_studio
+from marketplace.unified_admin_dashboard import unified_admin_dashboard
 from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
 from marketplace.visual_storefront_v9 import visual_editor_v9
 
@@ -31,6 +32,7 @@ urlpatterns = [
     path("admin/dashboard/login/", dashboard_login, name="admin-dashboard-login"),
     path("admin/dashboard/logout/", dashboard_logout, name="admin-dashboard-logout"),
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
+    path("admin/dashboard/control/", unified_admin_dashboard, name="admin-unified-dashboard"),
     path("admin/dashboard/theme-studio/", theme_studio, name="admin-theme-studio"),
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
     path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
