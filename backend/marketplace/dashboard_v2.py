@@ -3,6 +3,15 @@ from django.shortcuts import render
 from .dashboard import dashboard_access_required, _dashboard_context
 
 
+NEW_ERP_DASHBOARD_LINK = (
+    '<div class="section-title">واجهة الإدارة</div>'
+    '<nav class="nav">'
+    '<a href="/admin/dashboard/control/" onclick="closeMenu()">'
+    '<span>لوحة الإدارة الجديدة</span><span>NEW</span>'
+    '</a>'
+    '</nav>'
+)
+
 ACCOUNTING_SIDEBAR_LINK = (
     '<div class="section-title">المالية</div>'
     '<nav class="nav">'
@@ -33,9 +42,8 @@ def dashboard_v2(request):
     response = render(request, "admin/dashboard_v2.html", _dashboard_context())
     html = response.content.decode("utf-8")
     marker = "</aside>"
-    if SERVICES_SETTINGS_SIDEBAR_LINK not in html and marker in html:
-        html = html.replace(marker, f"{SERVICES_SETTINGS_SIDEBAR_LINK}{marker}", 1)
-    if ACCOUNTING_SIDEBAR_LINK not in html and marker in html:
-        html = html.replace(marker, f"{ACCOUNTING_SIDEBAR_LINK}{marker}", 1)
+    for sidebar_link in (NEW_ERP_DASHBOARD_LINK, SERVICES_SETTINGS_SIDEBAR_LINK, ACCOUNTING_SIDEBAR_LINK):
+        if sidebar_link not in html and marker in html:
+            html = html.replace(marker, f"{sidebar_link}{marker}", 1)
     response.content = html.encode("utf-8")
     return response
