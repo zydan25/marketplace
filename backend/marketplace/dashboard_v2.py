@@ -27,15 +27,23 @@ SERVICES_SETTINGS_SIDEBAR_LINK = (
     '</nav>'
 )
 
+UNIFIED_DASHBOARD_LINK = (
+    '<div class="section-title">الإدارة الجديدة</div>'
+    '<nav class="nav">'
+    '<a href="/admin/dashboard/control/" onclick="closeMenu()">'
+    '<span>لوحة الإدارة الموحدة</span><span>NEW</span>'
+    '</a>'
+    '</nav>'
+)
+
 
 @dashboard_access_required
 def dashboard_v2(request):
     response = render(request, "admin/dashboard_v2.html", _dashboard_context())
     html = response.content.decode("utf-8")
     marker = "</aside>"
-    if SERVICES_SETTINGS_SIDEBAR_LINK not in html and marker in html:
-        html = html.replace(marker, f"{SERVICES_SETTINGS_SIDEBAR_LINK}{marker}", 1)
-    if ACCOUNTING_SIDEBAR_LINK not in html and marker in html:
-        html = html.replace(marker, f"{ACCOUNTING_SIDEBAR_LINK}{marker}", 1)
+    for block in (UNIFIED_DASHBOARD_LINK, SERVICES_SETTINGS_SIDEBAR_LINK, ACCOUNTING_SIDEBAR_LINK):
+        if block not in html and marker in html:
+            html = html.replace(marker, f"{block}{marker}", 1)
     response.content = html.encode("utf-8")
     return response
