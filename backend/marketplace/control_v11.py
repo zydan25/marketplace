@@ -2,15 +2,17 @@ import json
 
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Count, Q, Sum
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from catalog.models import Product, ProductVariant, ProductImage
+from catalog.models import Product
 from marketplace.dashboard import dashboard_access_required
 from orders.models import OrderItem
-from vendors.models import VendorProfile, VendorApplication
 from vendors.forms import VendorApplicationReviewForm
+from vendors.models import VendorApplication
+from vendors.services import approve_application, reject_application
 
 from . import control_v10 as core
 from . import control_v9 as legacy
@@ -45,6 +47,8 @@ def _product_editor_context(form, product=None):
 @dashboard_access_required
 @require_http_methods(["GET"])
 def product_detail(request, product_id):
+    from django.shortcuts import get_object_or_404
+    from catalog.models import Product
     product = get_object_or_404(
         Product.objects.select_related("vendor", "vendor__owner").prefetch_related("categories", "store_categories", "variants", "image_items"),
         pk=product_id,
@@ -71,14 +75,15 @@ def application_review(request, application_id):
         messages.error(request, "قرار المراجعة غير صالح.")
         return redirect(APPLICATIONS_URL)
     form = VendorApplicationReviewForm(request.POST, instance=application)
-    if form.is_valid():
-        obj = form.save(commit=False)
-        obj.status = "approved" if action == "approve" else "rejected"
-        obj.reviewed_by = request.user
-        from django.utils import timezone
-        obj.reviewed_at = timezone.now()
-        obj.save()
-        messages.success(request, "تم تحديث طلب المتجر.")
+    if action == "approve":
+        try:
+            vendor, _ = approve_application(application, request.user)
+            messages.success(request, f"تم اعتماد الطلب وإنشاء/تفعيل متجر «{vendor.store_name}».")
+        except Exception as exc:
+            messages.error(request, f"تعذر اعتماد الطلب: {exc}")
+    elif form.is_valid():
+        reject_application(application, request.user, form.cleaned_data.get("review_note", ""))
+        messages.success(request, "تم رفض طلب المتجر وتسجيل الملاحظة.")
     else:
         messages.error(request, "تعذر حفظ ملاحظة المراجعة.")
     return redirect(APPLICATIONS_URL)
