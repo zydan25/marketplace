@@ -15,7 +15,51 @@ python manage.py createsuperuser
 python manage.py runserver 0.0.0.0:8000
 ```
 
-تتوفر لوحة المدير على `/admin/`، وتبدأ واجهة REST من `/api/`. يمكن تغيير قاعدة البيانات من خلال `DB_ENGINE` و`DB_NAME` في متغيرات البيئة، مع استخدام SQLite افتراضيًا.
+تتوفر لوحة المدير على `/admin/`، وتبدأ واجهة REST من `/api/`.
+
+## قاعدة البيانات
+
+يدعم الخادم SQLite للتطوير السريع، ويدعم PostgreSQL كقاعدة تشغيل دائمة. عند ضبط `DATABASE_URL` يستخدم Django PostgreSQL تلقائيًا. كما يبقى الاتصال القديم عبر `DB_ENGINE` و`DB_NAME` و`DB_USER` و`DB_PASSWORD` و`DB_HOST` و`DB_PORT` مدعومًا.
+
+مثال PostgreSQL للبيئة الحالية:
+
+```text
+DATABASE_URL=postgresql://marketplace:<PASSWORD>@alattab.site:5432/marketplace
+DB_SSLMODE=prefer
+DB_CONNECT_TIMEOUT=10
+DB_CONN_MAX_AGE=60
+```
+
+لا تضع كلمة مرور قاعدة البيانات الفعلية داخل GitHub. اضبطها كمتغير سري في الخادم أو Render.
+
+## ترحيل SQLite إلى PostgreSQL
+
+يوجد سكربت تحقق ونقل لمرة واحدة:
+
+```bash
+python scripts/import_sqlite_to_postgres.py
+```
+
+قبل تشغيله، يجب أن تكون `DATABASE_URL` تشير إلى قاعدة PostgreSQL الهدف وأن تكون نسخة SQLite موجودة في `backend/db.sqlite3`، أو تحدد مسارها صراحة عبر `SOURCE_SQLITE_DB`.
+
+مثال:
+
+```bash
+export DATABASE_URL='postgresql://marketplace:<PASSWORD>@alattab.site:5432/marketplace'
+export SOURCE_SQLITE_DB='/path/to/db.sqlite3'
+python scripts/import_sqlite_to_postgres.py
+```
+
+السكربت:
+
+1. يطبق migrations على PostgreSQL.
+2. يرفض خلط البيانات إذا كانت قاعدة الهدف تحتوي أصلًا على بيانات تطبيقية، إلا عند تفعيل `ALLOW_NONEMPTY_TARGET=1` صراحةً.
+3. يصدر بيانات Django من SQLite مع الحفاظ على المفاتيح الأساسية والعلاقات اللازمة.
+4. يستبعد جداول migrations وcontent types والصلاحيات والجلسات وحسابات سجل الإدارة التي يعاد توليدها أو لا تمثل بيانات التطبيق الأساسية.
+5. يعيد ضبط sequences في PostgreSQL.
+6. يقارن عدد الصفوف في الجداول المشتركة بعد النقل، ويفشل بدل إعلان النجاح إذا وُجد اختلاف.
+
+بعد نجاح الترحيل، تصبح PostgreSQL هي قاعدة البيانات الوحيدة التي يجب أن يستخدمها الـbackend في بيئة التشغيل.
 
 ## المصادقة
 
@@ -37,9 +81,7 @@ python manage.py runserver 0.0.0.0:8000
 
 ## النشر على Render عند الحاجة فقط
 
-يمكن تشغيل هذا الـ backend على **Render Free Web Service** ليعمل عند وصول الطلبات فقط. خدمة Render المجانية تدخل في وضع السكون بعد **15 دقيقة** من دون حركة واردة، ثم تستيقظ تلقائيًا عند وصول طلب HTTP جديد، وقد يستغرق الاستيقاظ حوالي دقيقة. لذلك قد يكون أول طلب بعد السكون أبطأ من الطلبات التالية.
-
-> **تنبيه مهم جدًا مع SQLite:** نظام ملفات Render للخدمة المجانية مؤقت (ephemeral). أي تغييرات على `db.sqlite3` أو الملفات المحلية قد تضيع عند إعادة التشغيل أو إعادة النشر أو الدخول في وضع السكون. لذلك لا تعتمد على قاعدة SQLite داخل Render المجاني كمخزن دائم للبيانات.
+يمكن تشغيل هذا الـbackend على Render، لكن قاعدة SQLite المحلية لا تصلح كمخزن بيانات دائم في بيئة تشغيل تعتمد على نظام ملفات غير دائم. لتجنب فقد البيانات، اجعل `DATABASE_URL` تشير إلى PostgreSQL الدائم بدل SQLite.
 
 إعداد الخدمة:
 
@@ -52,22 +94,24 @@ Build Command: pip install -r requirements.txt && python manage.py collectstatic
 Start Command: bash scripts/start_render.sh
 ```
 
-المتغيرات الضرورية:
+المتغيرات الأساسية:
 
 ```text
 DJANGO_DEBUG=0
 DJANGO_SECRET_KEY=<ضع مفتاحًا سريًا قويًا>
 DJANGO_ALLOWED_HOSTS=<اسم-خدمة-render>.onrender.com
 DJANGO_TIME_ZONE=Asia/Aden
-DB_ENGINE=django.db.backends.sqlite3
-DB_NAME=db.sqlite3
+DATABASE_URL=postgresql://marketplace:<PASSWORD>@alattab.site:5432/marketplace
+DB_SSLMODE=prefer
+DB_CONNECT_TIMEOUT=10
+DB_CONN_MAX_AGE=60
 ```
 
-لا يحتاج التشغيل إلى `REDIS_URL`. عند عدم وجوده يستخدم Django ذاكرة محلية للتخزين المؤقت، وإذا أضيف `REDIS_URL` لاحقًا فسيتم استخدام Redis/Valkey تلقائيًا.
+إذا كان PostgreSQL في خادم مستقل، يجب أن يسمح الخادم باتصالات PostgreSQL من Render على المنفذ `5432` مع إعداد جدار ناري ومصادقة مناسبة. لا تفتح PostgreSQL للعالم بلا ضوابط وصول.
 
-### تهيئة حساب المدير تلقائيًا على Render
+### تهيئة حساب المدير تلقائيًا
 
-لأن قاعدة SQLite على Render قد تبدأ فارغة، يستخدم تشغيل Render الملف:
+يستخدم تشغيل Render الملف:
 
 ```text
 scripts/bootstrap_render_admin.py
@@ -77,38 +121,15 @@ scripts/bootstrap_render_admin.py
 
 ```text
 1. migrate
-2. إنشاء حساب المدير تلقائيًا إذا لم يوجد أي مدير
+2. إنشاء حساب المدير إذا لم يوجد أي مدير
 3. تشغيل gunicorn
 ```
 
-اسم المستخدم الافتراضي الذي يتم إنشاؤه:
-
-```text
-renderadmin
-```
-
-كلمة المرور لا تُحفظ في GitHub. يتم اشتقاق كلمة مرور مؤقتة من `DJANGO_SECRET_KEY` وقت التشغيل، وتظهر مرة واحدة في **Render Logs** عند إنشاء الحساب:
-
-```text
-Render bootstrap admin created.
-username: renderadmin
-password: <generated-password>
-Change this password after the first successful login.
-```
-
-إذا كان هناك مدير موجود أصلًا، فالسكربت لا يغير أي مستخدم أو كلمة مرور.
-
-بعد أول تسجيل دخول إلى:
-
-```text
-/admin/dashboard/login/
-```
-
-يجب تغيير كلمة مرور `renderadmin` من لوحة الإدارة.
+إذا كانت قاعدة PostgreSQL تحتوي أصلًا على مدير، فلن يقوم سكربت التهيئة بتغييره.
 
 ## استرجاع النسخة الأصلية عند الانتقال من Render إلى الخادم
 
-بسبب طبيعة التخزين المؤقت في Render Free، يجب اعتبار **GitHub هو مصدر الشيفرة** واعتبار نسخة `db.sqlite3` الاحتياطية هي مصدر بيانات SQLite التي تريد الاحتفاظ بها.
+بسبب طبيعة التخزين المحلي غير الدائم في بعض بيئات التشغيل، يجب اعتبار **GitHub مصدر الشيفرة** ونسخة `db.sqlite3` الاحتياطية مصدر بيانات SQLite القديمة. بعد نقل البيانات مرة واحدة إلى PostgreSQL، اجعل PostgreSQL المصدر الدائم للـbackend.
 
 ### 1. استرجاع الشيفرة على الخادم
 
@@ -120,41 +141,23 @@ python3 -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2. استرجاع قاعدة SQLite الأصلية
+### 2. نقل SQLite إلى PostgreSQL
 
-احتفظ بنسخة احتياطية من قاعدة البيانات قبل نقل التطبيق، ثم ضعها في:
-
-```text
-backend/db.sqlite3
-```
-
-مثال:
+ضع نسخة `db.sqlite3` في مكان معروف على الخادم، ثم:
 
 ```bash
-cp /path/to/db.sqlite3 ./db.sqlite3
+export DATABASE_URL='postgresql://marketplace:<PASSWORD>@alattab.site:5432/marketplace'
+export SOURCE_SQLITE_DB='/path/to/db.sqlite3'
+python scripts/import_sqlite_to_postgres.py
 ```
 
-ثم افحصها:
-
-```bash
-python manage.py check
-python manage.py migrate --noinput
-```
-
-### 3. تشغيل التطبيق على الخادم
+### 3. تشغيل التطبيق
 
 ```bash
 python manage.py collectstatic --noinput
-gunicorn config.wsgi:application
+gunicorn --bind 0.0.0.0:8000 config.wsgi:application
 ```
-
-### 4. للحفاظ على البيانات
-
-لا تعتمد على قاعدة SQLite الموجودة داخل Render Free كنسخة احتياطية دائمة. قبل الانتقال إلى الخادم خذ نسخة من قاعدة البيانات المطلوبة، واحفظها خارج Render، ثم استخدم تلك النسخة لاستعادة `backend/db.sqlite3` على الخادم.
 
 ## ملاحظة إنتاجية
 
-هذا الإصدار مصمم حاليًا ليعمل مع SQLite عند الحاجة، مع إمكانية استخدام Redis/Valkey اختياريًا. يجب في بيئة الإنتاج الفعلية الاهتمام بنسخ `db.sqlite3` احتياطيًا وبملفات `media` بشكل منفصل، لأن التخزين المحلي في Render Free غير دائم.
-
-للمزيد من التفاصيل عن سلوك Render Free:
-https://render.com/docs/free
+PostgreSQL هو المسار الموصى به للبيانات الدائمة في الإنتاج. تبقى Redis/Valkey اختيارية حسب الحاجة، بينما الصور والملفات الموجودة في `media/` ينبغي تخزينها ونسخها احتياطيًا بشكل مستقل عن قاعدة البيانات.
