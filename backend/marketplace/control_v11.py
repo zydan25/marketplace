@@ -61,6 +61,7 @@ def product_detail(request, product_id):
 
 legacy._product_editor_context = _product_editor_context
 legacy.product_detail = product_detail
+legacy.store_detail = core.store_detail
 core.product_detail = product_detail
 core._product_editor_context = _product_editor_context
 
