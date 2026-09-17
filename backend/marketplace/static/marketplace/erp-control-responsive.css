@@ -39,8 +39,24 @@ body{overflow-x:hidden}
   .pm-table td:nth-child(1)::before{content:"الطلب"}.pm-table td:nth-child(2)::before{content:"العميل"}.pm-table td:nth-child(3)::before{content:"المزود"}.pm-table td:nth-child(4)::before{content:"الطريقة"}.pm-table td:nth-child(5)::before{content:"المبلغ"}.pm-table td:nth-child(6)::before{content:"الحالة"}.pm-table td:nth-child(7)::before{content:"المعاملة"}.pm-table td:nth-child(8)::before{content:"التاريخ"}
   .st6-actions-cell{width:100%;display:grid!important;grid-template-columns:1fr 1fr;gap:5px}.st6-actions-cell .st6-btn{width:100%;text-align:center}
   .v4-grid{grid-template-columns:1fr!important;padding:8px!important}.v4-filter{grid-template-columns:1fr!important}.v4-media{height:180px}
+
+  /* طلبات ومتاجر: ضغط خفيف فقط مع الحفاظ على نفس العرض والمحتوى */
+  .ov{gap:10px!important}.ov-head{gap:8px!important}.ov-head h2{font-size:20px!important}.ov-head p{font-size:10px!important;margin-top:3px!important}
+  .ov-stats{gap:5px!important}.ov-stat{padding:8px!important;border-radius:11px!important}.ov-stat small{font-size:7px!important}.ov-stat strong{font-size:16px!important;margin-top:3px!important}
+  .ov-filter{gap:5px!important;padding:8px!important}.ov-input{height:34px!important;font-size:11px!important}.ov-link{padding:6px 8px!important;font-size:8px!important}
+  .ov-table tr{padding:8px!important;gap:5px 8px!important;border-radius:11px!important}.ov-table td{font-size:10px!important;line-height:1.3!important}.ov-table td::before{font-size:8px!important;margin-bottom:1px!important}
+
+  .st6{gap:10px!important}.st6-card{padding:10px!important;border-radius:13px!important}.st6-head{gap:8px!important}.st6-head h2{font-size:20px!important}.st6-sub{font-size:10px!important}.st6-actions{gap:5px!important}.st6-btn{padding:7px 9px!important;font-size:9px!important;border-radius:9px!important}
+  .st6-kpis{gap:5px!important}.st6-kpi{padding:7px!important;border-radius:10px!important}.st6-kpi small{font-size:8px!important}.st6-kpi strong{font-size:16px!important}
+  .st6-filter{gap:5px!important}.st6-input{height:34px!important;font-size:11px!important}.st6-table tr{padding:8px!important;gap:5px 8px!important;border-radius:11px!important}.st6-table td{font-size:10px!important;line-height:1.3!important}.st6-table td::before{font-size:8px!important;margin-bottom:1px!important}.st6-actions-cell{gap:4px!important}
+
+  /* صفحة المتجر: نفس التصميم، أصغر قليلًا للهاتف */
+  .sd6{gap:9px!important}.sd6-card{padding:10px!important;border-radius:13px!important}.sd6-hero{gap:9px!important}.sd6-brand{gap:9px!important}.sd6-logo{width:58px!important;height:58px!important;flex-basis:58px!important;border-radius:14px!important;font-size:21px!important}.sd6-cover{height:95px!important;border-radius:11px!important;margin-bottom:8px!important}.sd6-title h2{font-size:19px!important}.sd6-sub{font-size:8px!important;margin-top:3px!important}.sd6-actions{gap:5px!important}.sd6-btn{padding:7px 8px!important;font-size:8px!important;border-radius:9px!important}.sd6-kpis{gap:5px!important}.sd6-kpi{padding:7px!important;border-radius:10px!important}.sd6-kpi small{font-size:7px!important}.sd6-kpi strong{font-size:12px!important}.sd6-grid{gap:8px!important}.sd6-title{font-size:11px!important;margin-bottom:7px!important}.sd6-table th,.sd6-table td{padding:6px 5px!important;font-size:8px!important}.sd6-table th{font-size:7px!important}.sd6-code{padding:8px!important;font-size:7px!important}.sd6-form{gap:7px!important}.sd6-form-grid{gap:7px!important}.sd6-field{gap:4px!important}.sd6-field label{font-size:8px!important}.sd6-field input,.sd6-field select,.sd6-field textarea{min-height:34px!important;padding:7px 8px!important;font-size:9px!important}.sd6-item{padding:8px!important}.sd6-pill{font-size:7px!important;padding:3px 6px!important}.sd6-list{gap:6px!important}.sd6-msg{padding:6px!important}.sd6-msg p{font-size:7px!important}
+  .sd6-scroll{overflow:auto!important}.sd6-table{min-width:660px!important}
 }
 @media(max-width:440px){
   .st6-table tr,.ap-table tr,.cg-table tr,.vr-table tr,.iv-table tr,.ov-table tr,.pm-table tr{grid-template-columns:1fr!important}
-  .st6-card{padding:11px!important}.st6-head h2,.v4-head h2{font-size:21px!important}.v4-media{height:170px}
+  .st6-card{padding:9px!important}.st6-head h2,.v4-head h2{font-size:20px!important}.v4-media{height:165px}
+  .ov-stat strong{font-size:15px!important}.ov-table tr{padding:7px!important}
+  .sd6-logo{width:52px!important;height:52px!important;flex-basis:52px!important}.sd6-title h2{font-size:18px!important}.sd6-kpi strong{font-size:11px!important}.sd6-table{min-width:610px!important}
 }
