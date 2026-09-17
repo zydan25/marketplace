@@ -13,22 +13,20 @@ from marketplace.control_pages import (
     control_placeholder,
     control_product_delete,
     control_product_report,
-    control_products,
     control_store_delete,
     control_store_report,
     control_store_status,
-    control_stores,
 )
-from marketplace.control_v4 import (
-    control_order_chat_message_v4,
-    control_order_chat_open_v4,
-    control_order_detail,
-    control_order_status_v4,
-    control_orders_v4,
-    control_product_detail,
-    control_products_v4,
-    control_store_detail,
-    control_stores_v4,
+from marketplace.control_v5 import (
+    control_orders,
+    control_products,
+    control_stores,
+    order_chat_message,
+    order_chat_open,
+    order_detail,
+    order_status,
+    product_detail,
+    store_detail,
 )
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
@@ -55,20 +53,20 @@ urlpatterns = [
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
     path("admin/dashboard/control/", erp_style_dashboard, name="admin-erp-style-dashboard"),
 
-    # New integrated marketplace workspaces. They intentionally precede the legacy control CRUD routes.
-    path("admin/dashboard/control/stores/new/", control_stores_v4, name="admin-control-stores-v4-new"),
-    path("admin/dashboard/control/stores/<int:vendor_id>/detail/", control_store_detail, name="admin-control-store-v4-detail"),
-    path("admin/dashboard/control/stores/", control_stores_v4, name="admin-control-stores-v4"),
-    path("admin/dashboard/control/products/new/", control_products_v4, name="admin-control-products-v4-new"),
-    path("admin/dashboard/control/products/<int:product_id>/detail/", control_product_detail, name="admin-control-product-v4-detail"),
-    path("admin/dashboard/control/products/", control_products_v4, name="admin-control-products-v4"),
-    path("admin/dashboard/control/orders/<int:order_id>/detail/", control_order_detail, name="admin-control-order-v4-detail"),
-    path("admin/dashboard/control/orders/<int:order_id>/status/", control_order_status_v4, name="admin-control-order-v4-status"),
-    path("admin/dashboard/control/orders/<int:order_id>/chat/open/<int:vendor_order_id>/", control_order_chat_open_v4, name="admin-control-order-v4-chat-open"),
-    path("admin/dashboard/control/orders/<int:order_id>/chat/message/", control_order_chat_message_v4, name="admin-control-order-v4-chat-message"),
-    path("admin/dashboard/control/orders/", control_orders_v4, name="admin-control-orders-v4"),
+    # Integrated multi-vendor workspaces. These precede the legacy control endpoints.
+    path("admin/dashboard/control/stores/new/", control_stores, name="admin-control-stores-v5-new"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/detail/", store_detail, name="admin-control-store-v5-detail"),
+    path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores-v5"),
+    path("admin/dashboard/control/products/new/", control_products, name="admin-control-products-v5-new"),
+    path("admin/dashboard/control/products/<int:product_id>/detail/", product_detail, name="admin-control-product-v5-detail"),
+    path("admin/dashboard/control/products/", control_products, name="admin-control-products-v5"),
+    path("admin/dashboard/control/orders/<int:order_id>/detail/", order_detail, name="admin-control-order-v5-detail"),
+    path("admin/dashboard/control/orders/<int:order_id>/status/", order_status, name="admin-control-order-v5-status"),
+    path("admin/dashboard/control/orders/<int:order_id>/chat/open/<int:vendor_order_id>/", order_chat_open, name="admin-control-order-v5-chat-open"),
+    path("admin/dashboard/control/orders/<int:order_id>/chat/message/", order_chat_message, name="admin-control-order-v5-chat-message"),
+    path("admin/dashboard/control/orders/", control_orders, name="admin-control-orders-v5"),
 
-    # Legacy routes retained for reports, status toggles and sections that have not yet moved to v4.
+    # Legacy endpoints retained for reports/status actions and not-yet-migrated sections.
     path("admin/dashboard/control/stores/<int:vendor_id>/status/<str:status>/", control_store_status, name="admin-control-store-status"),
     path("admin/dashboard/control/stores/<int:vendor_id>/delete/", control_store_delete, name="admin-control-store-delete"),
     path("admin/dashboard/control/stores/<int:vendor_id>/report/", control_store_report, name="admin-control-store-report"),
