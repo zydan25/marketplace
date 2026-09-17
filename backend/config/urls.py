@@ -19,6 +19,17 @@ from marketplace.control_pages import (
     control_store_status,
     control_stores,
 )
+from marketplace.control_v4 import (
+    control_order_chat_message_v4,
+    control_order_chat_open_v4,
+    control_order_detail,
+    control_order_status_v4,
+    control_orders_v4,
+    control_product_detail,
+    control_products_v4,
+    control_store_detail,
+    control_stores_v4,
+)
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
@@ -43,11 +54,24 @@ urlpatterns = [
     path("admin/dashboard/logout/", dashboard_logout, name="admin-dashboard-logout"),
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
     path("admin/dashboard/control/", erp_style_dashboard, name="admin-erp-style-dashboard"),
-    path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores"),
+
+    # New integrated marketplace workspaces. They intentionally precede the legacy control CRUD routes.
+    path("admin/dashboard/control/stores/new/", control_stores_v4, name="admin-control-stores-v4-new"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/detail/", control_store_detail, name="admin-control-store-v4-detail"),
+    path("admin/dashboard/control/stores/", control_stores_v4, name="admin-control-stores-v4"),
+    path("admin/dashboard/control/products/new/", control_products_v4, name="admin-control-products-v4-new"),
+    path("admin/dashboard/control/products/<int:product_id>/detail/", control_product_detail, name="admin-control-product-v4-detail"),
+    path("admin/dashboard/control/products/", control_products_v4, name="admin-control-products-v4"),
+    path("admin/dashboard/control/orders/<int:order_id>/detail/", control_order_detail, name="admin-control-order-v4-detail"),
+    path("admin/dashboard/control/orders/<int:order_id>/status/", control_order_status_v4, name="admin-control-order-v4-status"),
+    path("admin/dashboard/control/orders/<int:order_id>/chat/open/<int:vendor_order_id>/", control_order_chat_open_v4, name="admin-control-order-v4-chat-open"),
+    path("admin/dashboard/control/orders/<int:order_id>/chat/message/", control_order_chat_message_v4, name="admin-control-order-v4-chat-message"),
+    path("admin/dashboard/control/orders/", control_orders_v4, name="admin-control-orders-v4"),
+
+    # Legacy routes retained for reports, status toggles and sections that have not yet moved to v4.
     path("admin/dashboard/control/stores/<int:vendor_id>/status/<str:status>/", control_store_status, name="admin-control-store-status"),
     path("admin/dashboard/control/stores/<int:vendor_id>/delete/", control_store_delete, name="admin-control-store-delete"),
     path("admin/dashboard/control/stores/<int:vendor_id>/report/", control_store_report, name="admin-control-store-report"),
-    path("admin/dashboard/control/products/", control_products, name="admin-control-products"),
     path("admin/dashboard/control/products/<int:product_id>/delete/", control_product_delete, name="admin-control-product-delete"),
     path("admin/dashboard/control/products/<int:product_id>/report/", control_product_report, name="admin-control-product-report"),
     path("admin/dashboard/control/<slug:section>/", control_placeholder, name="admin-control-placeholder"),
