@@ -85,6 +85,13 @@ class ProductForm(CatalogFormMixin):
             self.fields["categories"].queryset = Category.objects.filter(
                 Q(is_active=True) | Q(pk__in=selected_ids)
             ).order_by("sort_order", "name")
+            for field_name in ("colors", "sizes", "hashtags", "details"):
+                value = getattr(self.instance, field_name, None)
+                self.initial[field_name] = json.dumps(
+                    value if value is not None else ([] if field_name != "details" else {}),
+                    ensure_ascii=False,
+                    indent=2,
+                )
 
     def _clean_json(self, name, allow_list=False):
         value = self.cleaned_data.get(name)
