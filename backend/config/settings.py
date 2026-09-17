@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 import sys
+from urllib.parse import unquote, urlparse
 
 from dotenv import load_dotenv
 
@@ -34,7 +35,66 @@ MIDDLEWARE = [
 ROOT_URLCONF = "config.urls"
 TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [BASE_DIR / "templates"], "APP_DIRS": True, "OPTIONS": {"context_processors": ["django.template.context_processors.request", "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
-DATABASES = {"default": {"ENGINE": os.getenv("DB_ENGINE", "django.db.backends.sqlite3"), "NAME": os.getenv("DB_NAME", str(BASE_DIR / "db.sqlite3"))}}
+
+
+def _int_env(name, default):
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _postgres_database_from_url(database_url):
+    parsed = urlparse(database_url)
+    if parsed.scheme not in ("postgres", "postgresql"):
+        raise ImproperlyConfigured("DATABASE_URL يجب أن يبدأ بـ postgres:// أو postgresql://")
+    if not parsed.path or parsed.path == "/":
+        raise ImproperlyConfigured("DATABASE_URL لا يحتوي على اسم قاعدة البيانات")
+
+    options = {"connect_timeout": _int_env("DB_CONNECT_TIMEOUT", 10)}
+    sslmode = os.getenv("DB_SSLMODE", "").strip()
+    if sslmode:
+        options["sslmode"] = sslmode
+
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": parsed.path.lstrip("/"),
+        "USER": unquote(parsed.username or ""),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname or "",
+        "PORT": str(parsed.port or 5432),
+        "CONN_MAX_AGE": max(0, _int_env("DB_CONN_MAX_AGE", 60)),
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": options,
+    }
+
+
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+if DATABASE_URL:
+    from django.core.exceptions import ImproperlyConfigured
+    DATABASES = {"default": _postgres_database_from_url(DATABASE_URL)}
+else:
+    DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
+    if DB_ENGINE in ("django.db.backends.postgresql", "django.db.backends.postgresql_psycopg2"):
+        DB_SSLMODE = os.getenv("DB_SSLMODE", "").strip()
+        _db_options = {"connect_timeout": _int_env("DB_CONNECT_TIMEOUT", 10)}
+        if DB_SSLMODE:
+            _db_options["sslmode"] = DB_SSLMODE
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": os.getenv("DB_NAME", "marketplace"),
+                "USER": os.getenv("DB_USER", "marketplace"),
+                "PASSWORD": os.getenv("DB_PASSWORD", ""),
+                "HOST": os.getenv("DB_HOST", "localhost"),
+                "PORT": os.getenv("DB_PORT", "5432"),
+                "CONN_MAX_AGE": max(0, _int_env("DB_CONN_MAX_AGE", 60)),
+                "CONN_HEALTH_CHECKS": True,
+                "OPTIONS": _db_options,
+            }
+        }
+    else:
+        DATABASES = {"default": {"ENGINE": DB_ENGINE, "NAME": os.getenv("DB_NAME", str(BASE_DIR / "db.sqlite3"))}}
 
 AUTH_PASSWORD_VALIDATORS = [{"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"}, {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}}, {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"}, {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"}]
 LANGUAGE_CODE = "ar"
