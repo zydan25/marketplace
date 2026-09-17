@@ -10,33 +10,46 @@ from orders.views import dashboard as orders_dashboard, shipment_form
 from promotions.views import coupon_form, dashboard as promotions_dashboard, loan_review
 from storefront.views import dashboard as storefront_dashboard, media_form, section_form, theme_form
 from marketplace.control_pages import (
-    control_placeholder,
     control_product_delete,
     control_product_report,
     control_store_delete,
     control_store_report,
     control_store_status,
 )
-from marketplace.control_v5 import order_chat_message, order_chat_open, order_status
-from marketplace.control_v6 import (
+from marketplace.control_v5 import order_chat_message as legacy_order_chat_message, order_chat_open as legacy_order_chat_open, order_status as legacy_order_status
+from marketplace.control_v11 import (
+    application_review,
+    control_applications,
     control_categories,
+    control_finance,
+    control_inventory,
     control_orders,
+    control_payments,
+    control_products,
     control_stores,
-    order_customer_message as control_order_customer_message,
-    order_detail as control_order_detail,
+    control_variants,
+    order_customer_message,
+    order_chat_message,
+    order_chat_open,
+    order_detail,
+    order_status,
+    product_detail,
     store_branch_delete,
     store_branch_save,
     store_category_delete,
     store_category_save,
     store_detail,
+    store_design_save,
+    store_media_delete,
+    store_media_save,
+    store_section_delete,
+    store_section_save,
 )
-from marketplace.control_v7 import control_products, product_detail
-from marketplace.control_v8 import order_customer_message, order_detail
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
-from marketplace.erp_style_dashboard import erp_style_dashboard
+from marketplace.erp_style_dashboard_bridge import erp_style_dashboard
 from marketplace.root_views import landing_page
 from marketplace.theme_studio import theme_studio
 from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
@@ -57,32 +70,45 @@ urlpatterns = [
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
     path("admin/dashboard/control/", erp_style_dashboard, name="admin-erp-style-dashboard"),
 
-    # Integrated multi-vendor control workspaces.
-    path("admin/dashboard/control/categories/", control_categories, name="admin-control-categories-v6"),
-    path("admin/dashboard/control/stores/new/", control_stores, name="admin-control-stores-v6-new"),
-    path("admin/dashboard/control/stores/<int:vendor_id>/detail/", store_detail, name="admin-control-store-v6-detail"),
-    path("admin/dashboard/control/stores/<int:vendor_id>/categories/save/", store_category_save, name="admin-control-store-category-save"),
-    path("admin/dashboard/control/stores/<int:vendor_id>/categories/<int:category_id>/delete/", store_category_delete, name="admin-control-store-category-delete"),
-    path("admin/dashboard/control/stores/<int:vendor_id>/branches/save/", store_branch_save, name="admin-control-store-branch-save"),
-    path("admin/dashboard/control/stores/<int:vendor_id>/branches/<int:branch_id>/delete/", store_branch_delete, name="admin-control-store-branch-delete"),
-    path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores-v6"),
-    path("admin/dashboard/control/products/new/", control_products, name="admin-control-products-v7-new"),
-    path("admin/dashboard/control/products/<int:product_id>/detail/", product_detail, name="admin-control-product-v7-detail"),
-    path("admin/dashboard/control/products/", control_products, name="admin-control-products-v7"),
-    path("admin/dashboard/control/orders/<int:order_id>/detail/", order_detail, name="admin-control-order-v8-detail"),
-    path("admin/dashboard/control/orders/<int:order_id>/status/", order_status, name="admin-control-order-v6-status"),
-    path("admin/dashboard/control/orders/<int:order_id>/chat/open/<int:vendor_order_id>/", order_chat_open, name="admin-control-order-v6-chat-open"),
-    path("admin/dashboard/control/orders/<int:order_id>/chat/message/", order_chat_message, name="admin-control-order-v6-chat-message"),
-    path("admin/dashboard/control/orders/<int:order_id>/customer-chat/message/", order_customer_message, name="admin-control-order-v8-customer-chat-message"),
-    path("admin/dashboard/control/orders/", control_orders, name="admin-control-orders-v6"),
+    # Unified multi-vendor control shell.
+    path("admin/dashboard/control/categories/", control_categories, name="admin-control-categories-v11"),
+    path("admin/dashboard/control/inventory/", control_inventory, name="admin-control-inventory-v11"),
+    path("admin/dashboard/control/variants/", control_variants, name="admin-control-variants-v11"),
+    path("admin/dashboard/control/applications/", control_applications, name="admin-control-applications-v11"),
+    path("admin/dashboard/control/applications/<int:application_id>/review/", application_review, name="admin-control-application-review-v11"),
+    path("admin/dashboard/control/payments/", control_payments, name="admin-control-payments-v11"),
+    path("admin/dashboard/control/finance/", control_finance, name="admin-control-finance-v11"),
 
-    # Legacy endpoints retained for reports/status actions and not-yet-migrated sections.
+    path("admin/dashboard/control/stores/new/", control_stores, name="admin-control-stores-v11-new"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/detail/", store_detail, name="admin-control-store-v11-detail"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/design/save/", store_design_save, name="admin-control-store-design-save"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/design/sections/save/", store_section_save, name="admin-control-store-section-save"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/design/sections/<int:section_id>/delete/", store_section_delete, name="admin-control-store-section-delete"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/design/media/save/", store_media_save, name="admin-control-store-media-save"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/design/media/<int:media_id>/delete/", store_media_delete, name="admin-control-store-media-delete"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/categories/save/", store_category_save, name="admin-control-store-category-save-v11"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/categories/<int:category_id>/delete/", store_category_delete, name="admin-control-store-category-delete-v11"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/branches/save/", store_branch_save, name="admin-control-store-branch-save-v11"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/branches/<int:branch_id>/delete/", store_branch_delete, name="admin-control-store-branch-delete-v11"),
+    path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores-v11"),
+
+    path("admin/dashboard/control/products/new/", control_products, name="admin-control-products-v11-new"),
+    path("admin/dashboard/control/products/<int:product_id>/detail/", product_detail, name="admin-control-product-v11-detail"),
+    path("admin/dashboard/control/products/", control_products, name="admin-control-products-v11"),
+    path("admin/dashboard/control/orders/<int:order_id>/detail/", order_detail, name="admin-control-order-v11-detail"),
+    path("admin/dashboard/control/orders/<int:order_id>/status/", order_status, name="admin-control-order-v11-status"),
+    path("admin/dashboard/control/orders/<int:order_id>/chat/open/<int:vendor_order_id>/", order_chat_open, name="admin-control-order-v11-chat-open"),
+    path("admin/dashboard/control/orders/<int:order_id>/chat/message/", order_chat_message, name="admin-control-order-v11-chat-message"),
+    path("admin/dashboard/control/orders/<int:order_id>/customer-chat/message/", order_customer_message, name="admin-control-order-v11-customer-chat-message"),
+    path("admin/dashboard/control/orders/", control_orders, name="admin-control-orders-v11"),
+
+    # Legacy actions retained for compatibility with older report links.
     path("admin/dashboard/control/stores/<int:vendor_id>/status/<str:status>/", control_store_status, name="admin-control-store-status"),
     path("admin/dashboard/control/stores/<int:vendor_id>/delete/", control_store_delete, name="admin-control-store-delete"),
     path("admin/dashboard/control/stores/<int:vendor_id>/report/", control_store_report, name="admin-control-store-report"),
     path("admin/dashboard/control/products/<int:product_id>/delete/", control_product_delete, name="admin-control-product-delete"),
     path("admin/dashboard/control/products/<int:product_id>/report/", control_product_report, name="admin-control-product-report"),
-    path("admin/dashboard/control/<slug:section>/", control_placeholder, name="admin-control-placeholder"),
+
     path("admin/dashboard/theme-studio/", theme_studio, name="admin-theme-studio"),
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
     path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
@@ -107,7 +133,7 @@ urlpatterns = [
     path("admin/dashboard/communication/", communication_dashboard, name="admin-dashboard-communication"),
     path("admin/dashboard/communication/notifications/new/", notification_form, name="admin-communication-notification-new"),
     path("admin/dashboard/communication/notifications/<int:pk>/edit/", notification_form, name="admin-communication-notification-edit"),
-    path("admin/dashboard/promotions/", promotions_dashboard, name="admin-dashboard-promotions"),
+    path("admin/dashboard/promotions/", promotions_dashboard, name="admin-promotions-dashboard"),
     path("admin/dashboard/promotions/coupons/new/", coupon_form, name="admin-promotions-coupon-new"),
     path("admin/dashboard/promotions/loans/<int:pk>/review/", loan_review, name="admin-promotions-loan-review"),
     path("admin/dashboard/manifest.json", dashboard_manifest, name="admin-dashboard-manifest"),
