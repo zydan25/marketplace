@@ -33,7 +33,6 @@ def erp_style_dashboard(request):
     now = timezone.now()
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Core platform figures.
     stats = {
         "products": Product.objects.count(),
         "customers": User.objects.filter(role="customer").count(),
@@ -48,7 +47,6 @@ def erp_style_dashboard(request):
         "notifications": Notification.objects.filter(is_read=False).count(),
     }
 
-    # Service operations stay database-driven so the navigation follows the actual catalog.
     service_rows = Service.objects.filter(is_active=True).select_related("category__main_category").order_by(
         "category__main_category__sort_order", "category__sort_order", "sort_order", "id"
     )
@@ -70,7 +68,6 @@ def erp_style_dashboard(request):
         "options": ServiceOption.objects.filter(is_active=True).count(),
     }
 
-    # Package navigation is based on the existing service-platform catalog.
     package_nav = []
     for key, (provider_name, service_code, title) in PACKAGE_SERVICES.items():
         service = service_rows.filter(code=service_code).first()
@@ -89,33 +86,38 @@ def erp_style_dashboard(request):
     recent_settings = ServiceSetting.objects.select_related("service").filter(is_active=True).order_by("group", "sort_order", "id")[:8]
     recent_tasks = ServiceTask.objects.order_by("-created_at")[:8]
 
-    return render(
-        request,
-        "admin/erp_style_dashboard.html",
-        {
-            "now": now,
-            "stats": stats,
-            "service_tree": service_tree,
-            "package_nav": package_nav,
-            "service_counts": service_counts,
-            "transaction_status": transaction_status,
-            "latest_transactions": latest_transactions,
-            "latest_orders": latest_orders,
-            "latest_stores": latest_stores,
-            "low_stock": low_stock,
-            "pending_applications": pending_applications,
-            "recent_settings": recent_settings,
-            "recent_tasks": recent_tasks,
-            "payment_summary": {
-                "paid": Payment.objects.filter(status="paid").count(),
-                "pending": Payment.objects.filter(status="pending").count(),
-                "failed": Payment.objects.filter(status="failed").count(),
-            },
-            "vendor_orders": {
-                "pending": VendorOrder.objects.filter(status="pending").count(),
-                "processing": VendorOrder.objects.filter(status="processing").count(),
-                "shipped": VendorOrder.objects.filter(status="shipped").count(),
-                "delivered": VendorOrder.objects.filter(status="delivered").count(),
-            },
+    context = {
+        "now": now,
+        "stats": stats,
+        "service_tree": service_tree,
+        "package_nav": package_nav,
+        "service_counts": service_counts,
+        "transaction_status": transaction_status,
+        "latest_transactions": latest_transactions,
+        "latest_orders": latest_orders,
+        "latest_stores": latest_stores,
+        "low_stock": low_stock,
+        "pending_applications": pending_applications,
+        "recent_settings": recent_settings,
+        "recent_tasks": recent_tasks,
+        "payment_summary": {
+            "paid": Payment.objects.filter(status="paid").count(),
+            "pending": Payment.objects.filter(status="pending").count(),
+            "failed": Payment.objects.filter(status="failed").count(),
         },
+        "vendor_orders": {
+            "pending": VendorOrder.objects.filter(status="pending").count(),
+            "processing": VendorOrder.objects.filter(status="processing").count(),
+            "shipped": VendorOrder.objects.filter(status="shipped").count(),
+            "delivered": VendorOrder.objects.filter(status="delivered").count(),
+        },
+    }
+    response = render(request, "admin/erp_style_dashboard.html", context)
+    # Bridge the existing ERP shell to the first rebuilt control page without changing the rest of the legacy routes.
+    html = response.content.decode("utf-8")
+    html = html.replace(
+        '<a href="/admin/dashboard/vendors/"><span class="ico">▣</span>المتاجر</a>',
+        '<a href="/admin/dashboard/control/stores/"><span class="ico">▣</span>المتاجر</a>',
     )
+    response.content = html.encode("utf-8")
+    return response
