@@ -46,9 +46,23 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# CORS/CSRF origin lists must contain full origins such as https://example.com.
+# Ignore wildcard values (often entered as a convenience in deployment settings)
+# so Django's system checks do not reject the application at startup.
+def _origin_list(name):
+    origins = []
+    for value in os.getenv(name, "").split(","):
+        value = value.strip()
+        if not value or value == "*":
+            continue
+        if value.startswith(("http://", "https://")):
+            origins.append(value)
+    return origins
+
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+CORS_ALLOWED_ORIGINS = _origin_list("CORS_ALLOWED_ORIGINS")
+CSRF_TRUSTED_ORIGINS = _origin_list("CSRF_TRUSTED_ORIGINS")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SERVICES_CREDENTIALS_KEY = os.getenv("SERVICES_CREDENTIALS_KEY", "")
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
