@@ -73,11 +73,11 @@ class VendorCategoryForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        vendor = self.instance.vendor if self.instance.pk else None
-        if vendor:
-            self.fields["parent"].queryset = VendorCategory.objects.filter(vendor=vendor).exclude(pk=self.instance.pk).order_by("sort_order", "name")
+        vendor_id = self.instance.vendor_id if self.instance.pk else self.initial.get("vendor") or (self.data.get("vendor") if self.data else None)
+        if vendor_id:
+            self.fields["parent"].queryset = VendorCategory.objects.filter(vendor_id=vendor_id).exclude(pk=self.instance.pk).order_by("sort_order", "name")
         else:
-            self.fields["parent"].queryset = VendorCategory.objects.all().order_by("vendor__store_name", "sort_order", "name")
+            self.fields["parent"].queryset = VendorCategory.objects.none()
 
     def clean(self):
         cleaned = super().clean()
