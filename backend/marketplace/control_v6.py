@@ -10,7 +10,7 @@ from communication.models import Conversation, Message, OrderChat
 from finance.models import VendorLedgerEntry, VendorPayout
 from orders.models import Order
 from storefront.models import DesignTheme, StorefrontMedia, StorefrontSection
-from vendors.forms import VendorBranchForm, VendorCategoryForm
+from vendors.forms import VendorBranchForm, VendorCategoryForm, VendorProfileForm
 from vendors.models import VendorBranch, VendorCategory, VendorProfile
 
 from .control_v5 import (
@@ -76,7 +76,7 @@ def _categories_context(request, form=None):
     elif active == "inactive":
         qs = qs.filter(is_active=False)
     return {
-        "page": Paginator(qs.order_by("parent_id", "sort_order", "name"), 40).get_page(request.GET.get("page")),
+        "page": Paginator(qs.order_by("sort_order", "name"), 100).get_page(request.GET.get("page")),
         "form": form or CategoryForm(),
         "edit_id": request.GET.get("edit", ""),
         "q": q,
@@ -92,6 +92,69 @@ def _categories_context(request, form=None):
 
 def render_category_page(request):
     return render(request, "admin/control/inner/categories_v6.html", _categories_context(request))
+
+
+@dashboard_access_required
+@require_http_methods(["GET", "POST"])
+def control_stores(request):
+    edit_id = request.GET.get("edit", "").strip()
+    if request.method == "POST":
+        vendor_id = request.POST.get("vendor_id", "").strip()
+        instance = get_object_or_404(VendorProfile.objects.select_related("owner"), pk=vendor_id) if vendor_id.isdigit() else None
+        form = VendorProfileForm(request.POST, request.FILES, instance=instance)
+        if form.is_valid():
+            vendor = form.save()
+            messages.success(request, f"تم حفظ متجر «{vendor.store_name}» بكل بياناته.")
+            return store_detail(request, vendor.pk) if _ajax(request) else redirect(f"{STORES_URL}{vendor.pk}/detail/")
+        return render(request, "admin/control/inner/store_editor_v4.html", {"form": form, "vendor": instance})
+
+    qs = VendorProfile.objects.select_related("owner").annotate(
+        product_count=Count("products", distinct=True),
+        order_count=Count("vendor_orders", distinct=True),
+        branch_count=Count("branches", distinct=True),
+        category_count=Count("store_categories", distinct=True),
+    )
+    q = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "").strip()
+    sort = request.GET.get("sort", "newest").strip()
+    if q:
+        qs = qs.filter(Q(store_name__icontains=q) | Q(slug__icontains=q) | Q(phone__icontains=q) | Q(owner__phone__icontains=q) | Q(owner__email__icontains=q))
+    if status in {"active", "pending", "suspended"}:
+        qs = qs.filter(status=status)
+    if sort == "name":
+        qs = qs.order_by("store_name")
+    elif sort == "products":
+        qs = qs.order_by("-product_count", "store_name")
+    elif sort == "orders":
+        qs = qs.order_by("-order_count", "store_name")
+    else:
+        qs = qs.order_by("-created_at")
+
+    vendor = get_object_or_404(VendorProfile.objects.select_related("owner"), pk=int(edit_id)) if edit_id.isdigit() else None
+    context = {
+        "page": Paginator(qs, 16).get_page(request.GET.get("page")),
+        "q": q,
+        "status": status,
+        "sort": sort,
+        "stats": {
+            "total": VendorProfile.objects.count(),
+            "active": VendorProfile.objects.filter(status="active").count(),
+            "pending": VendorProfile.objects.filter(status="pending").count(),
+            "suspended": VendorProfile.objects.filter(status="suspended").count(),
+            "products": Product.objects.count(),
+            "orders": Order.objects.count(),
+            "branches": VendorBranch.objects.count(),
+            "categories": VendorCategory.objects.count(),
+        },
+        "form": VendorProfileForm(instance=vendor) if vendor else VendorProfileForm(initial={"status": "active", "commission_percent": 10}),
+        "vendor": vendor,
+        "form_open": bool(vendor),
+    }
+    if _ajax(request):
+        template = "admin/control/inner/store_editor_v4.html" if vendor else "admin/control/inner/stores_v6.html"
+    else:
+        template = "admin/control/inner/store_editor_v4.html" if vendor else "admin/control/inner/stores_v6.html"
+    return render(request, template, context)
 
 
 @dashboard_access_required
