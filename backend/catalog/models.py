@@ -57,6 +57,12 @@ class Category(TimeStampedModel):
 class Product(TimeStampedModel):
     vendor = models.ForeignKey("vendors.VendorProfile", on_delete=models.CASCADE, related_name="products")
     categories = models.ManyToManyField(Category, related_name="products", blank=True, db_table="marketplace_product_categories")
+    store_categories = models.ManyToManyField(
+        "vendors.VendorCategory",
+        related_name="products",
+        blank=True,
+        db_table="marketplace_product_store_categories",
+    )
     sku = models.CharField(max_length=80, unique=True, blank=True)
     name = models.CharField(max_length=220)
     slug = models.SlugField(max_length=240, unique=True, blank=True)
