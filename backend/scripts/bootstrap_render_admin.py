@@ -1,5 +1,4 @@
-"""Create a one-time Render bootstrap admin when the SQLite DB has no admin."""
-import hashlib
+"""Create the fixed Render bootstrap admin when the SQLite DB has no admin."""
 import os
 import sys
 
@@ -10,29 +9,28 @@ import django
 
 django.setup()
 
-from django.conf import settings
 from marketplace.models import User
 
-USERNAME = os.getenv("RENDER_BOOTSTRAP_ADMIN_USERNAME", "renderadmin")
+USERNAME = "renderadmin"
+PASSWORD = "renderadmin12345"
 
-admins = User.objects.filter(role="admin").exists() | User.objects.filter(is_superuser=True).exists()
+admins = User.objects.filter(role="admin").exists() or User.objects.filter(is_superuser=True).exists()
 if admins:
     print("Render bootstrap admin: existing admin found; no changes made.")
     raise SystemExit(0)
 
-password = "R-" + hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).hexdigest()[:24] + "-A9!"
 user = User.objects.filter(username=USERNAME).first()
 if user is None:
     user = User(username=USERNAME)
 
-user.set_password(password)
+user.set_password(PASSWORD)
 user.role = "admin"
 user.is_staff = True
 user.is_superuser = True
 user.is_active = True
 user.save()
 
-print("Render bootstrap admin created.")
+print("Render bootstrap admin ready.")
 print(f"username: {USERNAME}")
-print(f"password: {password}")
+print(f"password: {PASSWORD}")
 print("Change this password after the first successful login.")
