@@ -1,0 +1,60 @@
+<style>
+.pe-wrap{display:grid;gap:12px}.pe-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden}.pe-head{padding:14px 16px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;gap:12px;align-items:center}.pe-head h2{margin:0;font-size:18px}.pe-head p{margin:3px 0 0;color:#64748b;font-size:9px}.pe-body{padding:14px}.pe-section{border:1px solid #edf2f7;border-radius:13px;padding:12px;margin-bottom:10px}.pe-title{font-size:11px;font-weight:950;color:#4338ca;margin-bottom:10px}.pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.pe-field{display:grid;gap:5px}.pe-field.full{grid-column:1/-1}.pe-field label{font-size:9px;font-weight:900;color:#334155}.pe-field input,.pe-field select,.pe-field textarea{width:100%;box-sizing:border-box;border:1px solid #dbe3ee;border-radius:10px;background:#fff;padding:9px 10px;min-height:40px;font-size:11px;color:#0f172a}.pe-field textarea{min-height:85px;resize:vertical}.pe-field select[multiple]{min-height:130px}.pe-checks{display:flex;gap:12px;flex-wrap:wrap}.pe-check{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800}.pe-error{padding:8px 10px;border-radius:9px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;font-size:9px;margin-bottom:8px}.pe-help{font-size:8px;color:#94a3b8}.pe-image-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.pe-image{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#f8fafc}.pe-image img{width:100%;height:100px;object-fit:cover;display:block}.pe-image label{display:flex;gap:5px;align-items:center;padding:7px;font-size:8px}.pe-table{width:100%;border-collapse:collapse}.pe-table th,.pe-table td{border-bottom:1px solid #edf2f7;padding:7px 5px;text-align:right;vertical-align:top}.pe-table th{font-size:8px;color:#64748b}.pe-table input,.pe-table select{width:100%;border:1px solid #dbe3ee;border-radius:8px;padding:7px;font-size:9px;box-sizing:border-box}.pe-foot{padding:12px 16px;border-top:1px solid #e2e8f0;display:flex;gap:8px;position:sticky;bottom:0;background:#fff}.pe-btn{border:1px solid #dbe3ee;background:#fff;color:#334155;text-decoration:none;border-radius:10px;padding:9px 12px;font-size:10px;font-weight:900;cursor:pointer}.pe-btn.primary{background:#4f46e5;border-color:#4f46e5;color:#fff}.pe-btn.danger{color:#b91c1c}@media(max-width:780px){.pe-grid{grid-template-columns:1fr}.pe-field.full{grid-column:auto}.pe-image-grid{grid-template-columns:1fr 1fr}.pe-table-wrap{overflow:auto}.pe-table{min-width:760px}.pe-foot .pe-btn{flex:1;text-align:center}}
+</style>
+<div class="pe-wrap">
+  {% if messages %}{% for m in messages %}<div style="padding:9px 11px;border-radius:10px;background:#ecfdf5;color:#047857;font-size:9px;font-weight:900">{{ m }}</div>{% endfor %}{% endif %}
+  <section class="pe-card">
+    <div class="pe-head"><div><h2>{% if product %}تعديل المنتج: {{ product.name }}{% else %}إضافة منتج جديد{% endif %}</h2><p>كل بيانات المنتج وعلاقاته في شاشة واحدة، دون تغيير الـHeader أو الـSidebar.</p></div><a class="pe-btn" href="/admin/dashboard/control/products/" data-control-nav>← رجوع للمنتجات</a></div>
+    <form method="post" action="{% if product %}/admin/dashboard/control/products/new/?edit={{ product.pk }}{% else %}/admin/dashboard/control/products/new/{% endif %}" enctype="multipart/form-data" data-inner-form>
+      {% csrf_token %}<input type="hidden" name="product_id" value="{% if product %}{{ product.pk }}{% endif %}">
+      <div class="pe-body">
+        {% if form.non_field_errors %}<div class="pe-error">{{ form.non_field_errors }}</div>{% endif %}
+        <section class="pe-section"><div class="pe-title">1. المتجر والتصنيف</div><div class="pe-grid">
+          <div class="pe-field"><label>المتجر *</label>{{ form.vendor }}{% for e in form.vendor.errors %}<div class="pe-error">{{ e }}</div>{% endfor %}</div>
+          <div class="pe-field"><label>التصنيفات *</label>{{ form.categories }}<span class="pe-help">يمكن اختيار أكثر من تصنيف، وتبقى التصنيفات غير النشطة ظاهرة عند تعديل المنتج الموجود.</span>{% for e in form.categories.errors %}<div class="pe-error">{{ e }}</div>{% endfor %}</div>
+        </div></section>
+
+        <section class="pe-section"><div class="pe-title">2. الهوية والمحتوى</div><div class="pe-grid">
+          <div class="pe-field"><label>اسم المنتج *</label>{{ form.name }}</div>
+          <div class="pe-field"><label>SKU</label>{{ form.sku }}{% if product %}<span class="pe-help">{{ product.sku }}</span>{% endif %}</div>
+          <div class="pe-field"><label>Slug</label>{{ form.slug }}</div>
+          <div class="pe-field"><label>العلامة التجارية</label>{{ form.brand }}</div>
+          <div class="pe-field"><label>الخامة</label>{{ form.material }}</div>
+          <div class="pe-field full"><label>الوصف</label>{{ form.description }}</div>
+          <div class="pe-field"><label>ملاحظة الشحن</label>{{ form.shipping_note }}</div>
+          <div class="pe-field"><label>سياسة الإرجاع</label>{{ form.return_policy }}</div>
+        </div></section>
+
+        <section class="pe-section"><div class="pe-title">3. السعر والمخزون</div><div class="pe-grid">
+          <div class="pe-field"><label>السعر *</label>{{ form.price }}</div>
+          <div class="pe-field"><label>سعر التخفيض</label>{{ form.sale_price }}</div>
+          <div class="pe-field"><label>العملة</label>{{ form.currency }}</div>
+          <div class="pe-field"><label>المخزون الأساسي</label>{{ form.stock }}</div>
+          <div class="pe-field full"><div class="pe-checks"><label class="pe-check">{{ form.is_published }} نشر المنتج</label><label class="pe-check">{{ form.is_trending }} المنتج ترند</label></div></div>
+        </div></section>
+
+        <section class="pe-section"><div class="pe-title">4. الخصائص والبيانات المتقدمة</div><div class="pe-grid">
+          <div class="pe-field"><label>الألوان — JSON</label>{{ form.colors }}<span class="pe-help">مثال: ["أسود", "أبيض"]</span></div>
+          <div class="pe-field"><label>المقاسات — JSON</label>{{ form.sizes }}<span class="pe-help">مثال: ["S", "M", "L"]</span></div>
+          <div class="pe-field"><label>الوسوم — JSON</label>{{ form.hashtags }}<span class="pe-help">مثال: ["جديد", "مميز"]</span></div>
+          <div class="pe-field"><label>تفاصيل إضافية — JSON</label>{{ form.details }}<span class="pe-help">يمكن حفظ أي تفاصيل دقيقة يحتاجها عرض المنتج.</span></div>
+        </div></section>
+
+        <section class="pe-section"><div class="pe-title">5. الصورة الرئيسية ومعرض الصور</div><div class="pe-grid">
+          <div class="pe-field"><label>الصورة الرئيسية</label>{{ form.main_image }}{% if product and product.main_image %}<img src="{{ product.main_image.url }}" style="width:100%;height:150px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0" alt="">{% endif %}</div>
+          <div class="pe-field"><label>إضافة صور للمعرض</label><input type="file" name="gallery_images" accept="image/*" multiple><span class="pe-help">يمكن رفع عدة صور في دفعة واحدة.</span></div>
+        </div>
+        {% if images %}<div style="margin-top:10px"><div class="pe-help" style="margin-bottom:7px">الصور الحالية — ضع علامة حذف على الصور التي تريد إزالتها.</div><div class="pe-image-grid">{% for image in images %}<div class="pe-image"><img src="{{ image.image.url }}" alt="{{ image.alt_text }}"><label><input type="checkbox" name="delete_image" value="{{ image.pk }}"> حذف الصورة</label></div>{% endfor %}</div></div>{% endif %}
+        </section>
+
+        <section class="pe-section"><div class="pe-title">6. المتغيرات: اللون، المقاس، السعر والمخزون</div>
+          {% if variants %}<div class="pe-table-wrap"><table class="pe-table"><thead><tr><th>SKU</th><th>اللون</th><th>المقاس</th><th>سعر إضافي</th><th>المخزون</th><th>الحالة</th><th>حذف</th></tr></thead><tbody>
+          {% for v in variants %}<tr><td><input name="variant_id" type="hidden" value="{{ v.pk }}"><input name="variant_sku" value="{{ v.sku }}"></td><td><input name="variant_color" value="{{ v.color }}"></td><td><input name="variant_size" value="{{ v.size }}"></td><td><input name="variant_price_override" value="{{ v.price_override|default_if_none:'' }}" type="number" step="0.01"></td><td><input name="variant_stock" value="{{ v.stock }}" type="number" min="0"></td><td><select name="variant_active"><option value="1" {% if v.is_active %}selected{% endif %}>نشط</option><option value="0" {% if not v.is_active %}selected{% endif %}>غير نشط</option></select></td><td><input name="variant_delete" value="{{ v.pk }}" type="checkbox"></td></tr>{% endfor %}
+          </tbody></table></div>{% endif %}
+          <div class="pe-table-wrap" style="margin-top:10px"><table class="pe-table"><thead><tr><th>SKU جديد</th><th>اللون</th><th>المقاس</th><th>سعر إضافي</th><th>المخزون</th><th>الحالة</th></tr></thead><tbody><tr><td><input name="variant_id" value=""><input name="variant_sku" value="" placeholder="تلقائي"></td><td><input name="variant_color" value=""></td><td><input name="variant_size" value=""></td><td><input name="variant_price_override" value="" type="number" step="0.01"></td><td><input name="variant_stock" value="0" type="number" min="0"></td><td><select name="variant_active"><option value="1" selected>نشط</option><option value="0">غير نشط</option></select></td></tr></tbody></table></div>
+        </section>
+      </div>
+      <div class="pe-foot"><button class="pe-btn primary" type="submit">💾 حفظ كل بيانات المنتج</button><a class="pe-btn" href="/admin/dashboard/control/products/" data-control-nav>إلغاء</a></div>
+    </form>
+  </section>
+</div>
