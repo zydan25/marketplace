@@ -80,3 +80,5 @@ jobs:
           git add backend/marketplace/erp_style_dashboard.py
           git diff --cached --quiet || git commit -m "fix: clear control edit modal state"
           git push origin HEAD:feat/erp-control-current-shell-2026-09
+
+# retrigger after initial workflow creation
