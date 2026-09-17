@@ -9,7 +9,16 @@ from finance.views import currency_rate_form, dashboard as finance_dashboard, ve
 from orders.views import dashboard as orders_dashboard, shipment_form
 from promotions.views import coupon_form, dashboard as promotions_dashboard, loan_review
 from storefront.views import dashboard as storefront_dashboard, media_form, section_form, theme_form
-from marketplace.control_pages import control_placeholder, control_products, control_store_status, control_stores
+from marketplace.control_pages import (
+    control_placeholder,
+    control_product_delete,
+    control_product_report,
+    control_products,
+    control_store_delete,
+    control_store_report,
+    control_store_status,
+    control_stores,
+)
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
@@ -36,7 +45,11 @@ urlpatterns = [
     path("admin/dashboard/control/", erp_style_dashboard, name="admin-erp-style-dashboard"),
     path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores"),
     path("admin/dashboard/control/stores/<int:vendor_id>/status/<str:status>/", control_store_status, name="admin-control-store-status"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/delete/", control_store_delete, name="admin-control-store-delete"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/report/", control_store_report, name="admin-control-store-report"),
     path("admin/dashboard/control/products/", control_products, name="admin-control-products"),
+    path("admin/dashboard/control/products/<int:product_id>/delete/", control_product_delete, name="admin-control-product-delete"),
+    path("admin/dashboard/control/products/<int:product_id>/report/", control_product_report, name="admin-control-product-report"),
     path("admin/dashboard/control/<slug:section>/", control_placeholder, name="admin-control-placeholder"),
     path("admin/dashboard/theme-studio/", theme_studio, name="admin-theme-studio"),
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
