@@ -165,8 +165,12 @@ def store_detail(request, vendor_id):
     theme = DesignTheme.objects.filter(vendor=vendor).first()
     sections = list(StorefrontSection.objects.filter(vendor=vendor).order_by("sort_order", "id")[:30])
     media = list(StorefrontMedia.objects.filter(vendor=vendor).order_by("sort_order", "id")[:30])
-    store_categories = list(VendorCategory.objects.filter(vendor=vendor).select_related("parent").prefetch_related("children").annotate(product_count=Count("products", distinct=True)).order_by("parent_id", "sort_order", "name"))
+    store_categories = list(VendorCategory.objects.filter(vendor=vendor).select_related("parent").annotate(product_count=Count("products", distinct=True)).order_by("parent_id", "sort_order", "name"))
     branches = list(VendorBranch.objects.filter(vendor=vendor).order_by("-is_main", "name"))
+    edit_category_id = request.GET.get("edit_category", "").strip()
+    edit_branch_id = request.GET.get("edit_branch", "").strip()
+    category_instance = get_object_or_404(VendorCategory, pk=edit_category_id, vendor=vendor) if edit_category_id.isdigit() else None
+    branch_instance = get_object_or_404(VendorBranch, pk=edit_branch_id, vendor=vendor) if edit_branch_id.isdigit() else None
     sales = vendor.vendor_orders.aggregate(gross=Sum("total"), commission=Sum("commission"), net=Sum("vendor_net"))
     ledger = list(VendorLedgerEntry.objects.filter(vendor=vendor).order_by("-created_at")[:20])
     payouts = list(VendorPayout.objects.filter(vendor=vendor).order_by("-created_at")[:20])
@@ -181,8 +185,10 @@ def store_detail(request, vendor_id):
         "media": media,
         "store_categories": store_categories,
         "branches": branches,
-        "category_form": VendorCategoryForm(initial={"vendor": vendor.pk}),
-        "branch_form": VendorBranchForm(initial={"vendor": vendor.pk}),
+        "category_form": VendorCategoryForm(instance=category_instance, initial={"vendor": vendor.pk} if not category_instance else None),
+        "branch_form": VendorBranchForm(instance=branch_instance, initial={"vendor": vendor.pk} if not branch_instance else None),
+        "editing_category": category_instance,
+        "editing_branch": branch_instance,
         "report": {
             "products": vendor.products.count(),
             "active_products": vendor.products.filter(is_published=True).count(),
