@@ -7,7 +7,7 @@
 {% block content %}
 <section class="page-head">
   <div><h2>السوق والمتاجر</h2><p>قائمة عملية للمتاجر والتجار، بحث وفرز سريع، وتعديل الإعدادات داخل نافذة دون صفحة منفصلة.</p></div>
-  <div class="page-actions"><button class="btn primary" type="button" onclick="openStoreModal()">＋ إضافة متجر</button><a class="btn soft" href="{% url 'vendors-dashboard:export' %}">⇩ تصدير CSV</a></div>
+  <div class="page-actions"><button class="btn primary" type="button" data-open-modal="storeModal">＋ إضافة متجر</button><a class="btn soft" href="{% url 'vendors-dashboard:export' %}">⇩ تصدير CSV</a></div>
 </section>
 
 <section class="stats">
@@ -43,7 +43,7 @@
           <td data-label="الإنشاء"><span class="muted">{{ vendor.created_at|date:'Y-m-d' }}</span></td>
           <td data-label="الإجراءات">
             <div class="actions-cell">
-              <button class="btn icon" type="button" title="تعديل" onclick="openEditModal({{ vendor.pk }})">✎</button>
+              <a class="btn icon" data-control-nav href="?edit={{ vendor.pk }}&q={{ q|urlencode }}&status={{ status }}&sort={{ sort }}" title="تعديل">✎</a>
               <details class="action-menu"><summary class="btn icon" title="المزيد">⋯</summary><div class="menu-pop">
                 <a href="/admin/dashboard/vendors/vendors/{{ vendor.pk }}/">↗ فتح التفاصيل الحالية</a>
                 {% if vendor.status == 'active' %}
@@ -66,9 +66,9 @@
 
 {% if page.paginator.num_pages > 1 %}<div class="pagination">{% if page.has_previous %}<a href="?q={{ q|urlencode }}&status={{ status }}&sort={{ sort }}&page={{ page.previous_page_number }}">السابق</a>{% endif %}<span class="current">{{ page.number }}</span>{% if page.has_next %}<a href="?q={{ q|urlencode }}&status={{ status }}&sort={{ sort }}&page={{ page.next_page_number }}">التالي</a>{% endif %}</div>{% endif %}
 
-<div class="modal-backdrop {% if store_form_open %}open{% endif %}" id="storeModal" onclick="closeStoreModal(event)">
+<div class="modal-backdrop {% if store_form_open %}open{% endif %}" id="storeModal" onclick="if(event.target===this)closeOpenModal()">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-head"><h3>{% if form_mode == 'edit' %}تعديل المتجر{% else %}إضافة متجر جديد{% endif %}</h3><button class="btn icon" type="button" onclick="closeStoreModal()">×</button></div>
+    <div class="modal-head"><h3>{% if form_mode == 'edit' %}تعديل المتجر{% else %}إضافة متجر جديد{% endif %}</h3><button class="btn icon" type="button" data-close-modal>×</button></div>
     <form method="post" enctype="multipart/form-data" action="{{ request.path }}{% if form_mode == 'edit' and edit_vendor %}?edit={{ edit_vendor.pk }}{% endif %}">
       {% csrf_token %}{% if form_mode == 'edit' and edit_vendor %}<input type="hidden" name="vendor_id" value="{{ edit_vendor.pk }}">{% endif %}
       <div class="modal-body">
@@ -86,18 +86,8 @@
           <div class="field full"><label>{{ form.description.label }}</label>{{ form.description }}{{ form.description.errors }}</div>
         </div>
       </div>
-      <div class="modal-foot"><button class="btn primary" type="submit">✓ حفظ</button><button class="btn" type="button" onclick="closeStoreModal()">إلغاء</button></div>
+      <div class="modal-foot"><button class="btn primary" type="submit">✓ حفظ</button><button class="btn" type="button" data-close-modal>إلغاء</button></div>
     </form>
   </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-function modalEl(){return document.getElementById('storeModal')}
-function openStoreModal(){const m=modalEl();if(m){m.classList.add('open')}}
-function openEditModal(id){location.href='?edit='+id+'&q={{ q|urlencode }}&status={{ status }}&sort={{ sort }}'}
-function closeStoreModal(e){if(e&&e.target!==modalEl())return;const m=modalEl();if(m)m.classList.remove('open')}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeStoreModal()})
-</script>
 {% endblock %}
