@@ -4,8 +4,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render, render_to_response
-from django.template.loader import render_to_string
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from catalog.forms import ProductForm
@@ -18,6 +17,7 @@ from vendors.services import set_vendor_status
 CONTROL_HOME = "/admin/dashboard/control/"
 CONTROL_STORES = f"{CONTROL_HOME}stores/"
 CONTROL_PRODUCTS = f"{CONTROL_HOME}products/"
+CONTROL_PLACEHOLDER_SECTIONS = {"applications", "categories", "variants", "orders", "payments", "finance"}
 
 
 def control_access_required(view):
@@ -70,7 +70,6 @@ def _store_context(request, form=None, edit_vendor=None, form_open=False):
 
     paginator = Paginator(qs, 15)
     page = paginator.get_page(request.GET.get("page"))
-
     if form is None:
         form = VendorProfileForm(initial={"status": "active", "commission_percent": 10})
 
@@ -112,7 +111,6 @@ def _product_context(request, form=None, edit_product=None, form_open=False):
 
     paginator = Paginator(qs.order_by("-updated_at", "-id"), 20)
     page = paginator.get_page(request.GET.get("page"))
-
     if form is None:
         form = ProductForm()
 
@@ -137,16 +135,18 @@ def _product_context(request, form=None, edit_product=None, form_open=False):
 def render_control_partial(request, section, context=None):
     context = context or {}
     if section == "stores":
-        context = {**_store_context(request), **context}
-        return render_to_response("admin/control/inner/stores.html", context, request=request)
+        return render(request, "admin/control/inner/stores.html", {**_store_context(request), **context})
     if section == "products":
-        context = {**_product_context(request), **context}
-        return render_to_response("admin/control/inner/products.html", context, request=request)
-    return render_to_response(
-        "admin/control/inner/coming_soon.html",
-        {"title": section, "message": "هذه الشاشة ستُنقل إلى التصميم الجديد تدريجيًا."},
-        request=request,
-    )
+        return render(request, "admin/control/inner/products.html", {**_product_context(request), **context})
+    titles = {
+        "applications": "طلبات المتاجر",
+        "categories": "التصنيفات",
+        "variants": "المتغيرات والمخزون",
+        "orders": "الطلبات والمبيعات",
+        "payments": "المدفوعات",
+        "finance": "الشحن والمالية",
+    }
+    return render(request, "admin/control/inner/coming_soon.html", {"title": titles.get(section, section), "section": section})
 
 
 @control_access_required
@@ -179,11 +179,7 @@ def control_stores(request):
         else:
             form = VendorProfileForm(initial={"status": "active", "commission_percent": 10})
 
-    return render_control_partial(
-        request,
-        "stores",
-        {"form": form, "edit_vendor": edit_vendor, "form_open": form_open},
-    )
+    return render_control_partial(request, "stores", {"form": form, "edit_vendor": edit_vendor, "form_open": form_open})
 
 
 @control_access_required
@@ -229,8 +225,14 @@ def control_products(request):
         else:
             form = ProductForm()
 
-    return render_control_partial(
-        request,
-        "products",
-        {"form": form, "edit_product": edit_product, "form_open": form_open},
-    )
+    return render_control_partial(request, "products", {"form": form, "edit_product": edit_product, "form_open": form_open})
+
+
+@control_access_required
+@require_http_methods(["GET"])
+def control_placeholder(request, section):
+    if section not in CONTROL_PLACEHOLDER_SECTIONS:
+        return HttpResponse("Not found", status=404)
+    if is_ajax(request):
+        return render_control_partial(request, section)
+    return redirect(f"{CONTROL_HOME}?screen={section}")
