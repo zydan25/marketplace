@@ -21,10 +21,8 @@ from marketplace.control_v5 import order_chat_message, order_chat_open, order_st
 from marketplace.control_v6 import (
     control_categories,
     control_orders,
-    control_products,
     order_customer_message,
     order_detail,
-    product_detail,
     store_branch_delete,
     store_branch_save,
     store_category_delete,
@@ -32,6 +30,7 @@ from marketplace.control_v6 import (
     store_detail,
     control_stores,
 )
+from marketplace.control_v7 import control_products, product_detail
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
@@ -66,9 +65,9 @@ urlpatterns = [
     path("admin/dashboard/control/stores/<int:vendor_id>/branches/save/", store_branch_save, name="admin-control-store-branch-save"),
     path("admin/dashboard/control/stores/<int:vendor_id>/branches/<int:branch_id>/delete/", store_branch_delete, name="admin-control-store-branch-delete"),
     path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores-v6"),
-    path("admin/dashboard/control/products/new/", control_products, name="admin-control-products-v6-new"),
-    path("admin/dashboard/control/products/<int:product_id>/detail/", product_detail, name="admin-control-product-v6-detail"),
-    path("admin/dashboard/control/products/", control_products, name="admin-control-products-v6"),
+    path("admin/dashboard/control/products/new/", control_products, name="admin-control-products-v7-new"),
+    path("admin/dashboard/control/products/<int:product_id>/detail/", product_detail, name="admin-control-product-v7-detail"),
+    path("admin/dashboard/control/products/", control_products, name="admin-control-products-v7"),
     path("admin/dashboard/control/orders/<int:order_id>/detail/", order_detail, name="admin-control-order-v6-detail"),
     path("admin/dashboard/control/orders/<int:order_id>/status/", order_status, name="admin-control-order-v6-status"),
     path("admin/dashboard/control/orders/<int:order_id>/chat/open/<int:vendor_order_id>/", order_chat_open, name="admin-control-order-v6-chat-open"),
