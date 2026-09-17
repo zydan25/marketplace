@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Import the current Django SQLite database into the configured PostgreSQL database.
 
-This is a one-time migration helper. It intentionally refuses to import into a
-non-empty application database unless ALLOW_NONEMPTY_TARGET=1 is set.
+This is a one-time migration helper. It refuses to mix an existing application
+ dataset into the target. After Django migrations create the target schema, any
+migration-created rows in current application tables are cleared and replaced
+with the data exported from the SQLite source.
 
 Required environment:
   DATABASE_URL=postgresql://user:password@host:5432/database
@@ -84,6 +86,30 @@ def postgres_table_counts(connection, table_names: set[str] | None = None) -> di
     return counts
 
 
+def managed_table_names(apps) -> set[str]:
+    return {
+        model._meta.db_table
+        for model in apps.get_models(include_auto_created=True)
+        if model._meta.managed
+        and not model._meta.proxy
+        and model._meta.db_table not in EXCLUDED_TABLES
+    }
+
+
+def truncate_application_tables(connection, table_names: set[str]) -> None:
+    """Clear only current Django-managed application tables before loaddata."""
+    if not table_names:
+        return
+    existing = set(connection.introspection.table_names())
+    tables = sorted(table_names & existing)
+    if not tables:
+        return
+
+    with connection.cursor() as cursor:
+        quoted = ", ".join(connection.ops.quote_name(table) for table in tables)
+        cursor.execute(f"TRUNCATE TABLE {quoted} RESTART IDENTITY CASCADE")
+
+
 def main() -> int:
     if not SOURCE_SQLITE_DB.is_file():
         fail(f"SQLite source database not found: {SOURCE_SQLITE_DB}")
@@ -107,23 +133,16 @@ def main() -> int:
 
     # Only compare/import tables owned by the current Django models. This avoids
     # treating obsolete legacy tables left in SQLite as migration mismatches.
-    managed_table_names = {
-        model._meta.db_table
-        for model in apps.get_models(include_auto_created=True)
-        if model._meta.managed
-        and not model._meta.proxy
-        and model._meta.db_table not in EXCLUDED_TABLES
-    }
-
+    current_managed_tables = managed_table_names(apps)
     source_data_tables = {
         table: count
         for table, count in source_counts_all.items()
-        if table in managed_table_names
+        if table in current_managed_tables
     }
     ignored_legacy_tables = sorted(
         table
         for table in source_counts_all
-        if table not in managed_table_names and table not in EXCLUDED_TABLES
+        if table not in current_managed_tables and table not in EXCLUDED_TABLES
     )
     source_total = sum(source_counts_all.values())
     source_data_total = sum(source_data_tables.values())
@@ -151,18 +170,20 @@ def main() -> int:
     source_connection.ensure_connection()
     target_connection.ensure_connection()
 
-    print("Applying Django migrations to the PostgreSQL target...")
-    call_command("migrate", database="default", interactive=False, verbosity=1)
-
-    target_counts_before = postgres_table_counts(target_connection, managed_table_names)
-    nonempty_target = {
+    # Refuse to mix an already-populated target. An existing empty schema is
+    # allowed because Django migrations may legitimately create seed rows.
+    existing_target_tables = set(target_connection.introspection.table_names())
+    target_counts_before_migrate = postgres_table_counts(
+        target_connection, current_managed_tables
+    )
+    nonempty_before_migrate = {
         table: count
-        for table, count in target_counts_before.items()
-        if table in source_data_tables and count > 0
+        for table, count in target_counts_before_migrate.items()
+        if count > 0
     }
-    if nonempty_target and os.getenv("ALLOW_NONEMPTY_TARGET", "0") != "1":
+    if nonempty_before_migrate and os.getenv("ALLOW_NONEMPTY_TARGET", "0") != "1":
         preview = ", ".join(
-            f"{table}={count}" for table, count in sorted(nonempty_target.items())[:20]
+            f"{table}={count}" for table, count in sorted(nonempty_before_migrate.items())[:20]
         )
         fail(
             "PostgreSQL target already contains application data; refusing to mix "
@@ -170,8 +191,20 @@ def main() -> int:
             "set ALLOW_NONEMPTY_TARGET=1 after taking a backup."
         )
 
+    print("Applying Django migrations to the PostgreSQL target...")
+    call_command("migrate", database="default", interactive=False, verbosity=1)
+
+    # If migrations seeded application rows (for example default themes), remove
+    # only those application rows. The source fixture is the authoritative data
+    # set. Excluded Django-generated tables remain untouched.
+    print("Preparing application tables for exact SQLite data import...")
+    with transaction.atomic(using="default"):
+        truncate_application_tables(target_connection, current_managed_tables)
+
     print("Exporting Django data from SQLite...")
-    fixture_path = Path(tempfile.mkstemp(prefix="marketplace-migration-", suffix=".json")[1])
+    fixture_path = Path(
+        tempfile.mkstemp(prefix="marketplace-migration-", suffix=".json")[1]
+    )
 
     try:
         with fixture_path.open("w", encoding="utf-8") as fixture_file:
@@ -208,7 +241,7 @@ def main() -> int:
 
             print("Verifying row counts table-by-table before commit...")
             target_counts_after = postgres_table_counts(
-                target_connection, managed_table_names
+                target_connection, current_managed_tables
             )
             mismatches: list[tuple[str, int, int | None]] = []
             for table, source_count in sorted(source_data_tables.items()):
