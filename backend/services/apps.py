@@ -1,4 +1,6 @@
 import logging
+import os
+import sys
 
 from django.apps import AppConfig
 
@@ -33,6 +35,29 @@ class ServicesConfig(AppConfig):
                 admin_v4.FIELD_LIBRARY.append(row)
                 existing_keys.add(row[0])
         admin_v4.FIELD_MAP = {key: (label, typ) for key, label, typ in admin_v4.FIELD_LIBRARY}
+
+        # Never start the background worker while migrations/imports or other
+        # Django management tasks are running. This is also controllable by an
+        # explicit environment variable for scripts that call django.setup().
+        if os.getenv("DISABLE_EMBEDDED_WORKER", "0") == "1":
+            return
+
+        management_commands = {
+            "check",
+            "migrate",
+            "makemigrations",
+            "showmigrations",
+            "shell",
+            "dumpdata",
+            "loaddata",
+            "collectstatic",
+            "test",
+            "createsuperuser",
+            "changepassword",
+        }
+        command = sys.argv[1] if len(sys.argv) > 1 else ""
+        if command in management_commands:
+            return
 
         # Gunicorn runs multiple workers; the embedded thread is protected by
         # a host-level singleton lock so only one worker executes tasks.
