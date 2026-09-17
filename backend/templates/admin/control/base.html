@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <title>{% block title %}شبيك — لوحة الإدارة{% endblock %}</title>
+  <style>
+    :root{--primary:#4f46e5;--primary-dark:#3730a3;--ink:#0f172a;--muted:#64748b;--bg:#f4f6fb;--card:#fff;--border:#e2e8f0;--sidebar:264px;--header:68px;--success:#047857;--danger:#b91c1c;--warning:#b45309;--shadow:0 14px 35px rgba(15,23,42,.07)}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif}body{overflow-x:hidden}a{text-decoration:none;color:inherit}button,input,select,textarea{font:inherit}.app{min-height:100vh}.sidebar{position:fixed;z-index:70;inset:0 auto 0 0;width:var(--sidebar);background:linear-gradient(180deg,#4f46e5 0%,#5b21b6 100%);color:#fff;box-shadow:10px 0 35px rgba(30,41,59,.12);display:flex;flex-direction:column;transition:transform .25s ease}.brand{height:var(--header);display:flex;align-items:center;gap:11px;padding:0 17px;border-bottom:1px solid rgba(255,255,255,.13)}.brand-mark{width:38px;height:38px;border-radius:12px;background:#fff;color:var(--primary);display:grid;place-items:center;font-weight:950}.brand h1{margin:0;font-size:16px}.brand small{display:block;margin-top:2px;color:rgba(255,255,255,.72);font-size:9px}.nav{padding:12px 10px 18px;overflow:auto;flex:1}.group-title{padding:12px 10px 6px;color:rgba(255,255,255,.55);font-size:9px;font-weight:900}.nav-link{display:flex;align-items:center;gap:10px;padding:10px 10px;margin:3px 0;border-radius:12px;color:rgba(255,255,255,.92);font-size:11px;transition:.18s}.nav-link:hover,.nav-link.active{background:#fff;color:#4338ca;box-shadow:0 7px 18px rgba(0,0,0,.09)}.nav-ico{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.12);display:grid;place-items:center;flex:0 0 26px;font-size:12px}.nav-link.active .nav-ico{background:#eef2ff}.side-foot{padding:11px 15px;border-top:1px solid rgba(255,255,255,.12);font-size:9px;line-height:1.7;color:rgba(255,255,255,.65)}
+    .main{margin-left:var(--sidebar);min-height:100vh}.header{position:sticky;top:0;z-index:60;height:var(--header);background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px}.header-left{display:flex;align-items:center;gap:10px}.hamb{display:none;width:40px;height:40px;border:0;border-radius:12px;background:#eef2ff;color:#4338ca;cursor:pointer}.crumb{font-size:13px;font-weight:900}.crumb small{display:block;font-size:9px;font-weight:500;color:var(--muted);margin-top:3px}.header-actions{display:flex;align-items:center;gap:8px}.head-btn{border:1px solid var(--border);background:#fff;color:#334155;border-radius:11px;padding:8px 11px;font-size:10px;font-weight:800}.user-chip{display:flex;align-items:center;gap:8px;margin-right:3px}.avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:900}.user-chip span{font-size:10px;font-weight:800}
+    .content{padding:24px;max-width:1540px;margin:0 auto}.messages{display:grid;gap:8px;margin-bottom:12px}.flash{padding:11px 13px;border-radius:12px;font-size:10px;font-weight:800;border:1px solid transparent}.flash.success{background:#ecfdf5;color:var(--success);border-color:#bbf7d0}.flash.error{background:#fef2f2;color:var(--danger);border-color:#fecaca}.flash.warning{background:#fffbeb;color:var(--warning);border-color:#fde68a}.flash.info{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+    .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}.page-head h2{margin:0 0 5px;font-size:26px;line-height:1.2}.page-head p{margin:0;color:var(--muted);font-size:10px}.page-actions{display:flex;gap:8px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--border);background:#fff;color:#334155;border-radius:11px;padding:10px 13px;font-size:10px;font-weight:900;cursor:pointer;transition:.16s}.btn:hover{border-color:#c7d2fe;color:#4338ca;transform:translateY(-1px)}.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn.primary:hover{color:#fff;background:var(--primary-dark);border-color:var(--primary-dark)}.btn.soft{background:#f8fafc}.btn.success{background:var(--success);border-color:var(--success);color:#fff}.btn.danger{color:var(--danger);background:#fff}.btn.icon{width:36px;height:36px;padding:0;border-radius:10px}
+    .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-bottom:14px}.stat{background:var(--card);border:1px solid var(--border);border-radius:17px;padding:15px;box-shadow:var(--shadow)}.stat-top{display:flex;align-items:center;justify-content:space-between;gap:8px}.stat-label{font-size:9px;color:var(--muted);font-weight:900}.stat-icon{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:#eef2ff;color:#4338ca;font-size:14px}.stat-value{font-size:25px;font-weight:950;margin-top:9px}.stat-note{font-size:8px;color:var(--muted);margin-top:3px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}.card-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}.card-head h3{margin:0;font-size:12px}.card-head small{font-size:9px;color:var(--muted)}.card-body{padding:15px}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.filters{display:grid;grid-template-columns:minmax(230px,1fr) 155px 155px auto;gap:8px;flex:1}.control{width:100%;height:40px;border:1px solid var(--border);border-radius:11px;background:#fff;padding:0 11px;color:#334155;font-size:10px;outline:none}.control:focus{border-color:#a5b4fc;box-shadow:0 0 0 3px #eef2ff}.search-box{position:relative}.search-box input{padding-right:36px}.search-box span{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:13px;color:#94a3b8}
+    .table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:980px}.table th{padding:11px 12px;text-align:right;background:#f8fafc;color:var(--muted);font-size:8px;font-weight:900;border-bottom:1px solid var(--border);white-space:nowrap}.table td{padding:11px 12px;text-align:right;border-bottom:1px solid #eef2f7;font-size:9px;vertical-align:middle}.table tbody tr:hover td{background:#fcfdff}.store-cell{display:flex;align-items:center;gap:10px;min-width:220px}.store-avatar{width:42px;height:42px;flex:0 0 42px;border-radius:13px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,#eef2ff,#ede9fe);color:#4338ca;font-weight:950}.store-avatar img{width:100%;height:100%;object-fit:cover}.store-name{font-weight:950;font-size:10px}.store-meta{font-size:8px;color:var(--muted);margin-top:3px}.badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;font-size:8px;font-weight:900;white-space:nowrap}.badge.active{background:#ecfdf5;color:#047857}.badge.pending{background:#fffbeb;color:#b45309}.badge.suspended{background:#fef2f2;color:#b91c1c}.badge.neutral{background:#f1f5f9;color:#475569}.metric{font-weight:900;font-size:10px}.muted{color:var(--muted)}.actions-cell{display:flex;justify-content:flex-start;gap:6px}.action-menu{position:relative}.action-menu summary{list-style:none;cursor:pointer}.action-menu summary::-webkit-details-marker{display:none}.menu-pop{position:absolute;z-index:40;top:39px;right:auto;left:0;min-width:165px;padding:6px;border:1px solid var(--border);background:#fff;border-radius:12px;box-shadow:0 15px 35px rgba(15,23,42,.12)}.menu-pop a,.menu-pop button{width:100%;display:flex;align-items:center;gap:8px;border:0;background:#fff;color:#334155;padding:9px 10px;border-radius:8px;font-size:9px;font-weight:800;text-align:right;cursor:pointer}.menu-pop a:hover,.menu-pop button:hover{background:#f8fafc}.menu-pop .danger-item{color:#b91c1c}
+    .pagination{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:14px 0 2px}.pagination a,.pagination span{padding:8px 10px;background:#fff;border:1px solid var(--border);border-radius:9px;font-size:9px;font-weight:900}.pagination .current{background:#0f172a;color:#fff;border-color:#0f172a}
+    .modal-backdrop{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.56);backdrop-filter:blur(5px)}.modal-backdrop.open{display:flex}.modal{width:min(760px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;border:1px solid var(--border);box-shadow:0 30px 90px rgba(15,23,42,.2)}.modal-head{padding:15px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;background:#fff;z-index:2}.modal-head h3{margin:0;font-size:14px}.modal-body{padding:17px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:grid;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:9px;font-weight:900;color:#475569}.field input,.field select,.field textarea{width:100%;border:1px solid var(--border);border-radius:11px;padding:10px 11px;outline:none;background:#fff;font-size:10px}.field textarea{min-height:96px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus{border-color:#a5b4fc;box-shadow:0 0 0 3px #eef2ff}.errorlist{margin:0;padding:0;list-style:none;color:#b91c1c;font-size:8px}.form-error-box{padding:10px 12px;border:1px solid #fecaca;border-radius:11px;background:#fef2f2;color:#b91c1c;font-size:9px;margin-bottom:11px}.modal-foot{display:flex;justify-content:flex-start;gap:8px;padding:13px 17px;border-top:1px solid var(--border);position:sticky;bottom:0;background:#fff}
+    .empty{padding:42px 18px;text-align:center;color:var(--muted);font-size:10px}.empty strong{display:block;color:#334155;font-size:12px;margin-bottom:5px}
+    .mobile-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:65}
+    @media(max-width:1200px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{grid-template-columns:minmax(210px,1fr) 150px 150px auto}}
+    @media(max-width:900px){:root{--sidebar:278px}.sidebar{inset:0 0 0 auto;transform:translateX(110%);width:min(88vw,300px)}.sidebar.open{transform:translateX(0)}.mobile-overlay.open{display:block}.main{margin-left:0}.header{height:60px;padding:0 12px}.hamb{display:grid;place-items:center}.header-actions .head-btn,.user-chip span{display:none}.content{padding:16px 12px}.page-head{align-items:flex-start;flex-direction:column}.page-head h2{font-size:22px}.page-actions{width:100%}.page-actions .btn{flex:1}.filters{grid-template-columns:1fr 1fr}.filters .search-box{grid-column:1/-1}.filters button{grid-column:1/-1}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}}
+    @media(max-width:620px){.stats{grid-template-columns:1fr 1fr}.stat{padding:13px}.stat-value{font-size:20px}.card-head{padding:13px}.card-body{padding:12px}.filters{grid-template-columns:1fr}.filters .search-box,.filters button{grid-column:auto}.table{min-width:0}.table thead{display:none}.table,.table tbody,.table tr,.table td{display:block;width:100%}.table tr{border-bottom:1px solid #eef2f7;padding:12px 10px}.table td{border:0;padding:5px 0;display:flex;align-items:center;justify-content:space-between;gap:12px}.table td::before{content:attr(data-label);font-size:8px;color:var(--muted);font-weight:900}.table .store-cell{justify-content:flex-start}.table .store-cell::before{display:none}.actions-cell{justify-content:flex-start}.actions-cell::before{display:none}.menu-pop{right:0;left:auto}.modal-backdrop{padding:8px}.modal{border-radius:17px}.modal-head{padding:13px}.modal-body{padding:13px}.modal-foot{padding:11px 13px}.modal-foot .btn{flex:1}}
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="app">
+  <div class="mobile-overlay" id="mobileOverlay" onclick="toggleMenu(false)"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">ش</div>
+      <div><h1>شبيك للإدارة</h1><small>ERP · Marketplace Control</small></div>
+      <button class="btn icon" style="display:none;margin-right:auto;background:rgba(255,255,255,.12);border-color:transparent;color:#fff" onclick="toggleMenu(false)">×</button>
+    </div>
+    <nav class="nav">
+      <div class="group-title">الرئيسية</div>
+      <a class="nav-link {% block nav_dashboard %}{% endblock %}" href="/admin/dashboard/control/"><span class="nav-ico">⌂</span>لوحة التحكم</a>
+      <a class="nav-link" href="/admin/dashboard/"><span class="nav-ico">↗</span>الواجهة السابقة</a>
+
+      <div class="group-title">السوق والمتاجر</div>
+      <a class="nav-link {% block nav_stores %}{% endblock %}" href="{% url 'admin-control-stores' %}" data-control-nav><span class="nav-ico">▣</span>المتاجر</a>
+      <a class="nav-link" href="/admin/dashboard/vendors/applications/"><span class="nav-ico">!</span>طلبات المتاجر</a>
+      <a class="nav-link" href="/admin/dashboard/catalog/"><span class="nav-ico">▦</span>الكتالوج والمنتجات</a>
+      <a class="nav-link" href="/admin/dashboard/resource/categories/"><span class="nav-ico">◈</span>التصنيفات</a>
+      <a class="nav-link" href="/admin/dashboard/orders/"><span class="nav-ico">🛒</span>الطلبات والمبيعات</a>
+      <a class="nav-link" href="/admin/dashboard/resource/payments/"><span class="nav-ico">$</span>المدفوعات</a>
+      <a class="nav-link" href="/admin/dashboard/finance/"><span class="nav-ico">≋</span>الشحن والمالية</a>
+
+      <div class="group-title">التسديدات والخدمات</div>
+      <a class="nav-link" href="/admin/dashboard/services/v2/"><span class="nav-ico">⚡</span>مركز التسديدات</a>
+      <a class="nav-link" href="/admin/dashboard/services/operations/"><span class="nav-ico">⇄</span>العمليات</a>
+      <a class="nav-link" href="/admin/dashboard/services/transactions/"><span class="nav-ico">▤</span>سجل العمليات</a>
+      <a class="nav-link" href="/admin/dashboard/services/providers/"><span class="nav-ico">☁</span>المزودون</a>
+      <a class="nav-link" href="/admin/dashboard/services/settings/"><span class="nav-ico">⚙</span>إعدادات الربط</a>
+
+      <div class="group-title">إدارة المنصة</div>
+      <a class="nav-link" href="/admin/dashboard/accounts/"><span class="nav-ico">👥</span>المستخدمون</a>
+      <a class="nav-link" href="/admin/dashboard/communication/"><span class="nav-ico">◌</span>التواصل</a>
+      <a class="nav-link" href="/admin/dashboard/promotions/"><span class="nav-ico">%</span>العروض والكوبونات</a>
+      <a class="nav-link" href="/admin/dashboard/theme-studio/"><span class="nav-ico">✦</span>استوديو التصميم</a>
+    </nav>
+    <div class="side-foot">يتم تحديث أجزاء السوق تدريجيًا داخل هذه الواجهة مع الإبقاء على الأنظمة الحالية حتى اكتمال النقل.</div>
+  </aside>
+
+  <main class="main">
+    <header class="header">
+      <div class="header-left">
+        <button class="hamb" onclick="toggleMenu(true)" aria-label="فتح القائمة">☰</button>
+        <div class="crumb">{% block header_title %}لوحة الإدارة{% endblock %}<small>{% block header_subtitle %}إدارة المنصة من مساحة واحدة{% endblock %}</small></div>
+      </div>
+      <div class="header-actions">
+        <button class="head-btn" onclick="location.reload()">↻ تحديث</button>
+        <a class="head-btn" href="/admin/dashboard/">الواجهة القديمة</a>
+        <div class="user-chip"><div class="avatar">ش</div><span>{{ request.user.get_full_name|default:request.user.phone|default:'مدير' }}</span></div>
+      </div>
+    </header>
+
+    <section class="content" id="control-content">
+      {% if messages %}<div class="messages">{% for message in messages %}<div class="flash {{ message.tags|default:'success' }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </section>
+  </main>
+</div>
+<script>
+  function toggleMenu(open){
+    const sidebar=document.getElementById('sidebar');
+    const overlay=document.getElementById('mobileOverlay');
+    sidebar.classList.toggle('open',!!open);
+    overlay.classList.toggle('open',!!open);
+  }
+  document.addEventListener('click',function(e){
+    const link=e.target.closest('a[data-control-nav]');
+    if(link){toggleMenu(false);}
+  });
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
