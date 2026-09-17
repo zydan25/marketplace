@@ -1,0 +1,91 @@
+import json
+
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Count, Q, Sum
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_http_methods
+
+from catalog.models import Product, ProductVariant, ProductImage
+from marketplace.dashboard import dashboard_access_required
+from orders.models import OrderItem
+from vendors.models import VendorProfile
+
+from . import control_v10 as core
+from . import control_v9 as legacy
+
+
+def _product_editor_context(form, product=None):
+    global_ids = list(product.categories.values_list("pk", flat=True)) if product else []
+    store_ids = list(product.store_categories.values_list("pk", flat=True)) if product else []
+    if getattr(form, "is_bound", False):
+        global_ids = [int(v) for v in form.data.getlist("categories") if str(v).isdigit()]
+        store_ids = [int(v) for v in form.data.getlist("store_categories") if str(v).isdigit()]
+    return {
+        "form": form,
+        "product": product,
+        "variants": list(product.variants.all().order_by("id")) if product else [],
+        "images": list(product.image_items.all().order_by("sort_order", "id")) if product else [],
+        "global_categories": form.fields["categories"].queryset,
+        "store_categories": form.fields["store_categories"].queryset,
+        "global_category_ids": global_ids,
+        "store_category_ids": store_ids,
+        "system": {
+            "reserved_stock": product.reserved_stock if product else 0,
+            "sold_count": product.sold_count if product else 0,
+            "reviews_count": product.reviews_count if product else 0,
+            "rating": product.rating if product else 0,
+        },
+    }
+
+
+@dashboard_access_required
+@require_http_methods(["GET"])
+def product_detail(request, product_id):
+    product = get_object_or_404(
+        Product.objects.select_related("vendor", "vendor__owner").prefetch_related("categories", "store_categories", "variants", "image_items"),
+        pk=product_id,
+    )
+    items = OrderItem.objects.filter(product=product).select_related("order", "vendor", "order__customer").order_by("-created_at")
+    totals = items.aggregate(units=Sum("quantity"), revenue=Sum("vendor_total"))
+    return render(request, "admin/control/inner/product_detail_v10.html", {
+        "product": product,
+        "items": items[:40],
+        "report": {"units": totals["units"] or 0, "revenue": totals["revenue"] or 0, "orders": items.values("order_id").distinct().count()},
+        "json_colors": json.dumps(product.colors or [], ensure_ascii=False, indent=2),
+        "json_sizes": json.dumps(product.sizes or [], ensure_ascii=False, indent=2),
+        "json_hashtags": json.dumps(product.hashtags or [], ensure_ascii=False, indent=2),
+        "json_details": json.dumps(product.details or {}, ensure_ascii=False, indent=2),
+    })
+
+
+legacy._product_editor_context = _product_editor_context
+legacy.product_detail = product_detail
+core.product_detail = product_detail
+core._product_editor_context = _product_editor_context
+
+control_products = legacy.control_products
+control_stores = legacy.control_stores
+control_categories = core.control_categories
+control_inventory = core.control_inventory
+control_orders = core.control_orders
+order_detail = core.order_detail
+order_status = core.order_status
+order_customer_message = core.order_customer_message
+order_chat_message = core.order_chat_message
+order_chat_open = core.order_chat_open
+store_detail = core.store_detail
+store_design_save = core.store_design_save
+store_section_save = core.store_section_save
+store_section_delete = core.store_section_delete
+store_media_save = core.store_media_save
+store_media_delete = core.store_media_delete
+store_category_save = core.store_category_save
+store_category_delete = core.store_category_delete
+store_branch_save = core.store_branch_save
+store_branch_delete = core.store_branch_delete
+control_applications = core.control_applications
+application_review = core.application_review
+control_payments = core.control_payments
+control_finance = core.control_finance
+control_variants = core.control_variants
