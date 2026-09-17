@@ -48,6 +48,12 @@ def _replace_inner_content(html, fragment):
 
 def _inject_control_script(html):
     script = r"""
+<style>
+.more-menu,
+.product-more-menu { display: none; }
+.more-menu.open,
+.product-more-menu.open { display: block; }
+</style>
 <script>
 (function(){
   const map={
@@ -74,6 +80,20 @@ def _inject_control_script(html):
       if(p===path)a.classList.add('active');
     });
   }
+  function closeActionMenus(except=null){
+    document.querySelectorAll('.more-menu.open,.product-more-menu.open').forEach(menu=>{
+      if(menu!==except) menu.classList.remove('open');
+    });
+  }
+  function toggleActionMenu(button){
+    const wrap=button.closest('.more-wrap,.product-more');
+    if(!wrap)return;
+    const menu=wrap.querySelector('.more-menu,.product-more-menu');
+    if(!menu)return;
+    const shouldOpen=!menu.classList.contains('open');
+    closeActionMenus();
+    if(shouldOpen)menu.classList.add('open');
+  }
   async function replaceContent(url,push=true){
     const r=await fetch(url,{headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/html'}});
     if(!r.ok)throw new Error('HTTP '+r.status);
@@ -82,6 +102,7 @@ def _inject_control_script(html):
     box.innerHTML=html;
     rewriteLinks(box);
     bindInner(box);
+    closeActionMenus();
     activeNav(url);
     if(push)history.pushState({erpControl:true},'',url);
     window.scrollTo({top:0,behavior:'smooth'});
@@ -89,6 +110,7 @@ def _inject_control_script(html):
   function bindInner(root){
     root.querySelectorAll('[data-inner-modal-open]').forEach(b=>b.onclick=()=>{
       const m=document.getElementById(b.dataset.innerModalOpen);if(m)m.classList.add('open');
+      closeActionMenus();
     });
     root.querySelectorAll('[data-inner-modal-close]').forEach(b=>b.onclick=()=>b.closest('.inner-modal,.product-modal')?.classList.remove('open'));
     root.querySelectorAll('.inner-modal,.product-modal').forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove('open')});
@@ -96,17 +118,29 @@ def _inject_control_script(html):
   rewriteLinks();
   bindInner(document);
   document.addEventListener('click',function(e){
+    const menuButton=e.target.closest('.more-btn,.product-more > button');
+    if(menuButton){
+      e.preventDefault();
+      e.stopPropagation();
+      toggleActionMenu(menuButton);
+      return;
+    }
     const a=e.target.closest('a[data-control-nav]');
     if(a && e.button===0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey){
-      e.preventDefault();replaceContent(a.href).catch(()=>location.href=a.href);return;
+      e.preventDefault();
+      closeActionMenus();
+      replaceContent(a.href).catch(()=>location.href=a.href);
+      return;
     }
     const close=e.target.closest('[data-inner-modal-close]');
     if(close)close.closest('.inner-modal,.product-modal')?.classList.remove('open');
+    if(!e.target.closest('.more-wrap,.product-more'))closeActionMenus();
   });
   document.addEventListener('submit',async function(e){
     const form=e.target.closest('[data-inner-form],[data-control-filter]');
     if(!form)return;
     e.preventDefault();
+    closeActionMenus();
     const method=(form.method||'get').toUpperCase(), url=form.action || location.href;
     let target=url;
     if(method==='GET'){
