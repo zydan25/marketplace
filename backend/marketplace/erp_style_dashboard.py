@@ -32,6 +32,12 @@ User = get_user_model()
 CONTROL_SECTION_MAP = {
     "stores": "/admin/dashboard/control/stores/",
     "products": "/admin/dashboard/control/products/",
+    "applications": "/admin/dashboard/control/applications/",
+    "categories": "/admin/dashboard/control/categories/",
+    "variants": "/admin/dashboard/control/variants/",
+    "orders": "/admin/dashboard/control/orders/",
+    "payments": "/admin/dashboard/control/payments/",
+    "finance": "/admin/dashboard/control/finance/",
 }
 
 
