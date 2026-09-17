@@ -9,10 +9,13 @@ from django.views.decorators.http import require_http_methods
 from catalog.models import Product, ProductVariant, ProductImage
 from marketplace.dashboard import dashboard_access_required
 from orders.models import OrderItem
-from vendors.models import VendorProfile
+from vendors.models import VendorProfile, VendorApplication
+from vendors.forms import VendorApplicationReviewForm
 
 from . import control_v10 as core
 from . import control_v9 as legacy
+
+APPLICATIONS_URL = "/admin/dashboard/control/applications/"
 
 
 def _product_editor_context(form, product=None):
@@ -59,6 +62,28 @@ def product_detail(request, product_id):
     })
 
 
+@dashboard_access_required
+@require_http_methods(["POST"])
+def application_review(request, application_id):
+    application = get_object_or_404(VendorApplication, pk=application_id)
+    action = request.POST.get("action", "").strip()
+    if action not in {"approve", "reject"}:
+        messages.error(request, "قرار المراجعة غير صالح.")
+        return redirect(APPLICATIONS_URL)
+    form = VendorApplicationReviewForm(request.POST, instance=application)
+    if form.is_valid():
+        obj = form.save(commit=False)
+        obj.status = "approved" if action == "approve" else "rejected"
+        obj.reviewed_by = request.user
+        from django.utils import timezone
+        obj.reviewed_at = timezone.now()
+        obj.save()
+        messages.success(request, "تم تحديث طلب المتجر.")
+    else:
+        messages.error(request, "تعذر حفظ ملاحظة المراجعة.")
+    return redirect(APPLICATIONS_URL)
+
+
 legacy._product_editor_context = _product_editor_context
 legacy.product_detail = product_detail
 legacy.store_detail = core.store_detail
@@ -86,7 +111,6 @@ store_category_delete = core.store_category_delete
 store_branch_save = core.store_branch_save
 store_branch_delete = core.store_branch_delete
 control_applications = core.control_applications
-application_review = core.application_review
 control_payments = core.control_payments
 control_finance = core.control_finance
 control_variants = core.control_variants
