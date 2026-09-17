@@ -2,6 +2,7 @@ import json
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils.text import slugify
 
 from marketplace.models import VendorProfile
@@ -46,7 +47,12 @@ class CategoryForm(CatalogFormMixin):
 
 class ProductForm(CatalogFormMixin):
     vendor = forms.ModelChoiceField(queryset=VendorProfile.objects.select_related("owner").order_by("store_name"), label="المتجر")
-    categories = forms.ModelMultipleChoiceField(queryset=Category.objects.filter(is_active=True).order_by("sort_order", "name"), required=False, label="الفئات", widget=forms.SelectMultiple(attrs={"size": 7}))
+    categories = forms.ModelMultipleChoiceField(
+        queryset=Category.objects.filter(is_active=True).order_by("sort_order", "name"),
+        required=False,
+        label="الفئات",
+        widget=forms.SelectMultiple(attrs={"size": 7}),
+    )
 
     class Meta:
         model = Product
@@ -71,6 +77,14 @@ class ProductForm(CatalogFormMixin):
             "shipping_note": forms.Textarea(attrs={"rows": 2}),
             "return_policy": forms.Textarea(attrs={"rows": 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            selected_ids = self.instance.categories.values_list("pk", flat=True)
+            self.fields["categories"].queryset = Category.objects.filter(
+                Q(is_active=True) | Q(pk__in=selected_ids)
+            ).order_by("sort_order", "name")
 
     def _clean_json(self, name, allow_list=False):
         value = self.cleaned_data.get(name)
