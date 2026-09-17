@@ -1,14 +1,18 @@
 from django.db import migrations
 
 
+def noop_migration(apps, schema_editor):
+    # The real field transition is owned by storefront.0003 now that
+    # StorefrontSection lives in the storefront app. Keeping this historical
+    # migration as a no-op avoids PostgreSQL-only SQL breaking SQLite CI.
+    return None
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("marketplace", "0019_align_auditlog_state"),
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql='ALTER TABLE "marketplace_storefrontsection" ALTER COLUMN "sort_order" TYPE bigint USING "sort_order"::bigint',
-            reverse_sql='ALTER TABLE "marketplace_storefrontsection" ALTER COLUMN "sort_order" TYPE integer USING "sort_order"::integer',
-        ),
+        migrations.RunPython(noop_migration, reverse_code=migrations.RunPython.noop),
     ]
