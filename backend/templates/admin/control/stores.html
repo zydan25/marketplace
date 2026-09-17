@@ -1,0 +1,103 @@
+{% extends "admin/control/base.html" %}
+{% block title %}السوق والمتاجر — شبيك{% endblock %}
+{% block nav_stores %}active{% endblock %}
+{% block header_title %}السوق والمتاجر{% endblock %}
+{% block header_subtitle %}إدارة المتاجر من داخل الحاوية الجديدة مع بقاء الرأس والقائمة ثابتين{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div><h2>السوق والمتاجر</h2><p>قائمة عملية للمتاجر والتجار، بحث وفرز سريع، وتعديل الإعدادات داخل نافذة دون صفحة منفصلة.</p></div>
+  <div class="page-actions"><button class="btn primary" type="button" onclick="openStoreModal()">＋ إضافة متجر</button><a class="btn soft" href="{% url 'vendors-dashboard:export' %}">⇩ تصدير CSV</a></div>
+</section>
+
+<section class="stats">
+  <article class="stat"><div class="stat-top"><span class="stat-label">كل المتاجر</span><span class="stat-icon">🏪</span></div><div class="stat-value">{{ stats.total }}</div><div class="stat-note">المسجلة في المنصة</div></article>
+  <article class="stat"><div class="stat-top"><span class="stat-label">نشطة</span><span class="stat-icon">✓</span></div><div class="stat-value">{{ stats.active }}</div><div class="stat-note">تستقبل المنتجات والطلبات</div></article>
+  <article class="stat"><div class="stat-top"><span class="stat-label">قيد المراجعة</span><span class="stat-icon">!</span></div><div class="stat-value">{{ stats.pending }}</div><div class="stat-note">جاهزة لاعتماد الإدارة</div></article>
+  <article class="stat"><div class="stat-top"><span class="stat-label">موقوفة</span><span class="stat-icon">Ⅱ</span></div><div class="stat-value">{{ stats.suspended }}</div><div class="stat-note">تحتفظ بالسجل ولا تُحذف تلقائيًا</div></article>
+</section>
+
+<section class="card">
+  <div class="card-head"><div><h3>دليل المتاجر</h3><small>{{ page.paginator.count }} نتيجة · {{ page.number }} / {{ page.paginator.num_pages }}</small></div></div>
+  <div class="card-body">
+    <form class="filters" method="get">
+      <div class="search-box"><span>⌕</span><input class="control" name="q" value="{{ q }}" type="search" placeholder="ابحث باسم المتجر أو المالك أو الهاتف أو البريد"></div>
+      <select class="control" name="status"><option value="">كل الحالات</option><option value="active" {% if status == 'active' %}selected{% endif %}>نشط</option><option value="pending" {% if status == 'pending' %}selected{% endif %}>قيد المراجعة</option><option value="suspended" {% if status == 'suspended' %}selected{% endif %}>موقوف</option></select>
+      <select class="control" name="sort"><option value="newest" {% if sort == 'newest' %}selected{% endif %}>الأحدث أولًا</option><option value="name" {% if sort == 'name' %}selected{% endif %}>الاسم</option><option value="products" {% if sort == 'products' %}selected{% endif %}>الأكثر منتجات</option><option value="orders" {% if sort == 'orders' %}selected{% endif %}>الأكثر طلبات</option></select>
+      <button class="btn primary" type="submit">بحث وتصفية</button>
+    </form>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>المتجر</th><th>المالك</th><th>الحالة</th><th>المنتجات</th><th>الطلبات</th><th>العمولة</th><th>الإنشاء</th><th></th></tr></thead>
+      <tbody>
+      {% for vendor in page.object_list %}
+        <tr>
+          <td data-label="المتجر"><div class="store-cell"><div class="store-avatar">{% if vendor.logo %}<img src="{{ vendor.logo.url }}" alt="">{% else %}🏪{% endif %}</div><div><div class="store-name">{{ vendor.store_name }}</div><div class="store-meta">/{{ vendor.slug }}</div></div></div></td>
+          <td data-label="المالك"><div class="metric">{{ vendor.owner.get_full_name|default:vendor.owner.phone|default:'—' }}</div><div class="store-meta">{{ vendor.owner.phone|default:vendor.owner.email|default:'بدون اتصال' }}</div></td>
+          <td data-label="الحالة"><span class="badge {{ vendor.status }}">{{ vendor.get_status_display }}</span></td>
+          <td data-label="المنتجات"><span class="metric">{{ vendor.product_count }}</span></td>
+          <td data-label="الطلبات"><span class="metric">{{ vendor.order_count }}</span></td>
+          <td data-label="العمولة"><span class="metric">{{ vendor.commission_percent }}%</span></td>
+          <td data-label="الإنشاء"><span class="muted">{{ vendor.created_at|date:'Y-m-d' }}</span></td>
+          <td data-label="الإجراءات">
+            <div class="actions-cell">
+              <button class="btn icon" type="button" title="تعديل" onclick="openEditModal({{ vendor.pk }})">✎</button>
+              <details class="action-menu"><summary class="btn icon" title="المزيد">⋯</summary><div class="menu-pop">
+                <a href="/admin/dashboard/vendors/vendors/{{ vendor.pk }}/">↗ فتح التفاصيل الحالية</a>
+                {% if vendor.status == 'active' %}
+                <form method="post" action="{% url 'admin-control-store-status' vendor_id=vendor.pk status='suspended' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button type="submit">Ⅱ إيقاف المتجر</button></form>
+                {% else %}
+                <form method="post" action="{% url 'admin-control-store-status' vendor_id=vendor.pk status='active' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button type="submit">✓ تفعيل المتجر</button></form>
+                {% endif %}
+                <form method="post" action="{% url 'admin-control-store-delete' vendor_id=vendor.pk %}" onsubmit="return confirm('سيُحذف المتجر فقط عند عدم وجود منتجات أو طلبات مرتبطة. متابعة؟')">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="danger-item" type="submit">⌫ حذف المتجر</button></form>
+              </div></details>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8"><div class="empty"><strong>لا توجد نتائج</strong>جرّب تغيير البحث أو الفلاتر، أو أضف متجرًا جديدًا.</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if page.paginator.num_pages > 1 %}<div class="pagination">{% if page.has_previous %}<a href="?q={{ q|urlencode }}&status={{ status }}&sort={{ sort }}&page={{ page.previous_page_number }}">السابق</a>{% endif %}<span class="current">{{ page.number }}</span>{% if page.has_next %}<a href="?q={{ q|urlencode }}&status={{ status }}&sort={{ sort }}&page={{ page.next_page_number }}">التالي</a>{% endif %}</div>{% endif %}
+
+<div class="modal-backdrop {% if store_form_open %}open{% endif %}" id="storeModal" onclick="closeStoreModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head"><h3>{% if form_mode == 'edit' %}تعديل المتجر{% else %}إضافة متجر جديد{% endif %}</h3><button class="btn icon" type="button" onclick="closeStoreModal()">×</button></div>
+    <form method="post" enctype="multipart/form-data" action="{{ request.path }}{% if form_mode == 'edit' and edit_vendor %}?edit={{ edit_vendor.pk }}{% endif %}">
+      {% csrf_token %}{% if form_mode == 'edit' and edit_vendor %}<input type="hidden" name="vendor_id" value="{{ edit_vendor.pk }}">{% endif %}
+      <div class="modal-body">
+        {% if form.non_field_errors %}<div class="form-error-box">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="form-grid">
+          {% if form_mode == 'create' %}<div class="field full"><label>{{ form.owner.label }}</label>{{ form.owner }}{{ form.owner.errors }}</div>{% endif %}
+          <div class="field"><label>{{ form.store_name.label }}</label>{{ form.store_name }}{{ form.store_name.errors }}</div>
+          <div class="field"><label>{{ form.slug.label }}</label>{{ form.slug }}{{ form.slug.errors }}</div>
+          <div class="field"><label>{{ form.phone.label }}</label>{{ form.phone }}{{ form.phone.errors }}</div>
+          <div class="field"><label>{{ form.address.label }}</label>{{ form.address }}{{ form.address.errors }}</div>
+          <div class="field"><label>{{ form.status.label }}</label>{{ form.status }}{{ form.status.errors }}</div>
+          <div class="field"><label>{{ form.commission_percent.label }}</label>{{ form.commission_percent }}{{ form.commission_percent.errors }}</div>
+          <div class="field"><label>{{ form.logo.label }}</label>{{ form.logo }}{{ form.logo.errors }}</div>
+          <div class="field"><label>{{ form.cover.label }}</label>{{ form.cover }}{{ form.cover.errors }}</div>
+          <div class="field full"><label>{{ form.description.label }}</label>{{ form.description }}{{ form.description.errors }}</div>
+        </div>
+      </div>
+      <div class="modal-foot"><button class="btn primary" type="submit">✓ حفظ</button><button class="btn" type="button" onclick="closeStoreModal()">إلغاء</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function modalEl(){return document.getElementById('storeModal')}
+function openStoreModal(){const m=modalEl();if(m){m.classList.add('open')}}
+function openEditModal(id){location.href='?edit='+id+'&q={{ q|urlencode }}&status={{ status }}&sort={{ sort }}'}
+function closeStoreModal(e){if(e&&e.target!==modalEl())return;const m=modalEl();if(m)m.classList.remove('open')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeStoreModal()})
+</script>
+{% endblock %}
