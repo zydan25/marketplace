@@ -39,7 +39,7 @@ class StorefrontSection(TimeStampedModel):
     title = models.CharField(max_length=180, blank=True)
     section_type = models.CharField(max_length=30, choices=SectionTypes.choices)
     config = models.JSONField(default=dict, blank=True)
-    sort_order = models.PositiveIntegerField(default=0)
+    sort_order = models.BigIntegerField(default=0)
     is_visible = models.BooleanField(default=True)
 
     class Meta:
