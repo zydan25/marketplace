@@ -19,6 +19,7 @@ Run from backend/:
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import sys
@@ -108,6 +109,113 @@ def truncate_application_tables(connection, table_names: set[str]) -> None:
         cursor.execute(f"TRUNCATE TABLE {quoted} RESTART IDENTITY CASCADE")
 
 
+def build_content_type_compatibility_map(source_connection, apps) -> dict[tuple[str, str], tuple[str, str]]:
+    """Map legacy ContentType labels to current models that keep the same DB table.
+
+    Several marketplace models were moved into domain apps while deliberately
+    retaining their historical marketplace_* database tables. Existing users'
+    permissions therefore still reference natural keys such as
+    (marketplace, address), while the current ContentType is (promotions, address).
+    """
+    current_by_table: dict[str, tuple[str, str]] = {}
+    for model in apps.get_models():
+        if model._meta.managed and not model._meta.proxy:
+            current_by_table.setdefault(
+                model._meta.db_table,
+                (model._meta.app_label, model._meta.model_name),
+            )
+
+    with source_connection.cursor() as cursor:
+        cursor.execute("SELECT app_label, model FROM django_content_type")
+        source_content_types = cursor.fetchall()
+
+    compatibility: dict[tuple[str, str], tuple[str, str]] = {}
+    for app_label, model_name in source_content_types:
+        legacy_table = f"{app_label}_{model_name}".lower()
+        current_key = current_by_table.get(legacy_table)
+        source_key = (app_label, model_name)
+        if current_key and current_key != source_key:
+            compatibility[source_key] = current_key
+    return compatibility
+
+
+def rewrite_permission_natural_keys(
+    fixture_path: Path,
+    compatibility: dict[tuple[str, str], tuple[str, str]],
+    target_connection,
+) -> None:
+    """Rewrite legacy User.user_permissions natural keys to current ContentTypes."""
+    if not compatibility:
+        return
+
+    from django.contrib.auth.models import Permission
+
+    with fixture_path.open("r", encoding="utf-8") as fixture_file:
+        payload = json.load(fixture_file)
+
+    changed = 0
+    permission_keys: set[tuple[str, str, str]] = set()
+    unmapped_legacy: set[tuple[str, str, str]] = set()
+
+    for obj in payload:
+        fields = obj.get("fields", {})
+        permissions = fields.get("user_permissions")
+        if not isinstance(permissions, list):
+            continue
+
+        rewritten_permissions = []
+        for natural_key in permissions:
+            if isinstance(natural_key, list) and len(natural_key) == 3:
+                codename, app_label, model_name = natural_key
+                source_ct = (app_label, model_name)
+                target_ct = compatibility.get(source_ct)
+                if target_ct:
+                    natural_key = [codename, target_ct[0], target_ct[1]]
+                    changed += 1
+                    permission_keys.add(tuple(natural_key))
+                else:
+                    permission_keys.add(tuple(natural_key))
+                    if app_label == "marketplace":
+                        unmapped_legacy.add((codename, app_label, model_name))
+            rewritten_permissions.append(natural_key)
+        fields["user_permissions"] = rewritten_permissions
+
+    missing_permissions: list[tuple[str, str, str]] = []
+    for permission_key in sorted(permission_keys):
+        codename, app_label, model_name = permission_key
+        try:
+            Permission.objects.using(target_connection.alias).get_by_natural_key(
+                codename, app_label, model_name
+            )
+        except Permission.DoesNotExist:
+            missing_permissions.append(permission_key)
+
+    if unmapped_legacy:
+        details = ", ".join(
+            f"{codename}/{app_label}.{model_name}"
+            for codename, app_label, model_name in sorted(unmapped_legacy)
+        )
+        fail(
+            "SQLite user permissions reference legacy marketplace ContentTypes that "
+            f"could not be mapped to current models: {details}"
+        )
+
+    if missing_permissions:
+        details = ", ".join(
+            f"{codename}/{app_label}.{model_name}"
+            for codename, app_label, model_name in missing_permissions[:30]
+        )
+        fail(
+            "Target PostgreSQL is missing permissions required by SQLite users: "
+            f"{details}"
+        )
+
+    if changed:
+        with fixture_path.open("w", encoding="utf-8") as fixture_file:
+            json.dump(payload, fixture_file, ensure_ascii=False, indent=2)
+        print(f"Rewrote {changed} legacy user-permission ContentType reference(s).")
+
+
 def main() -> int:
     if not SOURCE_SQLITE_DB.is_file():
         fail(f"SQLite source database not found: {SOURCE_SQLITE_DB}")
@@ -195,6 +303,14 @@ def main() -> int:
     print("Applying Django migrations to the PostgreSQL target...")
     call_command("migrate", database="default", interactive=False, verbosity=1)
 
+    # Migrate runs first so that the target contains the current ContentTypes and
+    # permissions. This lets us rewrite legacy natural keys safely before loaddata.
+    compatibility = build_content_type_compatibility_map(source_connection, apps)
+    if compatibility:
+        print("Legacy ContentType mappings detected:")
+        for source_key, target_key in sorted(compatibility.items()):
+            print(f"  {source_key[0]}.{source_key[1]} -> {target_key[0]}.{target_key[1]}")
+
     print("Preparing application tables for exact SQLite data import...")
     with transaction.atomic(using="default"):
         truncate_application_tables(target_connection, current_managed_tables)
@@ -216,6 +332,8 @@ def main() -> int:
             for label in EXCLUDED_LABELS:
                 command_kwargs.setdefault("exclude", []).append(label)
             call_command("dumpdata", **command_kwargs)
+
+        rewrite_permission_natural_keys(fixture_path, compatibility, target_connection)
 
         print("Importing fixture into PostgreSQL...")
         with transaction.atomic(using="default"):
