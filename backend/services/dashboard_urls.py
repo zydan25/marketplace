@@ -3,12 +3,20 @@ from django.urls import path
 from .admin_v4 import center, distribution
 from .dashboard_resource_catalog_v11 import dashboard_resources
 from .operations_dashboard import balances_dashboard, operations_dashboard
-from .provider_setup_v3 import provider_setup
 from .service_dashboard_home import modern_home
 from .settings_admin import settings_center
 from .views import section_view
 from .wifi_dashboard import wifi_management
 from .service_platform_v2 import package_manager_v2, services_v2_home, settings_v2, integration_docs_v2
+
+
+def provider_setup_view(request, *args, **kwargs):
+    # Keep provider/cryptography imports out of the global URLConf import path.
+    # The provider code is only needed when the provider-management page is opened.
+    from .provider_setup_v3 import provider_setup
+
+    return provider_setup(request, *args, **kwargs)
+
 
 urlpatterns = [
     path("", modern_home, name="admin-dashboard-services"),
@@ -21,7 +29,7 @@ urlpatterns = [
     path("catalog/fields/", center, {"section": "fields"}, name="admin-services-catalog-fields-alias"),
     path("resources/", dashboard_resources, name="admin-services-resources"),
     path("catalog/resources/", dashboard_resources, name="admin-services-catalog-resources-alias"),
-    path("providers/", provider_setup, name="admin-services-provider-setup"),
+    path("providers/", provider_setup_view, name="admin-services-provider-setup"),
     path("links/", section_view, {"section": "links"}, name="admin-services-links"),
     path("distribution/", distribution, name="admin-services-distribution"),
     path("transactions/", section_view, {"section": "transactions"}, name="admin-services-transactions"),
