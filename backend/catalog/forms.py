@@ -68,7 +68,7 @@ class ProductForm(CatalogFormMixin):
             "price": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
             "sale_price": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
             "stock": forms.NumberInput(attrs={"min": "0"}),
-            "currency": forms.Select(choices=[("YER", "ريال يمني"), ("SAR", "ريال سعودي"), ("USD", "دولار")]),
+            "currency": forms.TextInput(attrs={"dir": "ltr", "placeholder": "YER / SAR / USD ..."}),
             "colors": forms.Textarea(attrs={"rows": 2, "dir": "ltr", "placeholder": '["أسود", "أبيض"]'}),
             "sizes": forms.Textarea(attrs={"rows": 2, "dir": "ltr", "placeholder": '["S", "M", "L"]'}),
             "hashtags": forms.Textarea(attrs={"rows": 2, "dir": "ltr", "placeholder": '["جديد", "مميز"]'}),
