@@ -1,0 +1,82 @@
+name: Fix control edit modal state
+
+on:
+  push:
+    branches:
+      - feat/erp-control-current-shell-2026-09
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: "!contains(github.event.head_commit.message, 'fix: clear control edit modal state')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/erp-control-current-shell-2026-09
+          fetch-depth: 1
+      - name: Clear edit query when modal closes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('backend/marketplace/erp_style_dashboard.py')
+          text = path.read_text(encoding='utf-8')
+          old = """  function bindInner(root){
+    normalizeInnerMenus(root);
+    root.querySelectorAll('[data-inner-modal-open]').forEach(b=>b.onclick=()=>{
+      const m=document.getElementById(b.dataset.innerModalOpen);
+      if(m)m.classList.add('open');
+      closeActionMenus();
+    });
+    root.querySelectorAll('[data-inner-modal-close]').forEach(b=>b.onclick=()=>b.closest('.inner-modal,.product-modal')?.classList.remove('open'));
+    root.querySelectorAll('.inner-modal,.product-modal').forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove('open')});
+  }
+"""
+          new = """  function clearEditQuery(){
+    const u=new URL(location.href);
+    if(u.searchParams.has('edit')){
+      u.searchParams.delete('edit');
+      history.replaceState(history.state,'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash);
+    }
+  }
+
+  function closeInnerModal(modal){
+    if(!modal)return;
+    modal.classList.remove('open');
+    clearEditQuery();
+  }
+
+  function bindInner(root){
+    normalizeInnerMenus(root);
+    root.querySelectorAll('[data-inner-modal-open]').forEach(b=>b.onclick=()=>{
+      const m=document.getElementById(b.dataset.innerModalOpen);
+      if(m)m.classList.add('open');
+      closeActionMenus();
+    });
+    root.querySelectorAll('[data-inner-modal-close]').forEach(b=>b.onclick=()=>closeInnerModal(b.closest('.inner-modal,.product-modal')));
+    root.querySelectorAll('.inner-modal,.product-modal').forEach(m=>m.onclick=e=>{if(e.target===m)closeInnerModal(m)});
+  }
+"""
+          if old not in text:
+              raise SystemExit('expected bindInner block not found')
+          text = text.replace(old, new, 1)
+          old2 = """    const close=e.target.closest('[data-inner-modal-close]');
+    if(close)close.closest('.inner-modal,.product-modal')?.classList.remove('open');
+"""
+          new2 = """    const close=e.target.closest('[data-inner-modal-close]');
+    if(close)closeInnerModal(close.closest('.inner-modal,.product-modal'));
+"""
+          if old2 not in text:
+              raise SystemExit('expected delegated close block not found')
+          text = text.replace(old2, new2, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/marketplace/erp_style_dashboard.py
+          git diff --cached --quiet || git commit -m "fix: clear control edit modal state"
+          git push origin HEAD:feat/erp-control-current-shell-2026-09
