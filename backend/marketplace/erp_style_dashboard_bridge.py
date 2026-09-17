@@ -2,7 +2,7 @@ from . import erp_style_dashboard as legacy
 
 
 _ORIGINAL_INJECT = legacy._inject_control_script
-RESPONSIVE_CSS = "/static/marketplace/erp-control-responsive.css?v=62a9fee7"
+RESPONSIVE_CSS = "/static/marketplace/erp-control-responsive.css?v=20260917-2"
 
 
 BRIDGE_SCRIPT = r"""
@@ -32,7 +32,7 @@ BRIDGE_SCRIPT = r"""
   ];
   function internal(url){const u=new URL(url,location.origin);return u.origin===location.origin&&(controlPrefixes.some(p=>u.pathname.startsWith(p))||!!legacyMap[u.pathname]);}
   function normalize(url){const u=new URL(url,location.origin);if(legacyMap[u.pathname])u.pathname=legacyMap[u.pathname];return u.href;}
-  function ensureResponsiveStyles(){if(document.querySelector('link[data-erp-control-style]'))return;const link=document.createElement('link');link.rel='stylesheet';link.href='/static/marketplace/erp-control-responsive.css?v=62a9fee7';link.dataset.erpControlStyle='1';document.head.appendChild(link);}
+  function ensureResponsiveStyles(){if(document.querySelector('link[data-erp-control-style]'))return;const link=document.createElement('link');link.rel='stylesheet';link.href=RESPONSIVE_CSS;link.dataset.erpControlStyle='1';document.head.appendChild(link);}
   function styleKey(css){let h=5381;for(let i=0;i<css.length;i++)h=((h<<5)-h)+css.charCodeAt(i)|0;return'erp-control-'+(h>>>0).toString(36);}
   function adoptStyles(doc){doc.querySelectorAll('style').forEach(style=>{const css=style.textContent||'';if(!css.trim()){style.remove();return;}const key=styleKey(css);if(!document.head.querySelector('style[data-control-style="'+key+'"]')){const adopted=document.createElement('style');adopted.setAttribute('data-control-style',key);adopted.textContent=css;document.head.appendChild(adopted);}style.remove();});}
   function fragment(html){const doc=new DOMParser().parseFromString(html,'text/html');adoptStyles(doc);const main=doc.querySelector('main.content');return main?main.innerHTML:(doc.body?doc.body.innerHTML:html);}
