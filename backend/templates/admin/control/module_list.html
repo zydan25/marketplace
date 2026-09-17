@@ -1,0 +1,9 @@
+{% extends "admin/control/base.html" %}
+{% block title %}{{ module }} — لوحة الإدارة{% endblock %}
+{% block header_title %}{{ module }}{% endblock %}
+{% block header_subtitle %}{{ eyebrow }} · داخل مساحة الإدارة الجديدة{% endblock %}
+{% block content %}
+<header class="page-head"><div><div style="color:#4f46e5;font-size:10px;font-weight:950">{{ eyebrow }}</div><h2>{{ module }}</h2><p>هذه الوحدة تعمل داخل الحاوية الجديدة مع إبقاء بقية النظام القديم دون تغيير.</p></div></header>
+<section class="stats">{% for label,value in stats %}<div class="stat"><div class="stat-label">{{ label }}</div><div class="stat-value">{{ value }}</div></div>{% endfor %}</section>
+<section class="card"><div class="card-body"><form class="filters" method="get"><div class="search-box"><span>⌕</span><input class="control" name="q" value="{{ request.GET.q }}" placeholder="بحث سريع"></div><span></span><span></span><button class="btn dark" type="submit">بحث</button></form></div><div class="table-wrap"><table class="table"><thead><tr><th>البيان</th><th>التفاصيل</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>{% for row in rows %}<tr><td data-label="البيان"><div class="store-name">{{ row.title }}</div><div class="store-meta">{{ row.subtitle }}</div></td><td data-label="التفاصيل">{{ row.detail }}</td><td data-label="الحالة"><span class="badge {% if row.state_class %}{{ row.state_class }}{% else %}neutral{% endif %}">{{ row.state }}</span></td><td data-label="التاريخ" class="muted">{{ row.date }}</td></tr>{% empty %}<tr><td colspan="4"><div class="empty"><strong>{{ empty }}</strong>لا توجد سجلات للعرض.</div></td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}
