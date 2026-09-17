@@ -17,16 +17,20 @@ from marketplace.control_pages import (
     control_store_report,
     control_store_status,
 )
-from marketplace.control_v5 import (
+from marketplace.control_v5 import order_chat_message, order_chat_open, order_status
+from marketplace.control_v6 import (
+    control_categories,
     control_orders,
     control_products,
-    control_stores,
-    order_chat_message,
-    order_chat_open,
+    order_customer_message,
     order_detail,
-    order_status,
     product_detail,
+    store_branch_delete,
+    store_branch_save,
+    store_category_delete,
+    store_category_save,
     store_detail,
+    control_stores,
 )
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
@@ -53,18 +57,24 @@ urlpatterns = [
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
     path("admin/dashboard/control/", erp_style_dashboard, name="admin-erp-style-dashboard"),
 
-    # Integrated multi-vendor workspaces. These precede the legacy control endpoints.
-    path("admin/dashboard/control/stores/new/", control_stores, name="admin-control-stores-v5-new"),
-    path("admin/dashboard/control/stores/<int:vendor_id>/detail/", store_detail, name="admin-control-store-v5-detail"),
-    path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores-v5"),
-    path("admin/dashboard/control/products/new/", control_products, name="admin-control-products-v5-new"),
-    path("admin/dashboard/control/products/<int:product_id>/detail/", product_detail, name="admin-control-product-v5-detail"),
-    path("admin/dashboard/control/products/", control_products, name="admin-control-products-v5"),
-    path("admin/dashboard/control/orders/<int:order_id>/detail/", order_detail, name="admin-control-order-v5-detail"),
-    path("admin/dashboard/control/orders/<int:order_id>/status/", order_status, name="admin-control-order-v5-status"),
-    path("admin/dashboard/control/orders/<int:order_id>/chat/open/<int:vendor_order_id>/", order_chat_open, name="admin-control-order-v5-chat-open"),
-    path("admin/dashboard/control/orders/<int:order_id>/chat/message/", order_chat_message, name="admin-control-order-v5-chat-message"),
-    path("admin/dashboard/control/orders/", control_orders, name="admin-control-orders-v5"),
+    # Integrated multi-vendor control workspaces.
+    path("admin/dashboard/control/categories/", control_categories, name="admin-control-categories-v6"),
+    path("admin/dashboard/control/stores/new/", control_stores, name="admin-control-stores-v6-new"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/detail/", store_detail, name="admin-control-store-v6-detail"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/categories/save/", store_category_save, name="admin-control-store-category-save"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/categories/<int:category_id>/delete/", store_category_delete, name="admin-control-store-category-delete"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/branches/save/", store_branch_save, name="admin-control-store-branch-save"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/branches/<int:branch_id>/delete/", store_branch_delete, name="admin-control-store-branch-delete"),
+    path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores-v6"),
+    path("admin/dashboard/control/products/new/", control_products, name="admin-control-products-v6-new"),
+    path("admin/dashboard/control/products/<int:product_id>/detail/", product_detail, name="admin-control-product-v6-detail"),
+    path("admin/dashboard/control/products/", control_products, name="admin-control-products-v6"),
+    path("admin/dashboard/control/orders/<int:order_id>/detail/", order_detail, name="admin-control-order-v6-detail"),
+    path("admin/dashboard/control/orders/<int:order_id>/status/", order_status, name="admin-control-order-v6-status"),
+    path("admin/dashboard/control/orders/<int:order_id>/chat/open/<int:vendor_order_id>/", order_chat_open, name="admin-control-order-v6-chat-open"),
+    path("admin/dashboard/control/orders/<int:order_id>/chat/message/", order_chat_message, name="admin-control-order-v6-chat-message"),
+    path("admin/dashboard/control/orders/<int:order_id>/customer-chat/message/", order_customer_message, name="admin-control-order-v6-customer-chat-message"),
+    path("admin/dashboard/control/orders/", control_orders, name="admin-control-orders-v6"),
 
     # Legacy endpoints retained for reports/status actions and not-yet-migrated sections.
     path("admin/dashboard/control/stores/<int:vendor_id>/status/<str:status>/", control_store_status, name="admin-control-store-status"),
