@@ -11,7 +11,7 @@ from django.utils import timezone
 from .control_pages import render_control_partial
 from .dashboard import dashboard_access_required
 from .marketplace_models import Payment, VendorApplication, VendorOrder
-from .models import Category, Notification, Order, Product, StorefrontSection, VendorPayout, VendorProfile, Wallet
+from .models import Category, Notification, Order, Product, VendorPayout, VendorProfile, Wallet
 from services.models import (
     DigitalProduct,
     GameProduct,
@@ -66,12 +66,14 @@ def _inject_control_script(html):
     '/admin/dashboard/resource/payments/':'/admin/dashboard/control/payments/',
     '/admin/dashboard/finance/':'/admin/dashboard/control/finance/'
   };
+
   function rewriteLinks(root=document){
     root.querySelectorAll('a[href]').forEach(a=>{
       const u=new URL(a.href,location.origin), target=map[u.pathname];
       if(target){a.href=target;a.dataset.controlNav='1';}
     });
   }
+
   function activeNav(url){
     const path=new URL(url,location.origin).pathname;
     document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));
@@ -80,11 +82,13 @@ def _inject_control_script(html):
       if(p===path)a.classList.add('active');
     });
   }
+
   function closeActionMenus(except=null){
     document.querySelectorAll('.more-menu.open,.product-more-menu.open').forEach(menu=>{
-      if(menu!==except) menu.classList.remove('open');
+      if(menu!==except)menu.classList.remove('open');
     });
   }
+
   function toggleActionMenu(button){
     const wrap=button.closest('.more-wrap,.product-more');
     if(!wrap)return;
@@ -94,10 +98,18 @@ def _inject_control_script(html):
     closeActionMenus();
     if(shouldOpen)menu.classList.add('open');
   }
+
+  function normalizeInnerMenus(root){
+    // Older versions used inline onclick handlers which fought the delegated handler.
+    // Remove them after every partial render so one click always opens the menu.
+    root.querySelectorAll('.more-btn[onclick], .product-more > button[onclick]').forEach(btn=>btn.removeAttribute('onclick'));
+  }
+
   async function replaceContent(url,push=true){
     const r=await fetch(url,{headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/html'}});
     if(!r.ok)throw new Error('HTTP '+r.status);
-    const html=await r.text(), box=document.querySelector('main.content');
+    const html=await r.text();
+    const box=document.querySelector('main.content');
     if(!box)return;
     box.innerHTML=html;
     rewriteLinks(box);
@@ -107,16 +119,29 @@ def _inject_control_script(html):
     if(push)history.pushState({erpControl:true},'',url);
     window.scrollTo({top:0,behavior:'smooth'});
   }
+
   function bindInner(root){
+    normalizeInnerMenus(root);
     root.querySelectorAll('[data-inner-modal-open]').forEach(b=>b.onclick=()=>{
-      const m=document.getElementById(b.dataset.innerModalOpen);if(m)m.classList.add('open');
+      const m=document.getElementById(b.dataset.innerModalOpen);
+      if(m)m.classList.add('open');
       closeActionMenus();
     });
     root.querySelectorAll('[data-inner-modal-close]').forEach(b=>b.onclick=()=>b.closest('.inner-modal,.product-modal')?.classList.remove('open'));
     root.querySelectorAll('.inner-modal,.product-modal').forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove('open')});
   }
+
+  async function openEntityFromRow(row){
+    const reportLink=row.querySelector('.more-menu a[data-control-nav], .product-more-menu a[data-control-nav]');
+    if(reportLink){
+      closeActionMenus();
+      await replaceContent(reportLink.href);
+    }
+  }
+
   rewriteLinks();
   bindInner(document);
+
   document.addEventListener('click',function(e){
     const menuButton=e.target.closest('.more-btn,.product-more > button');
     if(menuButton){
@@ -125,6 +150,19 @@ def _inject_control_script(html):
       toggleActionMenu(menuButton);
       return;
     }
+
+    if(e.target.closest('.more-menu,.product-more-menu'))return;
+
+    const entity=e.target.closest('.store-main,.product-tile');
+    if(entity){
+      const actionable=e.target.closest('a,button,input,select,textarea,form');
+      if(!actionable){
+        e.preventDefault();
+        openEntityFromRow(entity.closest('.store-item,.product-tile')||entity).catch(()=>{});
+        return;
+      }
+    }
+
     const a=e.target.closest('a[data-control-nav]');
     if(a && e.button===0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey){
       e.preventDefault();
@@ -132,16 +170,18 @@ def _inject_control_script(html):
       replaceContent(a.href).catch(()=>location.href=a.href);
       return;
     }
+
     const close=e.target.closest('[data-inner-modal-close]');
     if(close)close.closest('.inner-modal,.product-modal')?.classList.remove('open');
     if(!e.target.closest('.more-wrap,.product-more'))closeActionMenus();
   });
+
   document.addEventListener('submit',async function(e){
     const form=e.target.closest('[data-inner-form],[data-control-filter]');
     if(!form)return;
     e.preventDefault();
     closeActionMenus();
-    const method=(form.method||'get').toUpperCase(), url=form.action || location.href;
+    const method=(form.method||'get').toUpperCase(),url=form.action||location.href;
     let target=url;
     if(method==='GET'){
       const qs=new URLSearchParams(new FormData(form));
@@ -150,12 +190,17 @@ def _inject_control_script(html):
     try{
       const opts={method,headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/html'}};
       if(method!=='GET')opts.body=new FormData(form);
-      const r=await fetch(target,opts);if(!r.ok)throw new Error('HTTP '+r.status);
-      const html=await r.text();const box=document.querySelector('main.content');
+      const r=await fetch(target,opts);
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const html=await r.text();
+      const box=document.querySelector('main.content');
       if(box){box.innerHTML=html;rewriteLinks(box);bindInner(box);}
-      activeNav(target);history.pushState({erpControl:true},'',target);window.scrollTo({top:0,behavior:'smooth'});
+      activeNav(target);
+      history.pushState({erpControl:true},'',target);
+      window.scrollTo({top:0,behavior:'smooth'});
     }catch(err){form.submit();}
   });
+
   window.addEventListener('popstate',()=>replaceContent(location.href,false).catch(()=>location.reload()));
 })();
 </script>"""
@@ -245,5 +290,4 @@ def erp_style_dashboard(request):
     screen = request.GET.get("screen", "dashboard")
     if screen in CONTROL_SECTION_MAP:
         html = _replace_inner_content(html, render_control_partial(request, screen).content.decode("utf-8"))
-    response = HttpResponse(_inject_control_script(html), content_type="text/html; charset=utf-8")
-    return response
+    return HttpResponse(_inject_control_script(html), content_type="text/html; charset=utf-8")
