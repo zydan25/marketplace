@@ -16,20 +16,21 @@ from marketplace.control_pages import (
     control_store_delete,
     control_store_report,
     control_store_status,
+    control_stores,
 )
 from marketplace.control_v5 import order_chat_message, order_chat_open, order_status
 from marketplace.control_v6 import (
     control_categories,
     control_orders,
+    order_customer_message as control_order_customer_message,
+    order_detail as control_order_detail,
     store_branch_delete,
     store_branch_save,
     store_category_delete,
     store_category_save,
     store_detail,
-    control_stores,
 )
 from marketplace.control_v7 import control_products, product_detail
-from marketplace.control_v8 import order_customer_message, order_detail
 from marketplace.dashboard import dashboard_icon, dashboard_login, dashboard_logout, dashboard_manifest, dashboard_worker
 from marketplace.dashboard_crud import resource_create, resource_delete, resource_list, resource_update
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
@@ -39,6 +40,7 @@ from marketplace.root_views import landing_page
 from marketplace.theme_studio import theme_studio
 from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
 from marketplace.visual_storefront_v9 import visual_editor_v9
+from marketplace.control_v8 import order_customer_message, order_detail
 
 
 def legacy_user_admin_redirect(request, rest=""):
