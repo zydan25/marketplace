@@ -25,7 +25,7 @@ class Account(models.Model):
     normal_side = models.CharField(max_length=10, choices=NormalSides.choices)
     is_group = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
-    party_type = models.CharField(max_length=20, blank=True)
+    party_type = models.CharField(max_length=30, blank=True)
     party_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
