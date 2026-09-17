@@ -37,11 +37,11 @@ python manage.py runserver 0.0.0.0:8000
 
 ## النشر على Render عند الحاجة فقط
 
-يمكن تشغيل هذا الـ backend على **Render Free Web Service** ليعمل عند وصول الطلبات فقط. خدمة Render المجانية تدخل في وضع السكون بعد **15 دقيقة** من دون حركة واردة، ثم تستيقظ تلقائيًا عند وصول طلب HTTP جديد أو اتصال WebSocket جديد، وقد يستغرق الاستيقاظ حوالي دقيقة. لذلك قد يكون أول طلب بعد السكون أبطأ من الطلبات التالية.
+يمكن تشغيل هذا الـ backend على **Render Free Web Service** ليعمل عند وصول الطلبات فقط. خدمة Render المجانية تدخل في وضع السكون بعد **15 دقيقة** من دون حركة واردة، ثم تستيقظ تلقائيًا عند وصول طلب HTTP جديد، وقد يستغرق الاستيقاظ حوالي دقيقة. لذلك قد يكون أول طلب بعد السكون أبطأ من الطلبات التالية.
 
 > **تنبيه مهم جدًا مع SQLite:** نظام ملفات Render للخدمة المجانية مؤقت (ephemeral). أي تغييرات على `db.sqlite3` أو الملفات المحلية قد تضيع عند إعادة التشغيل أو إعادة النشر أو الدخول في وضع السكون. لذلك لا تعتمد على قاعدة SQLite داخل Render المجاني كمخزن دائم للبيانات.
 
-إعداد الخدمة المقترح:
+إعداد الخدمة:
 
 ```text
 Repository: zydan25/marketplace
@@ -49,8 +49,7 @@ Branch: feat/erp-style-unified-admin-pages-2026-09
 Root Directory: backend
 Runtime: Python 3
 Build Command: pip install -r requirements.txt && python manage.py collectstatic --noinput
-Pre-Deploy Command: python manage.py migrate --noinput
-Start Command: gunicorn config.wsgi:application
+Start Command: bash scripts/start_render.sh
 ```
 
 المتغيرات الضرورية:
@@ -65,6 +64,47 @@ DB_NAME=db.sqlite3
 ```
 
 لا يحتاج التشغيل إلى `REDIS_URL`. عند عدم وجوده يستخدم Django ذاكرة محلية للتخزين المؤقت، وإذا أضيف `REDIS_URL` لاحقًا فسيتم استخدام Redis/Valkey تلقائيًا.
+
+### تهيئة حساب المدير تلقائيًا على Render
+
+لأن قاعدة SQLite على Render قد تبدأ فارغة، يستخدم تشغيل Render الملف:
+
+```text
+scripts/bootstrap_render_admin.py
+```
+
+ويقوم `scripts/start_render.sh` بالترتيب التالي:
+
+```text
+1. migrate
+2. إنشاء حساب المدير تلقائيًا إذا لم يوجد أي مدير
+3. تشغيل gunicorn
+```
+
+اسم المستخدم الافتراضي الذي يتم إنشاؤه:
+
+```text
+renderadmin
+```
+
+كلمة المرور لا تُحفظ في GitHub. يتم اشتقاق كلمة مرور مؤقتة من `DJANGO_SECRET_KEY` وقت التشغيل، وتظهر مرة واحدة في **Render Logs** عند إنشاء الحساب:
+
+```text
+Render bootstrap admin created.
+username: renderadmin
+password: <generated-password>
+Change this password after the first successful login.
+```
+
+إذا كان هناك مدير موجود أصلًا، فالسكربت لا يغير أي مستخدم أو كلمة مرور.
+
+بعد أول تسجيل دخول إلى:
+
+```text
+/admin/dashboard/login/
+```
+
+يجب تغيير كلمة مرور `renderadmin` من لوحة الإدارة.
 
 ## استرجاع النسخة الأصلية عند الانتقال من Render إلى الخادم
 
@@ -92,12 +132,6 @@ backend/db.sqlite3
 
 ```bash
 cp /path/to/db.sqlite3 ./db.sqlite3
-```
-
-إذا كانت النسخة الاحتياطية مضغوطة:
-
-```bash
-cp /path/to/db.sqlite3.backup ./db.sqlite3
 ```
 
 ثم افحصها:
