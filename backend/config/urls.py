@@ -14,6 +14,7 @@ from marketplace.dashboard_crud import resource_create, resource_delete, resourc
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
 from marketplace.erp_style_dashboard import erp_style_dashboard
+from marketplace.control_dashboard import stores as control_stores, store_delete as control_store_delete, store_status as control_store_status
 from marketplace.root_views import landing_page
 from marketplace.theme_studio import theme_studio
 from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
@@ -33,6 +34,9 @@ urlpatterns = [
     path("admin/dashboard/logout/", dashboard_logout, name="admin-dashboard-logout"),
     path("admin/dashboard/", dashboard_v2, name="admin-dashboard"),
     path("admin/dashboard/control/", erp_style_dashboard, name="admin-erp-style-dashboard"),
+    path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/status/<str:status>/", control_store_status, name="admin-control-store-status"),
+    path("admin/dashboard/control/stores/<int:vendor_id>/delete/", control_store_delete, name="admin-control-store-delete"),
     path("admin/dashboard/theme-studio/", theme_studio, name="admin-theme-studio"),
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
     path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
