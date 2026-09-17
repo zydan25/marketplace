@@ -11,7 +11,7 @@ from django.views.decorators.http import require_http_methods
 from catalog.forms import ProductForm, ProductVariantForm
 from catalog.models import Product, ProductImage, ProductVariant
 from communication.models import OrderChat, OrderChatMessage
-from marketplace.dashboard import dashboard_access_required
+from marketplace.control_pages import control_access_required
 from orders.models import Order, OrderItem, OrderStatusHistory, VendorOrder
 from vendors.forms import VendorProfileForm
 from vendors.models import VendorProfile
@@ -119,7 +119,7 @@ def _products_context(request):
     }
 
 
-@dashboard_access_required
+@control_access_required
 @require_http_methods(["GET", "POST"])
 def control_products(request):
     if request.method == "POST":
@@ -154,7 +154,7 @@ def control_products(request):
     return render(request, "admin/control/inner/products_v4.html", _products_context(request))
 
 
-@dashboard_access_required
+@control_access_required
 @require_http_methods(["GET"])
 def product_detail(request, product_id):
     product = _product(product_id)
@@ -192,7 +192,7 @@ def _stores_context(request):
     }
 
 
-@dashboard_access_required
+@control_access_required
 @require_http_methods(["GET", "POST"])
 def control_stores(request):
     if request.method == "POST":
@@ -216,7 +216,7 @@ def control_stores(request):
     return render(request, "admin/control/inner/stores_v4.html", _stores_context(request))
 
 
-@dashboard_access_required
+@control_access_required
 @require_http_methods(["GET"])
 def store_detail(request, vendor_id):
     vendor = get_object_or_404(VendorProfile.objects.select_related("owner"), pk=vendor_id)
@@ -236,7 +236,7 @@ def store_detail(request, vendor_id):
     })
 
 
-@dashboard_access_required
+@control_access_required
 @require_http_methods(["GET"])
 def control_orders(request):
     qs = Order.objects.select_related("customer", "payment").annotate(item_count=Count("items", distinct=True), vendor_count=Count("vendor_orders", distinct=True))
@@ -250,12 +250,13 @@ def control_orders(request):
     if payment_status:
         qs = qs.filter(payment_status=payment_status)
     all_orders = Order.objects.all()
+    status_choices = Order._meta.get_field("status").choices
     return render(request, "admin/control/inner/orders_v4.html", {
         "page": Paginator(qs.order_by("-created_at", "-id"), 16).get_page(request.GET.get("page")),
         "q": q,
         "status": status,
         "payment_status": payment_status,
-        "order_statuses": Order.Status.choices,
+        "order_statuses": status_choices,
         "stats": {"total": all_orders.count(), "pending": all_orders.filter(status="pending").count(), "processing": all_orders.filter(status="processing").count(), "delivered": all_orders.filter(status="delivered").count(), "paid_volume": all_orders.filter(payment_status="paid").aggregate(v=Sum("total"))["v"] or 0},
     })
 
@@ -280,28 +281,32 @@ def _order(pk):
     )
 
 
-@dashboard_access_required
-@require_http_methods(["GET"])
-def order_detail(request, order_id):
+def _order_detail_context(request, order_id):
     order = _order(order_id)
-    return render(request, "admin/control/inner/order_detail_v4.html", {
+    return {
         "order": order,
         "chats": list(order.order_chats.all()),
         "conversation": getattr(order, "conversation", None),
         "shipping_address_json": _json(order.shipping_address),
         "metadata_json": _json(order.metadata),
-        "statuses": Order.Status.choices,
-    })
+        "statuses": Order._meta.get_field("status").choices,
+    }
 
 
-@dashboard_access_required
+@control_access_required
+@require_http_methods(["GET"])
+def order_detail(request, order_id):
+    return render(request, "admin/control/inner/order_detail_v4.html", _order_detail_context(request, order_id))
+
+
+@control_access_required
 @require_http_methods(["GET", "POST"])
 def order_status(request, order_id):
     if request.method == "GET":
         return order_detail(request, order_id)
     order = get_object_or_404(Order, pk=order_id)
     new_status = request.POST.get("status", "").strip()
-    allowed = {value for value, _label in Order.Status.choices}
+    allowed = {value for value, _label in Order._meta.get_field("status").choices}
     if new_status not in allowed:
         return HttpResponse("حالة الطلب غير صالحة", status=400)
     if order.status != new_status:
@@ -314,7 +319,7 @@ def order_status(request, order_id):
     return order_detail(request, order.pk) if _ajax(request) else redirect(f"{ORDERS_URL}{order.pk}/detail/")
 
 
-@dashboard_access_required
+@control_access_required
 @require_http_methods(["GET", "POST"])
 def order_chat_message(request, order_id):
     if request.method == "GET":
@@ -333,7 +338,7 @@ def order_chat_message(request, order_id):
     return order_detail(request, order.pk) if _ajax(request) else redirect(f"{ORDERS_URL}{order.pk}/detail/#chat-{chat.pk}")
 
 
-@dashboard_access_required
+@control_access_required
 @require_http_methods(["GET", "POST"])
 def order_chat_open(request, order_id, vendor_order_id):
     if request.method == "GET":
