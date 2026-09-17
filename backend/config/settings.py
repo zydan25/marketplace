@@ -2,7 +2,6 @@ from pathlib import Path
 import os
 import sys
 
-from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -62,8 +61,6 @@ if REDIS_URL:
         }
     }
 else:
-    if not DEBUG and os.getenv("ALLOW_LOCAL_REDIS_FALLBACK", "0") != "1":
-        raise ImproperlyConfigured("REDIS_URL مطلوب في بيئة الإنتاج لاستخدام throttling موزع بأمان.")
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
