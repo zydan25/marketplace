@@ -3,6 +3,7 @@ import os
 import sys
 from urllib.parse import unquote, urlparse
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -71,7 +72,6 @@ def _postgres_database_from_url(database_url):
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 if DATABASE_URL:
-    from django.core.exceptions import ImproperlyConfigured
     DATABASES = {"default": _postgres_database_from_url(DATABASE_URL)}
 else:
     DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
