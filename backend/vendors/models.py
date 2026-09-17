@@ -106,6 +106,26 @@ class VendorBranch(TimeStampedModel):
         return f"{self.vendor.store_name} / {self.name}"
 
 
+class BranchInventory(TimeStampedModel):
+    branch = models.ForeignKey(VendorBranch, on_delete=models.CASCADE, related_name="inventory")
+    product = models.ForeignKey("catalog.Product", on_delete=models.CASCADE, related_name="branch_inventory")
+    variant = models.ForeignKey("catalog.ProductVariant", on_delete=models.CASCADE, null=True, blank=True, related_name="branch_inventory")
+    stock = models.PositiveIntegerField(default=0)
+    reserved_stock = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "marketplace_branchinventory"
+        ordering = ["-updated_at", "id"]
+        indexes = [models.Index(fields=["branch", "product", "variant"], name="branch_inventory_lookup_idx")]
+
+    @property
+    def available_stock(self):
+        return max(0, self.stock - self.reserved_stock)
+
+    def __str__(self):
+        return f"{self.branch} / {self.product}"
+
+
 class VendorApplication(TimeStampedModel):
     class Status(models.TextChoices):
         PENDING = "pending", "قيد المراجعة"
