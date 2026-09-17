@@ -14,7 +14,18 @@ from marketplace.dashboard_crud import resource_create, resource_delete, resourc
 from marketplace.dashboard_legacy_redirects import legacy_resource_redirect
 from marketplace.dashboard_v2 import dashboard_v2
 from marketplace.erp_style_dashboard import erp_style_dashboard
-from marketplace.control_dashboard import stores as control_stores, store_delete as control_store_delete, store_status as control_store_status
+from marketplace.control_dashboard import (
+    applications as control_applications,
+    categories as control_categories,
+    finance as control_finance,
+    orders as control_orders,
+    payments as control_payments,
+    products as control_products,
+    store_delete as control_store_delete,
+    store_status as control_store_status,
+    stores as control_stores,
+    variants as control_variants,
+)
 from marketplace.root_views import landing_page
 from marketplace.theme_studio import theme_studio
 from marketplace.visual_storefront_v8 import create_section, reorder_sections, update_section, upload_storefront_image, visual_editor
@@ -37,6 +48,13 @@ urlpatterns = [
     path("admin/dashboard/control/stores/", control_stores, name="admin-control-stores"),
     path("admin/dashboard/control/stores/<int:vendor_id>/status/<str:status>/", control_store_status, name="admin-control-store-status"),
     path("admin/dashboard/control/stores/<int:vendor_id>/delete/", control_store_delete, name="admin-control-store-delete"),
+    path("admin/dashboard/control/applications/", control_applications, name="admin-control-applications"),
+    path("admin/dashboard/control/products/", control_products, name="admin-control-products"),
+    path("admin/dashboard/control/categories/", control_categories, name="admin-control-categories"),
+    path("admin/dashboard/control/variants/", control_variants, name="admin-control-variants"),
+    path("admin/dashboard/control/orders/", control_orders, name="admin-control-orders"),
+    path("admin/dashboard/control/payments/", control_payments, name="admin-control-payments"),
+    path("admin/dashboard/control/finance/", control_finance, name="admin-control-finance"),
     path("admin/dashboard/theme-studio/", theme_studio, name="admin-theme-studio"),
     path("admin/dashboard/accounts/", include("accounts.dashboard_urls")),
     path("admin/dashboard/catalog/", include("catalog.dashboard_urls")),
