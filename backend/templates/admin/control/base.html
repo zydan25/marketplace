@@ -63,6 +63,33 @@
 </div>
 <script>
 function toggleMenu(open){document.getElementById('sidebar').classList.toggle('open',!!open);document.getElementById('mobileOverlay').classList.toggle('open',!!open)}
+function closeOpenModal(){const modal=document.querySelector('.modal-backdrop.open');if(modal)modal.classList.remove('open')}
+function openNamedModal(name){const modal=document.getElementById(name);if(modal)modal.classList.add('open')}
+function syncActiveNav(url){const path=new URL(url,location.origin).pathname;document.querySelectorAll('.nav-link').forEach(a=>a.classList.toggle('active',new URL(a.href,location.origin).pathname===path))}
+async function loadControlPage(url,pushState=true){
+  const response=await fetch(url,{headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/html'}});
+  if(!response.ok)throw new Error('HTTP '+response.status);
+  const html=await response.text();
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const incoming=doc.querySelector('#control-content');
+  const current=document.querySelector('#control-content');
+  if(!incoming||!current){location.href=url;return}
+  current.innerHTML=incoming.innerHTML;
+  const title=doc.querySelector('.crumb');if(title)document.querySelector('.crumb').innerHTML=title.innerHTML;
+  if(doc.title)document.title=doc.title;
+  syncActiveNav(url);toggleMenu(false);
+  if(pushState)history.pushState({control:true},'',url);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.addEventListener('click',function(e){
+  const nav=e.target.closest('a[data-control-nav]');
+  if(nav && e.button===0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey){e.preventDefault();loadControlPage(nav.href).catch(()=>location.href=nav.href);return}
+  const open=e.target.closest('[data-open-modal]');if(open){e.preventDefault();openNamedModal(open.dataset.openModal);return}
+  const close=e.target.closest('[data-close-modal]');if(close){e.preventDefault();closeOpenModal();return}
+  if(e.target.classList.contains('modal-backdrop'))closeOpenModal();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOpenModal()});
+window.addEventListener('popstate',()=>loadControlPage(location.href,false).catch(()=>location.reload()));
 </script>
 {% block scripts %}{% endblock %}
 </body>
