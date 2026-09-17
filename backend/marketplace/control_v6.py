@@ -1,16 +1,14 @@
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db import transaction
 from django.db.models import Count, Q, Sum
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from catalog.forms import CategoryForm
 from catalog.models import Category, Product
-from communication.models import Conversation, Message, OrderChat, OrderChatMessage
+from communication.models import Conversation, Message, OrderChat
 from finance.models import VendorLedgerEntry, VendorPayout
-from orders.models import OrderItem
+from orders.models import Order
 from storefront.models import DesignTheme, StorefrontMedia, StorefrontSection
 from vendors.forms import VendorBranchForm, VendorCategoryForm
 from vendors.models import VendorBranch, VendorCategory, VendorProfile
@@ -19,9 +17,6 @@ from .control_v5 import (
     control_orders as control_orders_v5,
     control_products as control_products_v5,
     order_detail as order_detail_v5,
-    order_status,
-    order_chat_message,
-    order_chat_open,
     product_detail as product_detail_v5,
 )
 from .dashboard import dashboard_access_required
@@ -35,6 +30,11 @@ ORDERS_URL = f"{CONTROL_HOME}orders/"
 
 def _ajax(request):
     return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
+def _json_display(value):
+    import json
+    return json.dumps(value or {}, ensure_ascii=False, indent=2)
 
 
 @dashboard_access_required
@@ -95,7 +95,7 @@ def render_category_page(request):
 
 
 @dashboard_access_required
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["POST"])
 def store_category_save(request, vendor_id):
     vendor = get_object_or_404(VendorProfile, pk=vendor_id)
     category_id = request.POST.get("category_id", "").strip()
@@ -107,7 +107,7 @@ def store_category_save(request, vendor_id):
         obj = form.save()
         messages.success(request, f"تم حفظ فئة المتجر «{obj.name}».")
     else:
-        for field, errors in form.errors.items():
+        for errors in form.errors.values():
             for error in errors:
                 messages.error(request, f"الفئة: {error}")
     return redirect(f"{STORES_URL}{vendor.pk}/detail/") if not _ajax(request) else store_detail(request, vendor.pk)
@@ -160,7 +160,6 @@ def store_detail(request, vendor_id):
     vendor = get_object_or_404(VendorProfile.objects.select_related("owner"), pk=vendor_id)
     products = list(vendor.products.select_related("vendor").prefetch_related("categories", "store_categories", "variants", "image_items").order_by("-updated_at")[:40])
     orders = list(vendor.vendor_orders.select_related("order", "order__customer").order_by("-created_at")[:40])
-    order_ids = [item.order_id for item in orders]
     general_conversations = list(Conversation.objects.filter(vendor=vendor).select_related("customer", "order").prefetch_related("messages__sender").order_by("-updated_at")[:20])
     order_chats = list(OrderChat.objects.filter(vendor=vendor).select_related("order", "order__customer", "vendor_order").prefetch_related("messages__sender").order_by("-updated_at")[:20])
     theme = DesignTheme.objects.filter(vendor=vendor).first()
@@ -182,8 +181,8 @@ def store_detail(request, vendor_id):
         "media": media,
         "store_categories": store_categories,
         "branches": branches,
-        "category_form": VendorCategoryForm(initial={"vendor": vendor.pk}, prefix="cat"),
-        "branch_form": VendorBranchForm(initial={"vendor": vendor.pk}, prefix="branch"),
+        "category_form": VendorCategoryForm(initial={"vendor": vendor.pk}),
+        "branch_form": VendorBranchForm(initial={"vendor": vendor.pk}),
         "report": {
             "products": vendor.products.count(),
             "active_products": vendor.products.filter(is_published=True).count(),
@@ -197,15 +196,9 @@ def store_detail(request, vendor_id):
         },
         "settings_json": _json_display(vendor.settings),
         "theme_json": _json_display({"tokens": theme.tokens, "layout": theme.layout, "sections": theme.sections} if theme else {}),
-        "order_ids": order_ids,
         "ledger": ledger,
         "payouts": payouts,
     })
-
-
-def _json_display(value):
-    import json
-    return json.dumps(value or {}, ensure_ascii=False, indent=2)
 
 
 @dashboard_access_required
