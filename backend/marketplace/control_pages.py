@@ -10,10 +10,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from catalog.forms import ProductForm
-from catalog.models import Category, Product
+from catalog.models import Category, Product, ProductVariant
+from finance.models import CurrencyRate, VendorCityShipping, VendorLedgerEntry, VendorPayout
 from marketplace.models import OrderItem
+from orders.models import Order, Payment
 from vendors.forms import VendorProfileForm
-from vendors.models import VendorProfile
+from vendors.models import VendorApplication, VendorProfile
 from vendors.services import set_vendor_status
 
 
@@ -95,12 +97,101 @@ def _product_context(request, form=None, edit_product=None, form_open=False):
             "product_report": {"units_sold": sales.get("quantity") or 0, "revenue": sales.get("revenue") or 0, "orders": OrderItem.objects.filter(product=edit_product).values("order_id").distinct().count() if edit_product else 0, "rating": edit_product.rating if edit_product else 0, "reviews": edit_product.reviews_count if edit_product else 0, "stock": edit_product.available_stock if edit_product else 0}}
 
 
+def _control_section_context(request, section):
+    """Build real, query-backed data for the new ERP inner screens."""
+    if section == "applications":
+        base = VendorApplication.objects.all()
+        q = request.GET.get("q", "").strip(); status = request.GET.get("status", "").strip()
+        if q:
+            base = base.filter(Q(store_name__icontains=q) | Q(phone__icontains=q) | Q(applicant__phone__icontains=q) | Q(applicant__email__icontains=q))
+        if status in {"pending", "approved", "rejected"}: base = base.filter(status=status)
+        page = Paginator(base.select_related("applicant", "reviewed_by").order_by("-created_at"), 14).get_page(request.GET.get("page"))
+        all_apps = VendorApplication.objects.all()
+        return {"q": q, "status": status, "page": page, "stats": {"total": all_apps.count(), "pending": all_apps.filter(status="pending").count(), "approved": all_apps.filter(status="approved").count(), "rejected": all_apps.filter(status="rejected").count()}}
+
+    if section == "categories":
+        qs = Category.objects.select_related("parent").annotate(product_count=Count("products", distinct=True), child_count=Count("children", distinct=True))
+        q = request.GET.get("q", "").strip(); state = request.GET.get("state", "").strip()
+        if q: qs = qs.filter(Q(name__icontains=q) | Q(slug__icontains=q))
+        if state == "active": qs = qs.filter(is_active=True)
+        elif state == "inactive": qs = qs.filter(is_active=False)
+        page = Paginator(qs.order_by("sort_order", "name"), 18).get_page(request.GET.get("page"))
+        all_categories = Category.objects.all()
+        return {"q": q, "state": state, "page": page, "stats": {"total": all_categories.count(), "active": all_categories.filter(is_active=True).count(), "inactive": all_categories.filter(is_active=False).count(), "with_products": all_categories.filter(products__isnull=False).distinct().count()}}
+
+    if section == "variants":
+        qs = ProductVariant.objects.select_related("product", "product__vendor")
+        q = request.GET.get("q", "").strip(); stock_state = request.GET.get("stock", "").strip(); state = request.GET.get("state", "").strip()
+        if q: qs = qs.filter(Q(sku__icontains=q) | Q(color__icontains=q) | Q(size__icontains=q) | Q(product__name__icontains=q) | Q(product__vendor__store_name__icontains=q))
+        if state == "active": qs = qs.filter(is_active=True)
+        elif state == "inactive": qs = qs.filter(is_active=False)
+        if stock_state == "out": qs = qs.filter(stock=0)
+        elif stock_state == "low": qs = qs.filter(stock__gt=0, stock__lte=5)
+        elif stock_state == "healthy": qs = qs.filter(stock__gt=5)
+        page = Paginator(qs.order_by("-updated_at", "-id"), 18).get_page(request.GET.get("page"))
+        all_variants = ProductVariant.objects.all()
+        return {"q": q, "stock_state": stock_state, "state": state, "page": page, "stats": {"total": all_variants.count(), "active": all_variants.filter(is_active=True).count(), "low_stock": all_variants.filter(stock__gt=0, stock__lte=5).count(), "out_of_stock": all_variants.filter(stock=0).count()}}
+
+    if section == "orders":
+        qs = Order.objects.select_related("customer")
+        q = request.GET.get("q", "").strip(); status = request.GET.get("status", "").strip(); payment = request.GET.get("payment", "").strip()
+        if q: qs = qs.filter(Q(order_number__icontains=q) | Q(customer__phone__icontains=q) | Q(customer__email__icontains=q))
+        if status: qs = qs.filter(status=status)
+        if payment: qs = qs.filter(payment_status=payment)
+        page = Paginator(qs.order_by("-created_at", "-id"), 16).get_page(request.GET.get("page"))
+        all_orders = Order.objects.all()
+        return {"q": q, "status": status, "payment": payment, "page": page, "stats": {"total": all_orders.count(), "pending": all_orders.filter(status="pending").count(), "processing": all_orders.filter(status="processing").count(), "delivered": all_orders.filter(status="delivered").count(), "sales": all_orders.filter(payment_status="paid").aggregate(v=Sum("total"))["v"] or 0}}
+
+    if section == "payments":
+        qs = Payment.objects.select_related("order", "order__customer")
+        q = request.GET.get("q", "").strip(); status = request.GET.get("status", "").strip(); method = request.GET.get("method", "").strip()
+        if q: qs = qs.filter(Q(transaction_id__icontains=q) | Q(provider__icontains=q) | Q(order__order_number__icontains=q) | Q(order__customer__phone__icontains=q))
+        if status: qs = qs.filter(status=status)
+        if method: qs = qs.filter(method=method)
+        page = Paginator(qs.order_by("-created_at", "-id"), 16).get_page(request.GET.get("page"))
+        all_payments = Payment.objects.all()
+        return {"q": q, "status": status, "method": method, "page": page, "stats": {"total": all_payments.count(), "paid": all_payments.filter(status="paid").count(), "pending": all_payments.filter(status="pending").count(), "failed": all_payments.filter(status="failed").count(), "volume": all_payments.filter(status="paid").aggregate(v=Sum("amount"))["v"] or 0}}
+
+    if section == "finance":
+        ledger = VendorLedgerEntry.objects.select_related("vendor", "vendor_order").order_by("-created_at", "-id")
+        q = request.GET.get("q", "").strip(); entry_type = request.GET.get("type", "").strip()
+        if q: ledger = ledger.filter(Q(reference__icontains=q) | Q(vendor__store_name__icontains=q))
+        if entry_type: ledger = ledger.filter(entry_type=entry_type)
+        ledger_page = Paginator(ledger, 12).get_page(request.GET.get("page"))
+        payouts = VendorPayout.objects.select_related("vendor").order_by("-created_at", "-id")[:12]
+        ledger_all = VendorLedgerEntry.objects.all(); payout_all = VendorPayout.objects.all()
+        currencies = CurrencyRate.objects.filter(is_active=True).order_by("base_currency", "target_currency")[:12]
+        shipping = VendorCityShipping.objects.select_related("vendor", "city").filter(is_active=True).order_by("-updated_at", "id")[:10]
+        return {"q": q, "entry_type": entry_type, "ledger_page": ledger_page, "payouts": payouts, "currencies": currencies, "shipping": shipping,
+                "stats": {"ledger_entries": ledger_all.count(), "sales": ledger_all.filter(entry_type="sale").aggregate(v=Sum("amount"))["v"] or 0, "commission": ledger_all.filter(entry_type="commission").aggregate(v=Sum("amount"))["v"] or 0, "pending_payouts": payout_all.filter(status__in=["pending", "approved"]).aggregate(v=Sum("amount"))["v"] or 0}}
+
+    return {}
+
+
 def render_control_partial(request, section, context=None):
     context = context or {}
-    if section == "stores": return render(request, "admin/control/inner/stores.html", {**_store_context(request), **context})
-    if section == "products": return render(request, "admin/control/inner/products.html", {**_product_context(request), **context})
+    if section == "stores":
+        base = _store_context(request)
+        edit_id = request.GET.get("edit", "").strip()
+        if edit_id:
+            try:
+                edit_vendor = get_object_or_404(VendorProfile.objects.select_related("owner"), pk=int(edit_id))
+                base.update({"form": VendorProfileForm(instance=edit_vendor), "edit_vendor": edit_vendor, "form_open": True})
+            except (TypeError, ValueError):
+                pass
+        return render(request, "admin/control/inner/stores.html", {**base, **context})
+    if section == "products":
+        base = _product_context(request)
+        edit_id = request.GET.get("edit", "").strip()
+        if edit_id:
+            try:
+                edit_product = get_object_or_404(Product.objects.select_related("vendor"), pk=int(edit_id))
+                base.update({"form": ProductForm(instance=edit_product), "edit_product": edit_product, "form_open": True})
+            except (TypeError, ValueError):
+                pass
+        return render(request, "admin/control/inner/products.html", {**base, **context})
     titles = {"applications": "طلبات المتاجر", "categories": "التصنيفات", "variants": "المتغيرات والمخزون", "orders": "الطلبات والمبيعات", "payments": "المدفوعات", "finance": "الشحن والمالية"}
-    return render(request, "admin/control/inner/coming_soon.html", {"title": titles.get(section, section), "section": section})
+    return render(request, "admin/control/inner/coming_soon.html", {"title": titles.get(section, section), "section": section, **_control_section_context(request, section), **context})
 
 
 @control_access_required
@@ -117,7 +208,11 @@ def control_stores(request):
         edit_id = request.GET.get("edit", "").strip()
         if edit_id: edit_vendor = get_object_or_404(VendorProfile.objects.select_related("owner"), pk=edit_id); form = VendorProfileForm(instance=edit_vendor); form_open = True
         else: form = VendorProfileForm(initial={"status": "active", "commission_percent": 10})
-    else: return redirect(f"{CONTROL_HOME}?screen=stores")
+    else:
+        edit_id = request.GET.get("edit", "").strip()
+        if edit_id:
+            return redirect(f"{CONTROL_HOME}?screen=stores&edit={edit_id}")
+        return redirect(f"{CONTROL_HOME}?screen=stores")
     return render_control_partial(request, "stores", {"form": form, "edit_vendor": edit_vendor, "form_open": form_open})
 
 
@@ -168,7 +263,11 @@ def control_products(request):
         edit_id = request.GET.get("edit", "").strip()
         if edit_id: edit_product = get_object_or_404(Product.objects.select_related("vendor"), pk=edit_id); form = ProductForm(instance=edit_product); form_open = True
         else: form = ProductForm()
-    else: return redirect(f"{CONTROL_HOME}?screen=products")
+    else:
+        edit_id = request.GET.get("edit", "").strip()
+        if edit_id:
+            return redirect(f"{CONTROL_HOME}?screen=products&edit={edit_id}")
+        return redirect(f"{CONTROL_HOME}?screen=products")
     return render_control_partial(request, "products", {"form": form, "edit_product": edit_product, "form_open": form_open})
 
 
