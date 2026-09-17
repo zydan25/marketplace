@@ -22,12 +22,9 @@ class VendorProfileForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        owner_qs = User.objects.filter(is_staff=False).order_by("phone", "email", "id")
+        owner_qs = User.objects.filter(is_staff=False, role__in=[User.Roles.CUSTOMER, User.Roles.VENDOR]).order_by("phone", "email", "id")
         if self.instance.pk and self.instance.owner_id:
-            owner_qs = User.objects.filter(is_staff=False).filter(pk=self.instance.owner_id) | owner_qs
-            owner_qs = owner_qs.distinct().order_by("phone", "email", "id")
-        else:
-            owner_qs = owner_qs.filter(role__in=[User.Roles.CUSTOMER, User.Roles.VENDOR])
+            owner_qs = (owner_qs | User.objects.filter(pk=self.instance.owner_id)).distinct().order_by("phone", "email", "id")
         self.fields["owner"].queryset = owner_qs
         self.fields["owner"].disabled = False
         if self.instance.pk:
@@ -37,6 +34,9 @@ class VendorProfileForm(forms.ModelForm):
         owner = self.cleaned_data["owner"]
         if owner.is_staff:
             raise forms.ValidationError("لا يمكن تعيين مستخدم إداري كمالك متجر.")
+        existing = getattr(owner, "vendor_profile", None)
+        if existing is not None and (not self.instance.pk or existing.pk != self.instance.pk):
+            raise forms.ValidationError("هذا المستخدم يملك متجرًا بالفعل. اختر مالكًا آخر.")
         return owner
 
     def clean_commission_percent(self):
