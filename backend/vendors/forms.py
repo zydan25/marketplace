@@ -22,11 +22,14 @@ class VendorProfileForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        owner_qs = User.objects.filter(is_staff=False, role__in=[User.Roles.CUSTOMER, User.Roles.VENDOR]).order_by("phone", "email", "id")
         if self.instance.pk and self.instance.owner_id:
-            owner_qs = (owner_qs | User.objects.filter(pk=self.instance.owner_id)).distinct().order_by("phone", "email", "id")
-        self.fields["owner"].queryset = owner_qs
-        self.fields["owner"].disabled = False
+            self.fields["owner"].queryset = User.objects.filter(pk=self.instance.owner_id)
+            self.fields["owner"].disabled = True
+        else:
+            self.fields["owner"].queryset = User.objects.filter(
+                is_staff=False,
+                role__in=[User.Roles.CUSTOMER, User.Roles.VENDOR],
+            ).order_by("phone", "email", "id")
         if self.instance.pk:
             self.initial["settings"] = json.dumps(self.instance.settings or {}, ensure_ascii=False, indent=2)
 
