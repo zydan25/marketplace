@@ -5,7 +5,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import slugify
 
 from .models import ProviderConnection, ServiceDistribution, ServiceRequestReference, ServiceTask
-from .provider import ProviderClient
 from .provider_setup import create_or_update_sanaacash_provider
 
 
@@ -38,6 +37,9 @@ def provider_setup(request):
                     )
                     messages.success(request, "تم حفظ الربطية وإعادة تهيئة مسارات API القياسية.")
                 elif action == "balance":
+                    # ProviderClient imports requests/cryptography and is only needed for this action.
+                    from .provider import ProviderClient
+
                     result = ProviderClient(provider).check_balance()
                     if result.success:
                         messages.success(request, f"الرصيد الحالي لدى المزود: {result.response.get('balance')}")
