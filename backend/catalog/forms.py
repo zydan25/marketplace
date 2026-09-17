@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.utils.text import slugify
 
 from marketplace.models import VendorProfile
+from vendors.models import VendorCategory
 
 from .models import Category, CatalogOption, PriceGroup, Product, ProductImage, ProductVariant
 
@@ -48,16 +49,22 @@ class CategoryForm(CatalogFormMixin):
 class ProductForm(CatalogFormMixin):
     vendor = forms.ModelChoiceField(queryset=VendorProfile.objects.select_related("owner").order_by("store_name"), label="المتجر")
     categories = forms.ModelMultipleChoiceField(
-        queryset=Category.objects.filter(is_active=True).order_by("sort_order", "name"),
+        queryset=Category.objects.all().order_by("sort_order", "name"),
         required=False,
-        label="الفئات",
-        widget=forms.SelectMultiple(attrs={"size": 7}),
+        label="الفئات العامة",
+        widget=forms.SelectMultiple(attrs={"size": 8}),
+    )
+    store_categories = forms.ModelMultipleChoiceField(
+        queryset=VendorCategory.objects.none(),
+        required=False,
+        label="فئات المتجر",
+        widget=forms.SelectMultiple(attrs={"size": 8}),
     )
 
     class Meta:
         model = Product
         fields = [
-            "vendor", "categories", "sku", "name", "slug", "description", "brand", "material",
+            "vendor", "categories", "store_categories", "sku", "name", "slug", "description", "brand", "material",
             "shipping_note", "return_policy", "price", "sale_price", "currency", "stock",
             "colors", "sizes", "hashtags", "details", "main_image", "is_published", "is_trending",
         ]
@@ -80,11 +87,25 @@ class ProductForm(CatalogFormMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        selected_ids = list(self.instance.categories.values_list("pk", flat=True)) if self.instance and self.instance.pk else []
+        self.fields["categories"].queryset = Category.objects.filter(
+            Q(is_active=True) | Q(pk__in=selected_ids)
+        ).order_by("sort_order", "name")
+
+        vendor_id = None
+        if self.data.get("vendor"):
+            vendor_id = self.data.get("vendor")
+        elif self.instance and self.instance.pk:
+            vendor_id = self.instance.vendor_id
+        if vendor_id:
+            store_selected = list(self.instance.store_categories.values_list("pk", flat=True)) if self.instance and self.instance.pk else []
+            self.fields["store_categories"].queryset = VendorCategory.objects.filter(
+                Q(vendor_id=vendor_id) & (Q(is_active=True) | Q(pk__in=store_selected))
+            ).select_related("parent").order_by("sort_order", "name")
+
         if self.instance and self.instance.pk:
-            selected_ids = self.instance.categories.values_list("pk", flat=True)
-            self.fields["categories"].queryset = Category.objects.filter(
-                Q(is_active=True) | Q(pk__in=selected_ids)
-            ).order_by("sort_order", "name")
+            self.initial["categories"] = selected_ids
+            self.initial["store_categories"] = list(self.instance.store_categories.values_list("pk", flat=True))
             for field_name in ("colors", "sizes", "hashtags", "details"):
                 value = getattr(self.instance, field_name, None)
                 self.initial[field_name] = json.dumps(
@@ -92,6 +113,14 @@ class ProductForm(CatalogFormMixin):
                     ensure_ascii=False,
                     indent=2,
                 )
+
+    def clean_store_categories(self):
+        values = self.cleaned_data.get("store_categories")
+        vendor = self.cleaned_data.get("vendor")
+        invalid = [obj for obj in values if vendor and obj.vendor_id != vendor.pk]
+        if invalid:
+            raise ValidationError("كل فئات المتجر يجب أن تكون تابعة للمتجر المحدد للمنتج.")
+        return values
 
     def _clean_json(self, name, allow_list=False):
         value = self.cleaned_data.get(name)
