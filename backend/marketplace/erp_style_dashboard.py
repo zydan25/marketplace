@@ -2,7 +2,6 @@ from collections import OrderedDict
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import user_passes_test
 from django.db.models import Sum
 from django.shortcuts import render
 from django.utils import timezone
@@ -62,7 +61,7 @@ def erp_style_dashboard(request):
     service_counts = {
         "services": service_rows.count(),
         "settings": ServiceSetting.objects.filter(is_active=True).count(),
-        "providers": ServiceTransaction.objects.values("provider").distinct().count() if hasattr(ServiceTransaction, "provider") else 0,
+        "providers": ServiceTransaction.objects.values("provider_link").distinct().count(),
         "distributions": ServiceDistribution.objects.filter(is_active=True).count(),
         "plans": TelecomPlan.objects.filter(is_active=True).count(),
         "denominations": TelecomDenomination.objects.filter(is_active=True).count(),
@@ -79,7 +78,7 @@ def erp_style_dashboard(request):
             package_nav.append({"key": key, "name": provider_name, "title": title, "service": service})
 
     transaction_status = OrderedDict()
-    for row in ServiceTransaction.objects.values("status").annotate(total=Sum("amount")).order_by("status"):
+    for row in ServiceTransaction.objects.values("status").annotate(total=Sum("customer_amount")).order_by("status"):
         transaction_status[row["status"] or "غير محدد"] = row["total"] or Decimal("0")
 
     latest_transactions = ServiceTransaction.objects.select_related("service", "customer").order_by("-created_at")[:10]
