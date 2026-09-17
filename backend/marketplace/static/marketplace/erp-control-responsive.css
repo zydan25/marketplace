@@ -1,0 +1,46 @@
+body{overflow-x:hidden}
+.main,.content{min-width:0}
+.nav a{font-size:13px}
+.group-title{font-size:11px}
+.brand h1{font-size:18px}
+.crumb{font-size:14px}.crumb small{font-size:11px}
+.content{padding:28px}.hero h2{font-size:30px}.hero p{font-size:13px}
+.stat .label{font-size:11px}.stat .value{font-size:26px}.stat .meta{font-size:10px}
+.card-head h3{font-size:15px}.card-head small{font-size:11px}
+.table th,.table td{font-size:11px}.quick a{font-size:11px}
+.st6-head h2{font-size:23px!important}.st6-sub{font-size:11px!important}.st6-btn{font-size:10px!important}.st6-kpi small{font-size:9px!important}.st6-kpi strong{font-size:18px!important}.st6-table th,.st6-table td{font-size:10px!important}.st6-table th{font-size:9px!important}
+.v4-head h2{font-size:25px!important}.v4-head p{font-size:12px!important}.v4-btn{font-size:11px!important}.v4-stat small{font-size:9px!important}.v4-stat strong{font-size:20px!important}.v4-title{font-size:15px!important}.v4-meta{font-size:10px!important}.v4-chip{font-size:9px!important}.v4-price{font-size:16px!important}
+
+@media(max-width:900px){
+  .sidebar{inset:0 0 0 auto!important;transform:translateX(110%)!important;width:min(86vw,300px)!important}
+  .sidebar.open{transform:translateX(0)!important}
+  .main{margin-left:0!important;margin-right:0!important}
+  .content{padding:16px 12px}
+  .hero h2{font-size:23px}.hero p{font-size:12px}
+  .stat .value{font-size:21px}.stat .label{font-size:10px}
+  input,select,textarea,button{font-size:13px}
+}
+
+@media(max-width:720px){
+  .st6-kpis{grid-template-columns:1fr 1fr!important}.st6-filter{grid-template-columns:1fr!important}
+  .st6-table-wrap,.ap-scroll,.cg-scroll,.vr-scroll,.iv-scroll,.ov-scroll,.pm-scroll{overflow:visible!important}
+  .st6-table,.ap-table,.cg-table,.vr-table,.iv-table,.ov-table,.pm-table{min-width:0!important;width:100%!important}
+  .st6-table thead,.ap-table thead,.cg-table thead,.vr-table thead,.iv-table thead,.ov-table thead,.pm-table thead{display:none!important}
+  .st6-table tbody,.ap-table tbody,.cg-table tbody,.vr-table tbody,.iv-table tbody,.ov-table tbody,.pm-table tbody{display:grid!important;gap:8px}
+  .st6-table tr,.ap-table tr,.cg-table tr,.vr-table tr,.iv-table tr,.ov-table tr,.pm-table tr{display:grid!important;grid-template-columns:1fr 1fr;gap:7px 10px;border:1px solid #e2e8f0!important;border-radius:13px;background:#fff;margin:0;padding:10px!important;box-shadow:0 6px 18px rgba(15,23,42,.045)}
+  .st6-table td,.ap-table td,.cg-table td,.vr-table td,.iv-table td,.ov-table td,.pm-table td{display:flex!important;min-width:0!important;white-space:normal!important;border:0!important;padding:2px 0!important;font-size:11px!important;line-height:1.45;text-align:right!important;align-items:flex-start;flex-direction:column}
+  .st6-table td::before,.ap-table td::before,.cg-table td::before,.vr-table td::before,.iv-table td::before,.ov-table td::before,.pm-table td::before{font-size:9px;font-weight:800;color:#94a3b8;margin-bottom:2px}
+  .st6-table td:nth-child(1)::before{content:"المتجر"}.st6-table td:nth-child(2)::before{content:"المالك"}.st6-table td:nth-child(3)::before{content:"الحالة"}.st6-table td:nth-child(4)::before{content:"العمولة"}.st6-table td:nth-child(5)::before{content:"المنتجات"}.st6-table td:nth-child(6)::before{content:"الطلبات"}.st6-table td:nth-child(7)::before{content:"الفروع"}.st6-table td:nth-child(8)::before{content:"فئات المتجر"}.st6-table td:nth-child(9)::before{content:"الإجراءات"}
+  .ap-table td:nth-child(1)::before{content:"المتجر"}.ap-table td:nth-child(2)::before{content:"المتقدم"}.ap-table td:nth-child(3)::before{content:"الهاتف"}.ap-table td:nth-child(4)::before{content:"الحالة"}.ap-table td:nth-child(5)::before{content:"التاريخ"}.ap-table td:nth-child(6)::before{content:"المراجعة"}
+  .cg-table td:nth-child(1)::before{content:"التصنيف"}.cg-table td:nth-child(2)::before{content:"المنتجات"}.cg-table td:nth-child(3)::before{content:"الأبناء"}.cg-table td:nth-child(4)::before{content:"الحالة"}.cg-table td:nth-child(5)::before{content:"إجراء"}
+  .vr-table td:nth-child(1)::before{content:"المنتج"}.vr-table td:nth-child(2)::before{content:"المتجر"}.vr-table td:nth-child(3)::before{content:"SKU"}.vr-table td:nth-child(4)::before{content:"اللون"}.vr-table td:nth-child(5)::before{content:"المقاس"}.vr-table td:nth-child(6)::before{content:"السعر"}.vr-table td:nth-child(7)::before{content:"المخزون"}.vr-table td:nth-child(8)::before{content:"المتاح"}.vr-table td:nth-child(9)::before{content:"الحالة"}
+  .iv-table td:nth-child(1)::before{content:"المنتج"}.iv-table td:nth-child(2)::before{content:"المتجر"}.iv-table td:nth-child(3)::before{content:"المخزون العام"}.iv-table td:nth-child(4)::before{content:"مخزون الفروع"}.iv-table td:nth-child(5)::before{content:"تحديث"}
+  .ov-table td:nth-child(1)::before{content:"الطلب"}.ov-table td:nth-child(2)::before{content:"العميل"}.ov-table td:nth-child(3)::before{content:"العناصر"}.ov-table td:nth-child(4)::before{content:"المتاجر"}.ov-table td:nth-child(5)::before{content:"الحالة"}.ov-table td:nth-child(6)::before{content:"الدفع"}.ov-table td:nth-child(7)::before{content:"الإجمالي"}.ov-table td:nth-child(8)::before{content:"التاريخ"}.ov-table td:nth-child(9)::before{content:"الإجراء"}
+  .pm-table td:nth-child(1)::before{content:"الطلب"}.pm-table td:nth-child(2)::before{content:"العميل"}.pm-table td:nth-child(3)::before{content:"المزود"}.pm-table td:nth-child(4)::before{content:"الطريقة"}.pm-table td:nth-child(5)::before{content:"المبلغ"}.pm-table td:nth-child(6)::before{content:"الحالة"}.pm-table td:nth-child(7)::before{content:"المعاملة"}.pm-table td:nth-child(8)::before{content:"التاريخ"}
+  .st6-actions-cell{width:100%;display:grid!important;grid-template-columns:1fr 1fr;gap:5px}.st6-actions-cell .st6-btn{width:100%;text-align:center}
+  .v4-grid{grid-template-columns:1fr!important;padding:8px!important}.v4-filter{grid-template-columns:1fr!important}.v4-media{height:180px}
+}
+@media(max-width:440px){
+  .st6-table tr,.ap-table tr,.cg-table tr,.vr-table tr,.iv-table tr,.ov-table tr,.pm-table tr{grid-template-columns:1fr!important}
+  .st6-card{padding:11px!important}.st6-head h2,.v4-head h2{font-size:21px!important}.v4-media{height:170px}
+}
