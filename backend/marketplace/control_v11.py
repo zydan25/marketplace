@@ -18,6 +18,7 @@ from vendors.services import approve_application, reject_application
 
 from . import control_v10 as core
 from . import control_v9 as legacy
+from . import erp_style_dashboard_bridge as shell_module
 
 APPLICATIONS_URL = "/admin/dashboard/control/applications/"
 
@@ -106,7 +107,7 @@ def _wrap_control_response(request, response):
         return response
 
     fragment_html = response.content.decode("utf-8")
-    shell_response = legacy.erp_style_dashboard(request)
+    shell_response = shell_module.erp_style_dashboard(request)
     shell_html = shell_response.content.decode("utf-8")
     match = re.search(r'(<main class="content">)(.*?)(</main>)', shell_html, re.S)
     if not match:
