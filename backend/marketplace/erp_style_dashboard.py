@@ -100,9 +100,21 @@ def _inject_control_script(html):
   }
 
   function normalizeInnerMenus(root){
-    // Older versions used inline onclick handlers which fought the delegated handler.
-    // Remove them after every partial render so one click always opens the menu.
     root.querySelectorAll('.more-btn[onclick], .product-more > button[onclick]').forEach(btn=>btn.removeAttribute('onclick'));
+  }
+
+  function clearEditQuery(){
+    const u=new URL(location.href);
+    if(u.searchParams.has('edit')){
+      u.searchParams.delete('edit');
+      history.replaceState(history.state,'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash);
+    }
+  }
+
+  function closeInnerModal(modal){
+    if(!modal)return;
+    modal.classList.remove('open');
+    clearEditQuery();
   }
 
   async function replaceContent(url,push=true){
@@ -127,8 +139,8 @@ def _inject_control_script(html):
       if(m)m.classList.add('open');
       closeActionMenus();
     });
-    root.querySelectorAll('[data-inner-modal-close]').forEach(b=>b.onclick=()=>b.closest('.inner-modal,.product-modal')?.classList.remove('open'));
-    root.querySelectorAll('.inner-modal,.product-modal').forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove('open')});
+    root.querySelectorAll('[data-inner-modal-close]').forEach(b=>b.onclick=()=>closeInnerModal(b.closest('.inner-modal,.product-modal')));
+    root.querySelectorAll('.inner-modal,.product-modal').forEach(m=>m.onclick=e=>{if(e.target===m)closeInnerModal(m)});
   }
 
   async function openEntityFromRow(row){
@@ -172,7 +184,7 @@ def _inject_control_script(html):
     }
 
     const close=e.target.closest('[data-inner-modal-close]');
-    if(close)close.closest('.inner-modal,.product-modal')?.classList.remove('open');
+    if(close)closeInnerModal(close.closest('.inner-modal,.product-modal'));
     if(!e.target.closest('.more-wrap,.product-more'))closeActionMenus();
   });
 
